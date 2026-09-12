@@ -206,20 +206,20 @@ export class IntroCinematic {
     ctx.textAlign = 'center';
     ctx.shadowColor = '#FF1744';
     ctx.shadowBlur = 12;
-    ctx.fillText('⚠️ 晨霧異變・八大阻截怪獸全面來襲！(30幣全體進化二階段)', vw / 2, 50);
+    ctx.fillText('⚠️ 晨霧異變・七大阻截怪獸全面來襲！(30幣全體進化二階段)', vw / 2, 50);
 
     ctx.fillStyle = '#B0BEC5';
     ctx.font = '13px sans-serif';
-    ctx.fillText('怪獸攻擊力與射程全面進化・第八怪獸「悠遊卡寄靈 / 車票幽靈」穿梭現形！', vw / 2, 75);
+    ctx.fillText('七大花系阻截怪獸・攻擊力與射程全面進化・30幣後進化至二階段！', vw / 2, 75);
 
     const monsterList = [
-      'blue', 'red', 'pink', 'ice', 'grape', 'yellow', 'obsidian', 'transit'
+      'blue', 'red', 'pink', 'ice', 'grape', 'yellow', 'obsidian'
     ];
 
-    // Render 8 monster showcase cards horizontally
-    const cardW = 104;
+    // Render 7 monster showcase cards horizontally (wider cards now)
+    const cardW = 120;
     const cardH = 340;
-    const startX = (vw - (cardW * 8 + 7 * 8)) / 2;
+    const startX = (vw - (cardW * 7 + 6 * 10)) / 2;
     const cardY = 95;
 
     monsterList.forEach((mKey, idx) => {

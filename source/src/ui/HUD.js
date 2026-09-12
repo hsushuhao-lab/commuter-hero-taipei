@@ -89,7 +89,7 @@ export class HUD {
 
   triggerCutin(charConfig) {
     this.cutinActive = true;
-    this.cutinTimer = 0.65;
+    this.cutinTimer = 1.0;  // v9.4: extended for new animation
     this.cutinChar = charConfig;
   }
 
@@ -247,7 +247,7 @@ export class HUD {
     // Milestone text
     let milestoneText = '🔒 15幣 大招解鎖';
     if (player.coins >= 60) milestoneText = '🔥 魔王狂暴 (雙倍掉落)';
-    else if (player.coins >= 45) milestoneText = '🌟 英雄覺醒II (捷運幽靈)';
+    else if (player.coins >= 45) milestoneText = '🌟 英雄覺醒II (戰力全面強化)';
     else if (player.coins >= 30) milestoneText = '👹 怪獸二階段 (烈焰紅苗等)';
     else if (player.coins >= 15) milestoneText = '⚔️ 大招已永久解鎖！';
 
@@ -344,43 +344,94 @@ export class HUD {
 
   renderCutinOverlay(ctx, vw, vh) {
     ctx.save();
-    const progress = this.cutinTimer / 0.65;
+    const totalDuration = 1.0;
+    const progress = Math.max(0, Math.min(1, this.cutinTimer / totalDuration));
     const char = this.cutinChar;
 
-    // Screen darkening
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    // Full screen dark flash (quick in, hold, quick out)
+    const darkAlpha = progress > 0.8 ? (progress - 0.8) / 0.2 * 0.65 : 0.65;
+    ctx.fillStyle = `rgba(0, 0, 0, ${darkAlpha})`;
     ctx.fillRect(0, 0, vw, vh);
 
-    // Dynamic diagonal energy slash
+    // Dynamic diagonal color slash
     ctx.save();
     ctx.translate(vw / 2, vh / 2);
     ctx.rotate(-0.08);
-
-    // Diagonal Banner Band
-    const bannerH = 180;
+    const bannerH = 200;
+    // Slide in from left: slideX goes 0 → full coverage
+    const slideX = Math.min(1.0, progress * 3.0) * vw;
     ctx.fillStyle = char.colors.primary;
-    ctx.fillRect(-vw, -bannerH / 2, vw * 2, bannerH);
+    ctx.globalAlpha = 0.9;
+    ctx.fillRect(-vw, -bannerH / 2, slideX, bannerH);
     ctx.fillStyle = char.colors.secondary;
-    ctx.fillRect(-vw, -bannerH / 2 + 8, vw * 2, 6);
-    ctx.fillRect(-vw, bannerH / 2 - 14, vw * 2, 6);
+    ctx.globalAlpha = 0.6;
+    ctx.fillRect(-vw, -bannerH / 2 + 10, slideX, 8);
+    ctx.fillRect(-vw, bannerH / 2 - 18, slideX, 8);
+    ctx.restore();
 
-    // Character Name & Skill
+    // Character portrait image (ultCard) — slides in from left
+    const portraitSlide = Math.max(0, Math.min(1, (progress - 0.05) * 4));
+    const portraitX = -300 + portraitSlide * 290;
+    if (char.ultCard) {
+      const ultImg = char._ultCardImg;
+      if (ultImg && ultImg.complete && ultImg.naturalWidth > 0) {
+        ctx.save();
+        ctx.globalAlpha = portraitSlide;
+        ctx.drawImage(ultImg, portraitX, vh / 2 - 180, 240, 320);
+        ctx.restore();
+      }
+    }
+    // Fallback: draw colored glow box where portrait would be
+    if (!char._ultCardImg || !char._ultCardImg.complete) {
+      ctx.save();
+      ctx.globalAlpha = portraitSlide * 0.8;
+      ctx.fillStyle = char.colors.primary;
+      ctx.shadowColor = char.colors.accent;
+      ctx.shadowBlur = 30;
+      ctx.fillRect(portraitX, vh / 2 - 160, 200, 280);
+      ctx.restore();
+    }
+
+    // Text: character name + ult name (slides in from right)
+    const textSlide = Math.max(0, Math.min(1, (progress - 0.1) * 3.5));
+    ctx.save();
+    ctx.globalAlpha = textSlide;
+    ctx.translate(vw / 2, vh / 2);
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 36px "PingFang SC", sans-serif';
+    ctx.font = `bold 40px "PingFang SC", "Microsoft JhengHei", sans-serif`;
     ctx.textAlign = 'left';
     ctx.shadowColor = char.colors.accent;
-    ctx.shadowBlur = 12;
-    ctx.fillText(char.name, -180, -10);
+    ctx.shadowBlur = 16;
+    ctx.fillText(char.name, 20, -30);
 
     ctx.fillStyle = '#FFD54F';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText(`【${char.ult.name}】`, -180, 32);
+    ctx.font = `bold 26px "PingFang SC", sans-serif`;
+    ctx.shadowBlur = 10;
+    ctx.fillText(`【${char.ult.name}】`, 20, 14);
 
     ctx.font = '14px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.fillText(char.quote, -180, 62);
-
+    ctx.shadowBlur = 0;
+    ctx.fillText(char.quote, 20, 50);
     ctx.restore();
+
+    // Bright edge flash lines (speed lines effect)
+    if (progress < 0.3) {
+      const flashAlpha = (1.0 - progress / 0.3) * 0.6;
+      ctx.save();
+      ctx.globalAlpha = flashAlpha;
+      ctx.strokeStyle = char.colors.accent;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(vw / 2, vh / 2);
+        ctx.lineTo(vw / 2 + Math.cos(angle) * vw, vh / 2 + Math.sin(angle) * vh);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 
@@ -469,57 +520,98 @@ export class HUD {
 
   renderVictoryScreen(ctx, player, vw, vh) {
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
     ctx.fillRect(0, 0, vw, vh);
 
     const cx = vw / 2;
     const cy = vh / 2;
 
+    // Golden light rays from center top
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#FFD700';
+    for (let i = 0; i < 12; i++) {
+      const angle = -Math.PI / 2 + (i / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+      ctx.lineTo(cx + Math.cos(angle) * vw, Math.sin(angle) * vh);
+      ctx.lineTo(cx + Math.cos(angle + 0.15) * vw, Math.sin(angle + 0.15) * vh);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
     // Victory Window
     ctx.fillStyle = '#1A237E';
-    ctx.fillRect(cx - 240, cy - 180, 480, 360);
+    ctx.fillRect(cx - 280, cy - 200, 560, 400);
     ctx.strokeStyle = '#FFD700';
     ctx.lineWidth = 3;
-    ctx.strokeRect(cx - 240, cy - 180, 480, 360);
+    ctx.strokeRect(cx - 280, cy - 200, 560, 400);
+
+    // Inner accent border
+    ctx.strokeStyle = 'rgba(255,215,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - 272, cy - 192, 544, 384);
+
+    // Chibi portrait on left side (accessible via window.activeGame.chibiImages)
+    const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
+    const chibImg = chibiImages && chibiImages[player.id];
+    if (chibImg && chibImg.complete && chibImg.naturalWidth > 0) {
+      ctx.save();
+      ctx.drawImage(chibImg, cx - 258, cy - 185, 110, 143);
+      // Character color glow
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = player.charConfig ? player.charConfig.colors.theme : '#FFD700';
+      ctx.fillRect(cx - 258, cy - 185, 110, 143);
+      ctx.restore();
+    }
 
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 28px sans-serif';
+    ctx.font = 'bold 26px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🎉 準時抵達松德院區！上班大成功！', cx, cy - 130);
+    ctx.fillText('🎉 準時抵達松德院區！上班大成功！', cx + 55, cy - 155);
 
     // Punch Stamp
     ctx.save();
-    ctx.translate(cx + 130, cy - 40);
+    ctx.translate(cx + 160, cy - 40);
     ctx.rotate(-0.15);
     ctx.strokeStyle = '#4CAF50';
     ctx.lineWidth = 4;
-    ctx.strokeRect(-80, -35, 160, 70);
+    ctx.strokeRect(-80, -40, 160, 80);
+    ctx.fillStyle = 'rgba(76,175,80,0.15)';
+    ctx.fillRect(-80, -40, 160, 80);
     ctx.fillStyle = '#4CAF50';
-    ctx.font = 'bold 24px monospace';
+    ctx.font = 'bold 22px monospace';
+    ctx.textAlign = 'center';
     ctx.fillText(this.punchedTimeText || this.getFormattedClockTime(), 0, -5);
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('ON TIME PUNCHED', 0, 20);
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('ON TIME PUNCHED ✓', 0, 20);
     ctx.restore();
 
     // Stats
     ctx.fillStyle = '#fff';
-    ctx.font = '16px sans-serif';
+    ctx.font = '14px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`英雄：${player.name}${player.form2Active ? ' (第二型態覺醒)' : ''}`, cx - 200, cy - 70);
-    ctx.fillText(`起點與終點：象山捷運站 ➔ 松德院區大廳 (18,000px 全程抵達)`, cx - 200, cy - 44);
-    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, cx - 200, cy - 18);
-    ctx.fillText(`收集金幣：${player.coins} 枚 (通勤共振雙向進化達成！)`, cx - 200, cy + 8);
+    const statsX = cx - 140;
+    ctx.fillText(`英雄：${player.name}${player.form2Active ? '【覺醒 II】' : ''}`, statsX, cy - 90);
+    ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 64);
+    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 38);
+    ctx.fillText(`收集金幣：${player.coins} 枚 (通勤共振達成！)`, statsX, cy - 12);
 
-    // Rank
+    // Rank — large centered
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 36px sans-serif';
-    ctx.fillText(`評價：${this.resultRank}`, cx - 200, cy + 68);
+    ctx.font = 'bold 42px monospace';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#FF6F00';
+    ctx.shadowBlur = 16;
+    ctx.fillText(this.resultRank, cx + 55, cy + 80);
+    ctx.shadowBlur = 0;
 
     // Restart instruction
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('按 [Space] 或 點擊此處 再次挑戰', cx, cy + 145);
+    ctx.fillText('按 [Space] 或 點擊此處 再次挑戰', cx, cy + 165);
 
     ctx.restore();
   }

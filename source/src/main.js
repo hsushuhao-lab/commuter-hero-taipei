@@ -56,12 +56,23 @@ class Game {
     this.milestoneBannerTimer = 0;
     this.announcedMilestones = {};
 
+    // v9.4: Boss entrance cinematic tracking
+    this.bossEntranceDone = false;
+
     // Joystick touch tracking
     this.joystickPointerId = null;
 
     // Assets for Menu
     this.menuKeyart = new Image();
     this.menuKeyart.src = 'assets/menu_keyart.jpg';
+
+    // v9.4: Preload chibi sprites for victory companion rendering
+    this.chibiImages = {};
+    ['yu', 'shakira', 'sandra'].forEach(id => {
+      const img = new Image();
+      img.src = `assets/chibi_${id}_clean.png`;
+      this.chibiImages[id] = img;
+    });
 
     // Time tracking
     this.lastTime = performance.now();
@@ -299,6 +310,7 @@ class Game {
     this.milestoneBanner = null;
     this.milestoneBannerTimer = 0;
     this.announcedMilestones = {};
+    this.bossEntranceDone = false;  // v9.4: reset boss entrance for new game
     this.joystickPointerId = null;
     // v9.3: Reset companions & celebration state
     this.companions = [];
@@ -339,6 +351,12 @@ class Game {
 
       // Check Boss Arena trigger (Arena is at 14800 ~ 16500)
       if (this.player.x >= 14700 && !this.boss.isDead) {
+        // v9.4: Show boss entrance banner (first time only) — Boss.js handles the visual animation internally
+        if (!this.bossEntranceDone && this.player.x >= 14800) {
+          this.bossEntranceDone = true;
+          this.milestoneBanner = '🌹 夢影巨花王現身！準備迎戰！';
+          this.milestoneBannerTimer = 3.5;
+        }
         this.boss.update(dt, this.player, this.camera);
         if (this.boss.phase === 2 && audio.currentBgmType !== 'boss_p2') {
           audio.playBgm('boss_p2');
@@ -364,7 +382,7 @@ class Game {
         this.milestoneBannerTimer = 3.2;
       } else if (c >= 45 && !this.announcedMilestones[45]) {
         this.announcedMilestones[45] = true;
-        this.milestoneBanner = '🌟 通勤共振 45 幣：主角覺醒第二型態！捷運幽靈現身！';
+        this.milestoneBanner = '🌟 通勤共振 45 幣：主角覺醒第二型態！戰力全面強化！';
         this.milestoneBannerTimer = 3.2;
       } else if (c >= 60 && !this.announcedMilestones[60]) {
         this.announcedMilestones[60] = true;
@@ -816,38 +834,109 @@ class Game {
     }
   }
 
-  // ─── Companion Chibi render helper (called from render()) ─────────────
+  // ─── Companion Q版 Chibi render helper (uses real chibi_*_clean.png) ──
   renderCompanions(ctx) {
     if (this.companions.length === 0) return;
-    const CHIBI_W = 48;
-    const CHIBI_H = 64;
+    const CHIBI_W = 100;
+    const CHIBI_H = 130;
     const CHARS = {
-      yu:      { color: '#29B6F6', label: '禹', accent: '#4FC3F7' },
-      shakira: { color: '#AB47BC', label: '夏', accent: '#FFD54F' },
-      sandra:  { color: '#FF5722', label: '珊', accent: '#FFA726' }
+      yu:      { color: '#29B6F6', name: '禹志晨', accent: '#4FC3F7' },
+      shakira: { color: '#AB47BC', name: '夏奇拉', accent: '#FFD54F' },
+      sandra:  { color: '#FF5722', name: '珊卓澎', accent: '#FFA726' }
     };
 
     for (const comp of this.companions) {
       const sx = comp.x - this.camera.x;
-      const sy = comp.y - CHIBI_H;
+      const sy = comp.y - CHIBI_H;   // feet at comp.y (world-space ground)
       const cfg = CHARS[comp.id] || CHARS.yu;
+      const chibiImg = this.chibiImages && this.chibiImages[comp.id];
 
       ctx.save();
-      // Simple Chibi silhouette if sprite not available
-      ctx.fillStyle = cfg.color;
-      ctx.beginPath();
-      ctx.arc(sx, sy + CHIBI_H * 0.3, CHIBI_W * 0.38, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = cfg.accent;
-      ctx.fillRect(sx - CHIBI_W * 0.28, sy + CHIBI_H * 0.6, CHIBI_W * 0.56, CHIBI_H * 0.4);
+      ctx.scale(comp.facing, 1);  // flip left/right based on direction
+      const drawX = comp.facing === 1 ? sx : -sx;
 
-      // Label
-      ctx.fillStyle = '#FFF';
-      ctx.font = 'bold 14px sans-serif';
+      // ── Shadow ellipse under feet ──
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(drawX, sy + CHIBI_H, CHIBI_W * 0.38, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── Draw chibi sprite or fallback ──
+      if (chibiImg && chibiImg.complete && chibiImg.naturalWidth > 0) {
+        // Celebration bob animation
+        const bobOffset = this.victorySubState === 'VICTORY_CELEBRATE'
+          ? Math.sin(performance.now() * 0.008 + comp.x * 0.01) * 6
+          : 0;
+        ctx.drawImage(chibiImg, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
+
+        // Colored glow ring during celebration
+        if (this.victorySubState === 'VICTORY_CELEBRATE') {
+          const glowAlpha = 0.3 + Math.sin(performance.now() * 0.006) * 0.2;
+          ctx.strokeStyle = cfg.color;
+          ctx.lineWidth = 3;
+          ctx.globalAlpha = glowAlpha;
+          ctx.beginPath();
+          ctx.ellipse(drawX, sy + CHIBI_H * 0.55, CHIBI_W * 0.45, CHIBI_H * 0.55, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+        }
+      } else {
+        // Fallback silhouette (circle head + rect body)
+        ctx.fillStyle = cfg.color;
+        ctx.beginPath();
+        ctx.arc(drawX, sy + CHIBI_H * 0.3, CHIBI_W * 0.36, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = cfg.accent;
+        ctx.fillRect(drawX - CHIBI_W * 0.26, sy + CHIBI_H * 0.58, CHIBI_W * 0.52, CHIBI_H * 0.42);
+        ctx.fillStyle = '#FFF';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cfg.name[0], drawX, sy + CHIBI_H * 0.3);
+      }
+
+      // ── Character name label ──
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = cfg.color;
+      ctx.font = 'bold 12px "PingFang SC", "Microsoft JhengHei", sans-serif';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(cfg.label, sx, sy + CHIBI_H * 0.3);
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 4;
+      ctx.fillText(cfg.name, drawX, sy + CHIBI_H + 2);
+      ctx.shadowBlur = 0;
+
       ctx.restore();
+    }
+
+    // ── Also render the PLAYER using chibi sprite during victory ──
+    if (this.victorySubState && this.victorySubState !== 'BOSS_BURST') {
+      const p = this.player;
+      const pChibi = this.chibiImages && this.chibiImages[p.id];
+      if (pChibi && pChibi.complete && pChibi.naturalWidth > 0) {
+        const sx = p.x - this.camera.x;
+        const sy = p.y - CHIBI_H;
+        ctx.save();
+        const bobOffset = this.victorySubState === 'VICTORY_CELEBRATE'
+          ? Math.sin(performance.now() * 0.008) * 8
+          : 0;
+        ctx.scale(p.facing, 1);
+        const drawX = p.facing === 1 ? sx : -sx;
+        ctx.drawImage(pChibi, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
+        // Player name
+        const pCfg = CHARS[p.id];
+        if (pCfg) {
+          ctx.fillStyle = pCfg.color;
+          ctx.font = 'bold 12px "PingFang SC", "Microsoft JhengHei", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          ctx.shadowColor = '#000';
+          ctx.shadowBlur = 4;
+          ctx.fillText(pCfg.name, drawX, sy + CHIBI_H + 2);
+          ctx.shadowBlur = 0;
+        }
+        ctx.restore();
+      }
     }
   }
 

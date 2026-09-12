@@ -176,13 +176,22 @@ export class Level {
     this.pm.addPlatform(3080, 350, 190, 24, 'brick');
     this.pm.addPlatform(3340, 430, 180, 24, 'brick');
 
-    // Collectibles: 15 Coins (Milestone 15 Unlock Ult) + 2 Coffee
+    // Collectibles: 20 Coins (Milestone 15 Unlock Ult) + 4 Coffee
     [220, 410, 630, 900, 1160, 1430, 1700, 1970, 2250, 2530, 2810, 3090, 3250, 3360, 3450].forEach((cx, idx) => {
       const cy = (idx % 2 === 0) ? groundY - 35 : 320;
       this.pm.addItem('coin', cx, cy);
     });
+    // 5 extra coins on brick platforms
+    this.pm.addItem('coin', 360, 420);
+    this.pm.addItem('coin', 880, 280);
+    this.pm.addItem('coin', 1690, 390);
+    this.pm.addItem('coin', 2520, 300);
+    this.pm.addItem('coin', 3080, 310);
+    // 4 coffee total
     this.pm.addItem('coffee', 1000, 360);
     this.pm.addItem('coffee', 2350, groundY - 35);
+    this.pm.addItem('coffee', 620, 350);
+    this.pm.addItem('coffee', 2800, 380);
 
     // Monsters: Ground 45%, Platform 25%, Slope 20%, Flying 10%
     this.spawnMonsterOnGround('red', 480);
@@ -215,14 +224,23 @@ export class Level {
     this.pm.addPlatform(6460, 420, 180, 24, 'brick');
     this.pm.addPlatform(6740, 340, 190, 24, 'brick');
 
-    // Collectibles: 15 Coins (Milestone 30 Monster P2) + 3 Coffee
+    // Collectibles: 20 Coins (Milestone 30 Monster P2) + 5 Coffee
     [3620, 3850, 4080, 4310, 4540, 4770, 5000, 5230, 5460, 5690, 5920, 6150, 6380, 6610, 6840].forEach((cx, idx) => {
       const cy = (idx % 2 === 0) ? groundY - 35 : 350;
       this.pm.addItem('coin', cx, cy);
     });
+    // 5 extra coins on elevated platforms
+    this.pm.addItem('coin', 3680, 400);
+    this.pm.addItem('coin', 4220, 390);
+    this.pm.addItem('coin', 5060, 300);
+    this.pm.addItem('coin', 5900, 390);
+    this.pm.addItem('coin', 6740, 300);
+    // 5 coffee total (morning energy boost!)
     this.pm.addItem('coffee', 4250, 380);
     this.pm.addItem('coffee', 5360, groundY - 35);
     this.pm.addItem('coffee', 6480, 370);
+    this.pm.addItem('coffee', 3950, 320);
+    this.pm.addItem('coffee', 6180, 310);
 
     // Monsters: Ground, Platform, Flying
     this.spawnMonsterOnGround('grape', 3700);
@@ -255,14 +273,23 @@ export class Level {
     this.pm.addPlatform(9980, 420, 180, 24, 'brick');
     this.pm.addPlatform(10260, 350, 180, 24, 'brick');
 
-    // Collectibles: 15 Coins (Milestone 45 Hero Form 2) + 3 Coffee
+    // Collectibles: 20 Coins (Milestone 45 Hero Form 2) + 5 Coffee
     [7120, 7350, 7580, 7810, 8040, 8270, 8500, 8730, 8960, 9190, 9420, 9650, 9880, 10110, 10340].forEach((cx, idx) => {
       const cy = (idx % 2 === 0) ? groundY - 35 : 350;
       this.pm.addItem('coin', cx, cy);
     });
+    // 5 extra coins in the rain
+    this.pm.addItem('coin', 7460, 320);
+    this.pm.addItem('coin', 8020, 300);
+    this.pm.addItem('coin', 8860, 390);
+    this.pm.addItem('coin', 9700, 300);
+    this.pm.addItem('coin', 10260, 310);
+    // 5 coffee total (雨中補給！)
     this.pm.addItem('coffee', 7750, 380);
     this.pm.addItem('coffee', 8880, groundY - 35);
     this.pm.addItem('coffee', 10000, 370);
+    this.pm.addItem('coffee', 7460, 320);
+    this.pm.addItem('coffee', 9140, 310);
 
     // Monsters: Rain terrain
     this.spawnMonsterOnPlatform('blue', 7180);
@@ -295,28 +322,37 @@ export class Level {
     this.pm.addPlatform(13480, 410, 180, 24, 'brick');
     this.pm.addPlatform(13760, 330, 180, 24, 'brick');
 
-    // Collectibles: 15 Coins (Milestone 60 Boss Rage) + 3 Coffee
+    // Collectibles: 20 Coins (Milestone 60 Boss Rage) + 5 Coffee
     [10620, 10850, 11080, 11310, 11540, 11770, 12000, 12230, 12460, 12690, 12920, 13150, 13380, 13610, 13840].forEach((cx, idx) => {
       const cy = (idx % 2 === 0) ? groundY - 35 : 340;
       this.pm.addItem('coin', cx, cy);
     });
+    // 5 extra coins on slope terraces
+    this.pm.addItem('coin', 10960, 350);
+    this.pm.addItem('coin', 11520, 330);
+    this.pm.addItem('coin', 12080, 310);
+    this.pm.addItem('coin', 12640, 300);
+    this.pm.addItem('coin', 13200, 290);
+    // 5 coffee total (爬坡補給！)
     this.pm.addItem('coffee', 11250, 400);
     this.pm.addItem('coffee', 12380, groundY - 35);
     this.pm.addItem('coffee', 13500, 360);
+    this.pm.addItem('coffee', 10960, 350);
+    this.pm.addItem('coffee', 13760, 290);
 
-    // Monsters: Slope terraces & transit ghosts
-    this.spawnMonsterOnGround('transit', 10700);
+    // Monsters: Slope terraces (transit 悠遊卡怪物已移除)
+    this.spawnMonsterOnGround('obsidian', 10700);
     this.spawnMonsterOnSlope('red', 10960, 390);
     this.spawnMonsterOnGround('obsidian', 11260);
-    this.spawnFlyingMonster('transit', 11540, 240);
+    this.spawnFlyingMonster('grape', 11540, 240);
     this.spawnMonsterOnSlope('yellow', 11800, 440);
     this.spawnMonsterOnGround('ice', 12100);
     this.spawnMonsterOnSlope('grape', 12360, 430);
-    this.spawnMonsterOnPlatform('transit', 12640);
+    this.spawnMonsterOnPlatform('red', 12640);
     this.spawnMonsterOnGround('blue', 12940);
     this.spawnFlyingMonster('pink', 13220, 220);
     this.spawnMonsterOnGround('obsidian', 13500);
-    this.spawnMonsterOnGround('transit', 13780);
+    this.spawnMonsterOnGround('yellow', 13780);
 
     // =========================================================================
     // --- SCENE 5: 松德院區 (14000 ~ 18000) ---
@@ -329,9 +365,11 @@ export class Level {
     this.pm.addItem('coin', 14200, 390);
     this.pm.addItem('coffee', 14480, 310);
     this.pm.addItem('coin', 14720, 380);
+    this.pm.addItem('coin', 14180, 400);  // extra platform coin
+    this.pm.addItem('coffee', 14700, 390); // extra coffee before boss
 
     this.spawnMonsterOnGround('obsidian', 14220);
-    this.spawnMonsterOnPlatform('transit', 14460);
+    this.spawnMonsterOnPlatform('grape', 14460);
     this.spawnMonsterOnGround('blue', 14740);
 
     // 5.2 ★ 夢影巨花王 Boss Arena (14800 ~ 16500) ★
@@ -340,6 +378,8 @@ export class Level {
     this.pm.addPlatform(15650, 340, 180, 24, 'brick');
     this.pm.addPlatform(16150, 410, 180, 24, 'brick');
     this.pm.addItem('coffee', 15650, 290);
+    this.pm.addItem('coffee', 15150, 370);  // extra coffee mid-arena
+    this.pm.addItem('coin', 16150, 370);    // extra coin on far platform
 
     // 5.3 ★ 松德醫院挑高大廳・最終打卡點 (16500 ~ 18000) ★
     this.pm.addPlatform(16750, 440, 180, 24, 'brick');
@@ -349,6 +389,8 @@ export class Level {
     this.pm.addItem('coin', 16780, 390);
     this.pm.addItem('coffee', 17080, groundY - 35);
     this.pm.addItem('coin', 17380, 390);
+    this.pm.addItem('coin', 16600, groundY - 35);   // corridor coin
+    this.pm.addItem('coffee', 16750, 400);           // lobby coffee
 
     // ★ 松德醫院院內打卡機（設置於 x = 17650，打敗 Boss 後衝入大廳完成打卡！）★
     this.pm.setClockInMachine(17650, groundY);

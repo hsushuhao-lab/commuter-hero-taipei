@@ -148,8 +148,8 @@ export class Monster {
 
     this.x += this.vx * dt;
 
-    // Handle Attack & Telegraph (screen-spanning range)
-    if (distToPlayer < 800) {
+    // Handle Attack & Telegraph (screen-visible range, no offscreen snipes)
+    if (distToPlayer < 650) {
       if (this.isTelegraphing) {
         this.telegraphTimer += dt;
         if (this.telegraphTimer >= this.telegraphDuration) {
@@ -181,13 +181,14 @@ export class Monster {
         type: 'petal',
         x: spawnX,
         y: spawnY,
-        vx: dir * 560,
+        vx: dir * 520,
         vy: 0,
+        maxDistance: 600,
         width: 32,
         height: 14,
         color: '#FF5252',
         damage: this.attackDamage,
-        life: 1.8
+        life: 1.5
       });
     } 
     else if (this.typeKey === 'ice') {
@@ -197,34 +198,36 @@ export class Monster {
         type: 'pan_wave',
         x: spawnX,
         y: this.y,
-        vx: dir * 360,
+        vx: dir * 340,
         vy: 0,
+        maxDistance: 450,
         width: 42,
         height: 28,
         color: '#40C4FF',
         damage: this.attackDamage,
-        life: 1.4
+        life: 1.3
       });
       projectiles.spawn({
         isPlayer: false,
         type: 'pan_wave',
         x: spawnX,
         y: this.y,
-        vx: -dir * 360,
+        vx: -dir * 340,
         vy: 0,
+        maxDistance: 450,
         width: 42,
         height: 28,
         color: '#40C4FF',
         damage: this.attackDamage,
-        life: 1.4
+        life: 1.3
       });
     }
     else if (this.typeKey === 'grape') {
       // Triple toxic lob bubbles covering high, medium and low arcs
       const angles = [
-        { vx: dir * 240, vy: -200 },
-        { vx: dir * 320, vy: -150 },
-        { vx: dir * 180, vy: -250 }
+        { vx: dir * 220, vy: -180 },
+        { vx: dir * 300, vy: -140 },
+        { vx: dir * 160, vy: -230 }
       ];
       angles.forEach(a => {
         projectiles.spawn({
@@ -234,11 +237,12 @@ export class Monster {
           y: spawnY - 10,
           vx: a.vx,
           vy: a.vy,
+          maxDistance: 500,
           width: 22,
           height: 22,
           color: '#BA68C8',
           damage: this.attackDamage,
-          life: 2.2,
+          life: 1.6,
           rotates: true,
           vRot: 4
         });
@@ -251,26 +255,28 @@ export class Monster {
         type: 'wind_blade',
         x: spawnX,
         y: spawnY - 8,
-        vx: dir * 600,
+        vx: dir * 550,
         vy: -25,
+        maxDistance: 550,
         width: 32,
         height: 22,
         color: '#00E5FF',
         damage: this.attackDamage,
-        life: 1.5
+        life: 1.4
       });
       projectiles.spawn({
         isPlayer: false,
         type: 'wind_blade',
         x: spawnX,
         y: spawnY + 8,
-        vx: dir * 600,
+        vx: dir * 550,
         vy: 25,
+        maxDistance: 550,
         width: 32,
         height: 22,
         color: '#00E5FF',
         damage: this.attackDamage,
-        life: 1.5
+        life: 1.4
       });
     }
     else if (this.typeKey === 'yellow') {
@@ -281,13 +287,14 @@ export class Monster {
           type: 'petal',
           x: spawnX,
           y: spawnY,
-          vx: dir * 360,
-          vy: i * 85,
+          vx: dir * 340,
+          vy: i * 80,
+          maxDistance: 500,
           width: 24,
           height: 16,
           color: '#FFD700',
           damage: this.attackDamage,
-          life: 2.0,
+          life: 1.5,
           rotates: true,
           vRot: 3
         });
@@ -300,22 +307,24 @@ export class Monster {
         type: 'pan_wave',
         x: spawnX,
         y: this.y,
-        vx: dir * 280,
+        vx: dir * 260,
         vy: 0,
+        maxDistance: 450,
         width: 56,
         height: 44,
         color: '#3949AB',
         damage: this.attackDamage,
-        life: 1.8
+        life: 1.6
       });
       setTimeout(() => {
         projectiles.spawn({
           isPlayer: false,
           type: 'vine',
-          x: this.x + dir * 160,
+          x: this.x + dir * 140,
           y: this.y,
           vx: 0,
-          vy: -380,
+          vy: -350,
+          maxDistance: 280,
           width: 34,
           height: 70,
           color: '#3949AB',
@@ -331,13 +340,14 @@ export class Monster {
         type: 'transit_beam',
         x: spawnX,
         y: spawnY,
-        vx: dir * (this.isPhase2 ? 660 : 540),
+        vx: dir * (this.isPhase2 ? 600 : 500),
         vy: 0,
+        maxDistance: 550,
         width: 40,
         height: 18,
         color: '#00E676',
         damage: this.attackDamage,
-        life: 1.6
+        life: 1.4
       });
       if (this.isPhase2) {
         setTimeout(() => {
@@ -346,13 +356,14 @@ export class Monster {
             type: 'transit_beam',
             x: spawnX,
             y: spawnY - 14,
-            vx: dir * 660,
+            vx: dir * 600,
             vy: 0,
+            maxDistance: 550,
             width: 40,
             height: 18,
             color: '#00E676',
             damage: this.attackDamage,
-            life: 1.6
+            life: 1.4
           });
         }, 120);
       }
@@ -364,30 +375,32 @@ export class Monster {
         type: 'petal',
         x: spawnX,
         y: spawnY,
-        vx: dir * 380,
-        vy: 140,
-        width: 24,
-        height: 18,
+        vx: dir * 240,
+        vy: 320,
+        maxDistance: 450,
+        width: 26,
+        height: 26,
         color: '#FF80AB',
         damage: this.attackDamage,
-        life: 1.6,
+        life: 1.3,
         rotates: true,
         vRot: 5
       });
       projectiles.spawn({
         isPlayer: false,
         type: 'petal',
-        x: spawnX - dir * 35,
-        y: spawnY - 15,
-        vx: dir * 260,
-        vy: 200,
-        width: 22,
-        height: 18,
+        x: spawnX - dir * 24,
+        y: spawnY - 10,
+        vx: dir * 180,
+        vy: 340,
+        maxDistance: 450,
+        width: 26,
+        height: 26,
         color: '#FF80AB',
         damage: this.attackDamage,
-        life: 1.6,
+        life: 1.3,
         rotates: true,
-        vRot: 4
+        vRot: -5
       });
     }
   }

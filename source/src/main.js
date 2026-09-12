@@ -320,16 +320,18 @@ class Game {
       this.level.update(dt, this.player, this.camera);
       this.pm.update(dt, this.player);
 
-      // Check Boss Arena trigger (Arena is at 10600 ~ 12000)
-      if (this.player.x >= 10500 && !this.boss.isDead) {
+      // Check Boss Arena trigger (Arena is at 14800 ~ 16500)
+      if (this.player.x >= 14700 && !this.boss.isDead) {
         this.boss.update(dt, this.player, this.camera);
-        if (this.boss.phase === 1 && audio.currentBgmType !== 'boss_p1') {
+        if (this.boss.phase === 2 && audio.currentBgmType !== 'boss_p2') {
+          audio.playBgm('boss_p2');
+        } else if (this.boss.phase === 1 && audio.currentBgmType !== 'boss_p1') {
           audio.playBgm('boss_p1');
         }
-      } else if (this.player.x >= 4800 && this.player.x < 7200) {
+      } else if (this.player.x >= 7000 && this.player.x < 10500) {
         // Stage 3 rainy park
         if (audio.currentBgmType !== 'rainy_park') audio.playBgm('rainy_park');
-      } else if (this.player.x < 4800) {
+      } else if (this.player.x < 7000 || (this.player.x >= 10500 && this.player.x < 14700)) {
         if (audio.currentBgmType !== 'city_pop') audio.playBgm('city_pop');
       }
 
@@ -384,19 +386,22 @@ class Game {
     this.pm.update(dt, this.player);
     this.camera.update(dt);
 
+    // Seven-Beat Victory Flow
     if (this.victorySubState === 'BOSS_BURST') {
-      // Boss dissolves in golden light and flower petals for 1.8s
-      if (this.victoryTimer >= 1.8) {
+      // Beat 1 (0.0 ~ 1.0s): Boss dissolves, relief message
+      if (this.victoryTimer >= 1.0) {
         this.victorySubState = 'SPRINT_TO_CLOCK';
         this.player.facing = 1;
         this.player.animState = 'run';
+        this.milestoneBanner = '鬆了一口氣！火速前往松德大廳打卡！';
+        this.milestoneBannerTimer = 3.0;
       }
     } 
     else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
-      // Hero auto-sprints through hospital entrance into modern lobby towards punch clock at x = 13800
+      // Beat 2 & 3 (1.0 ~ 4.0s): Hero auto-sprints towards punch clock at x = 17650
       this.player.facing = 1;
       this.player.animState = 'run';
-      this.player.vx = 800; // Rapid celebratory sprint
+      this.player.vx = 950; // Rapid celebratory sprint
       this.player.x += this.player.vx * dt;
       this.player.updateAnimation(dt);
 
@@ -405,36 +410,54 @@ class Game {
         particles.emitDust(this.player.x - 20, this.player.y, 6, '#00E5FF');
       }
 
-      // Camera smoothly tracks player
+      // Camera smoothly tracks player towards hospital lobby
       this.camera.targetX = this.player.x - this.camera.viewportWidth * 0.4;
 
-      // Reached punch clock at x = 13780
-      if (this.player.x >= 13780) {
-        this.player.x = 13785;
-        this.player.vy = -280;
-        this.player.animState = 'attack';
+      // Reached punch clock at x = 17630
+      if (this.player.x >= 17630) {
+        this.player.x = 17630;
+        this.player.vx = 0;
+        this.player.vy = -260;
         this.victorySubState = 'PUNCH_CLOCK';
         this.victoryPunchTimer = 0;
 
-        // Stamp clock machine!
+        // Beat 4: Character-specific action
+        if (this.player.id === 'yu') {
+          // Yu: folds umbrella, pushes glasses, elegant punch
+          this.player.animState = 'attack';
+          particles.emitHitSparks(this.player.x, this.player.y - 45, '#4FC3F7', 12);
+        } else if (this.player.id === 'shakira') {
+          // Shakira: dissipates egg sparks, joyful cheer punch
+          this.player.animState = 'attack';
+          particles.emitHitSparks(this.player.x, this.player.y - 35, '#FFD54F', 16);
+        } else {
+          // Sandra: stores skillet, hearty punch
+          this.player.animState = 'attack';
+          particles.emitHitSparks(this.player.x, this.player.y - 40, '#FF7043', 14);
+        }
+
+        // Beat 5: Stamp clock machine!
+        const clockTime = hud.getFormattedClockTime();
         if (this.pm.clockInMachine) {
           this.pm.clockInMachine.punched = true;
+          this.pm.clockInMachine.punchedTimeText = clockTime;
         }
+        hud.punchedTimeText = clockTime;
         audio.playStamp();
         this.camera.shake(10, 0.45);
 
-        // Huge celebratory bursts at 13800
-        particles.emitHitSparks(13800, this.player.y - 50, '#00E676', 60);
-        particles.emitCoinSparkle(13800, this.player.y - 80);
-        for (let i = 0; i < 80; i++) {
+        // Huge celebratory bursts at 17650
+        particles.emitHitSparks(17650, this.player.y - 50, '#00E676', 60);
+        particles.emitCoinSparkle(17650, this.player.y - 80);
+        for (let i = 0; i < 90; i++) {
           particles.emit({
-            x: 13800,
+            x: 17650,
             y: this.player.y - 60,
-            vx: (Math.random() - 0.5) * 450,
-            vy: -Math.random() * 380 - 80,
+            vx: (Math.random() - 0.5) * 500,
+            vy: -Math.random() * 400 - 90,
             size: Math.random() * 9 + 4,
             color: ['#00E676', '#FFD700', '#00E5FF', '#FF4081', '#76FF03', '#FFFFFF'][Math.floor(Math.random() * 6)],
-            life: 3.0,
+            life: 3.2,
             shape: 'star'
           });
         }
@@ -453,25 +476,26 @@ class Game {
       this.player.updateAnimation(dt);
     } 
     else if (this.victorySubState === 'VICTORY_CELEBRATE') {
+      // Beat 6 (5.5 ~ 7.0s): Ceiling confetti rain & victory pose
       this.player.animState = 'victory';
       this.player.updateAnimation(dt);
 
-      // Continuous sparkles
-      if (Math.random() < 0.4) {
+      // Continuous confetti rain from hospital lobby ceiling
+      if (Math.random() < 0.6) {
         particles.emit({
-          x: this.player.x + (Math.random() * 100 - 50),
-          y: this.player.y - Math.random() * 90,
-          vx: (Math.random() - 0.5) * 80,
-          vy: -Math.random() * 90 - 20,
-          size: 6,
-          color: '#FFD700',
-          life: 1.4,
+          x: 17500 + Math.random() * 300,
+          y: 40 + Math.random() * 60,
+          vx: (Math.random() - 0.5) * 60,
+          vy: Math.random() * 80 + 60,
+          size: Math.random() * 7 + 3,
+          color: ['#FFD700', '#00E676', '#00E5FF', '#FF4081', '#FFFFFF'][Math.floor(Math.random() * 5)],
+          life: 2.2,
           shape: 'star'
         });
       }
 
-      // Transition to final victory score screen
-      if (this.victoryTimer >= 6.5) {
+      // Beat 7 (7.0s+): Transition to final victory score screen
+      if (this.victoryTimer >= 7.0) {
         this.state = 'VICTORY';
         hud.triggerVictory(this.player);
       }
@@ -494,8 +518,8 @@ class Game {
         }
       }
 
-      // vs Boss
-      if (this.player.x >= 10500 && !this.boss.isDead) {
+      // vs Boss (Arena is at 14800 ~ 16500)
+      if (this.player.x >= 14600 && !this.boss.isDead) {
         if (Math.hypot(proj.x - this.boss.x, proj.y - (this.boss.y - 120)) < proj.width + 90) {
           this.boss.takeDamage(proj.damage);
           if (!proj.penetrating) proj.life = 0;
@@ -795,7 +819,23 @@ class Game {
   }
 }
 
+window.CommuterGame = {
+  Game,
+  Player,
+  Boss,
+  Level,
+  STAGES,
+  CHARACTERS,
+  MONSTERS,
+  BOSS_CONFIG,
+  hud,
+  PlatformManager,
+  projectiles,
+  particles
+};
+
 window.addEventListener('DOMContentLoaded', () => {
   const game = new Game();
+  window.activeGame = game;
   game.start();
 });

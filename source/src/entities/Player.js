@@ -188,32 +188,33 @@ export class Player {
   }
 
   addCoffee() {
-    this.coffeeSpeedTimer = 8.0; // 8 秒移動速度與攻速提升
-    particles.emitDust(this.x, this.y, 12, '#795548');
-  }
-
-  addRaindrop() {
-    this.raindrops++;
-    particles.emit({
-      x: this.x,
-      y: this.y - 30,
-      vy: -30,
-      size: 5,
-      color: '#00E5FF',
-      life: 0.6,
-      shape: 'bubble'
-    });
-    // 每 3 滴雨滴能量觸發水系護盾
-    if (this.raindrops % 3 === 0) {
-      this.waterShieldTimer = 10.0;
+    // 咖啡固定回復 25 HP（HP 上限 100），不提供移速 Buff
+    if (this.hp < 100) {
+      this.hp = Math.min(100, this.hp + 25);
       audio.playPowerup();
+      particles.emit({
+        x: this.x,
+        y: this.y - 40,
+        vy: -40,
+        size: 7,
+        color: '#4CAF50',
+        life: 0.8,
+        shape: 'star'
+      });
+    } else {
+      // 若滿血拾取，轉換為短暫受擊保護 0.5s，不得增加移速
+      this.invulnerableTimer = Math.max(this.invulnerableTimer, 0.5);
+      audio.playPowerup();
+      particles.emit({
+        x: this.x,
+        y: this.y - 40,
+        vy: -40,
+        size: 6,
+        color: '#FFE082',
+        life: 0.6,
+        shape: 'spark'
+      });
     }
-  }
-
-  addCookingSpark() {
-    this.cookingSparkTimer = 8.0; // 8 秒爆炒料理火花火力全開
-    audio.playPowerup();
-    particles.emitHitSparks(this.x, this.y - 30, '#FF6D00', 20);
   }
 
   performDash() {
@@ -276,95 +277,92 @@ export class Player {
 
   triggerSkill() {
     if (this.isUlting || this.isDead) return;
-    if (this.skillCooldown > 0) return; // 80ms 自動連發緩衝（按住連續發射，點擊瞬發）
-    this.skillCooldown = 0.08;
+    if (this.skillCooldown > 0) return;
+    
+    // 設定角色獨立 CD
+    const charCooldown = this.charConfig.stats.skillCooldown || 0.35;
+    this.skillCooldown = charCooldown;
     this.isAttacking = true;
-    this.attackTimer = 0.14;
+    this.attackTimer = 0.16;
     this.animState = 'attack';
     this.animTimer = 0;
 
     audio.playSkill(this.id);
 
-    // Spawn character unique projectiles
     const spawnX = this.x + this.facing * 35;
     const spawnY = this.y - 35;
     const damageMult = (this.cookingSparkTimer > 0 ? 1.5 : 1.0) * (this.form2Active ? 1.3 : 1.0);
 
     if (this.id === 'yu') {
-      // Umbrella wind slash: wide piercing wind blade
-      // Form 2: Tactical Commuter: 100% larger blade, deflecting bullets, higher piercing power
+      // 禹志晨：雨傘風壓斬 (中近距離防守反擊型)
+      // 前方 150px、80° 弧形、反彈半徑 175px (Form 2 增至 200px)
       const isF2 = this.form2Active;
+      const deflectRadius = isF2 ? 200 : 175;
+      
+      // Deflect enemy bullets in front within 175px/200px
+      for (let i = projectiles.projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles.projectiles[i];
+        if (!p.isPlayer) {
+          const dx = p.x - this.x;
+          const dy = p.y - spawnY;
+          const dist = Math.hypot(dx, dy);
+          // Only in front of player (same direction)
+          if (dist <= deflectRadius && dx * this.facing > 0) {
+            particles.emitHitSparks(p.x, p.y, '#00E5FF', 8);
+            projectiles.projectiles.splice(i, 1);
+          }
+        }
+      }
+
       projectiles.spawn({
         isPlayer: true,
         type: 'wind_blade',
         x: spawnX,
         y: spawnY,
-        vx: this.facing * (isF2 ? 780 : 680),
+        vx: this.facing * 430,
         vy: 0,
-        width: isF2 ? 60 : 36,
-        height: isF2 ? 60 : 36,
+        maxDistance: 150, // 嚴格限制前方 150px
+        width: isF2 ? 55 : 36,
+        height: isF2 ? 55 : 36,
         damage: this.charConfig.skill.damage * damageMult,
-        life: 1.2,
+        life: 0.35,
         penetrating: isF2,
         canClearEnemyBullets: true
       });
     } else if (this.id === 'shakira') {
-      // Twin egg shots rapid stream (Form 2: 3-way egg shots fan)
-      if (this.form2Active) {
-        [-25, 0, 25].forEach((vyOffset) => {
-          projectiles.spawn({
-            isPlayer: true,
-            type: 'egg',
-            x: spawnX,
-            y: spawnY + vyOffset * 0.4,
-            vx: this.facing * 740,
-            vy: vyOffset,
-            width: 24,
-            height: 20,
-            damage: (this.charConfig.skill.damage * 0.6) * damageMult,
-            life: 1.2
-          });
-        });
-      } else {
+      // 夏奇拉：美乃滋噴射・蛋能雙彈 (遠程範圍型)
+      // 射程 500px、雙發、爆炸半徑 60px、CD 0.45s
+      [-12, 12].forEach((offsetY) => {
         projectiles.spawn({
           isPlayer: true,
           type: 'egg',
           x: spawnX,
-          y: spawnY - 6,
-          vx: this.facing * 720,
-          vy: -20,
-          width: 20,
-          height: 16,
-          damage: (this.charConfig.skill.damage * 0.6) * damageMult,
-          life: 1.2
+          y: spawnY + offsetY,
+          vx: this.facing * 500,
+          vy: offsetY * 1.5,
+          maxDistance: 500, // 嚴格限制最大射程 500px
+          width: 22,
+          height: 18,
+          damage: (this.charConfig.skill.damage * 0.55) * damageMult,
+          life: 1.0
         });
-        projectiles.spawn({
-          isPlayer: true,
-          type: 'egg',
-          x: spawnX,
-          y: spawnY + 6,
-          vx: this.facing * 700,
-          vy: 20,
-          width: 20,
-          height: 16,
-          damage: (this.charConfig.skill.damage * 0.6) * damageMult,
-          life: 1.2
-        });
-      }
+      });
     } else {
-      // Sandra: Heavy skillet bash + fiery shockwave (Form 2: massive flaming pan wave)
+      // 珊卓澎：爆炒上菜・鐵鍋重擊 (近戰擊退型)
+      // 平底鍋本體前方 140px，鍋氣震波 240px，扇形 105°，CD 0.55s
       const isF2 = this.form2Active;
       projectiles.spawn({
         isPlayer: true,
         type: 'pan_wave',
         x: spawnX,
         y: spawnY,
-        vx: this.facing * (isF2 ? 650 : 580),
+        vx: this.facing * 480,
         vy: 0,
-        width: isF2 ? 64 : 42,
-        height: isF2 ? 64 : 42,
+        maxDistance: 240, // 鍋氣 shockwave 最大 240px
+        width: isF2 ? 60 : 42,
+        height: isF2 ? 60 : 42,
         damage: this.charConfig.skill.damage * damageMult,
-        life: 1.0,
+        life: 0.50,
         penetrating: isF2
       });
     }
@@ -374,11 +372,11 @@ export class Player {
     // 15 金幣永久解鎖，解鎖後不扣幣！只受冷卻限制！
     if (this.coins < 15 || this.ultCooldown > 0 || this.isUlting || this.isDead) return;
 
-    this.ultCooldown = this.charConfig.ult.cooldown;
+    this.ultCooldown = this.charConfig.stats.ultCooldown || 7.0;
     this.isUlting = true;
-    this.ultTimer = this.charConfig.ult.duration;
+    this.ultTimer = this.charConfig.ult.duration || 1.2;
     this.ultCutinTimer = 0.65; // Anime Cut-in 0.65s 特寫與時停
-    this.invulnerableTimer = this.charConfig.ult.duration; // 大招期間無敵
+    this.invulnerableTimer = this.charConfig.ult.duration || 1.2;
     this.animState = 'ultimate';
     this.animTimer = 0;
 
@@ -389,28 +387,27 @@ export class Player {
       audio.playUltRelease(this.id);
       projectiles.clearEnemyProjectiles(); // 清屏消除敵彈
 
-      const midX = this.x;
-      const midY = this.y - 40;
       const isF2 = this.form2Active;
       const dmgBonus = isF2 ? 1.4 : 1.0;
 
       if (this.id === 'yu') {
-        // High speed dash forward + massive wind blades (Form 2: 10 massive wind blades)
-        this.vx = this.facing * 850;
-        const bladeCount = isF2 ? 10 : 7;
+        // 禹志晨大招：最多突進 650px，1.2 秒無敵，風刃沿突進走廊作用
+        this.vx = this.facing * 750;
+        const bladeCount = isF2 ? 8 : 6;
         for (let i = 0; i < bladeCount; i++) {
           setTimeout(() => {
             projectiles.spawn({
               isPlayer: true,
               type: 'wind_blade',
-              x: this.x + (Math.random() * 60 - 30),
-              y: this.y - 70 + i * 14,
-              vx: this.facing * (isF2 ? 750 : 650),
-              vy: (Math.random() - 0.5) * 60,
-              width: isF2 ? 58 : 48,
-              height: isF2 ? 58 : 48,
-              damage: 28 * dmgBonus,
-              life: 0.8,
+              x: this.x + (Math.random() * 40 - 20),
+              y: this.y - 65 + i * 14,
+              vx: this.facing * 520,
+              vy: (Math.random() - 0.5) * 40,
+              maxDistance: 450,
+              width: isF2 ? 55 : 44,
+              height: isF2 ? 55 : 44,
+              damage: 26 * dmgBonus,
+              life: 0.65,
               penetrating: true,
               canClearEnemyBullets: true
             });
@@ -418,44 +415,64 @@ export class Player {
         }
       } 
       else if (this.id === 'shakira') {
-        // Soft boiled egg meteor rain + heal + shield
+        // 夏奇拉大招：以自身為中心 800~900px 戰區傾瀉流星蛋雨，回復 30/40 HP
         this.addHp(isF2 ? 40 : 30);
-        this.shieldTimer = isF2 ? 4.5 : 3.5;
-        const eggCount = isF2 ? 16 : 12;
+        this.shieldTimer = isF2 ? 4.0 : 3.0;
+        const eggCount = isF2 ? 14 : 10;
         for (let i = 0; i < eggCount; i++) {
           setTimeout(() => {
+            const spawnOffsetX = (Math.random() - 0.5) * 800; // 800px 範圍
             projectiles.spawn({
               isPlayer: true,
               type: 'egg',
-              x: this.x - 240 + i * 36,
-              y: this.y - 320,
-              vx: 60 + (Math.random() - 0.5) * 40,
-              vy: 550,
+              x: this.x + spawnOffsetX,
+              y: this.y - 300,
+              vx: (Math.random() - 0.5) * 80,
+              vy: 520,
+              maxDistance: 450,
               width: 26,
               height: 22,
               damage: 22 * dmgBonus,
-              life: 0.9,
+              life: 0.85,
               penetrating: true
             });
-          }, i * 50);
+          }, i * 60);
         }
       } 
       else {
-        // Sandra: fiery cyclone blades outward 360 deg (Form 2: 18 dragon flame shockwaves)
-        const waveCount = isF2 ? 18 : 14;
+        // 珊卓澎大招：旋風核心半徑 320px，14 道鍋氣各最大飛行 370px
+        const waveCount = 14;
         for (let i = 0; i < waveCount; i++) {
           const ang = i * (Math.PI * 2 / waveCount);
           projectiles.spawn({
             isPlayer: true,
             type: 'pan_wave',
-            x: midX,
-            y: midY,
-            vx: Math.cos(ang) * 520,
-            vy: Math.sin(ang) * 520,
-            width: isF2 ? 50 : 40,
-            height: isF2 ? 50 : 40,
+            x: this.x,
+            y: this.y - 40,
+            vx: Math.cos(ang) * 480,
+            vy: Math.sin(ang) * 480,
+            maxDistance: 370, // 最大飛行 370px
+            width: isF2 ? 50 : 38,
+            height: isF2 ? 50 : 38,
             damage: 24 * dmgBonus,
-            life: 0.7,
+            life: 0.65,
+            penetrating: true
+          });
+        }
+        if (isF2) {
+          // Form 2 火龍波貫穿前方 450px
+          projectiles.spawn({
+            isPlayer: true,
+            type: 'pan_wave',
+            x: this.x + this.facing * 40,
+            y: this.y - 40,
+            vx: this.facing * 550,
+            vy: 0,
+            maxDistance: 450,
+            width: 72,
+            height: 72,
+            damage: 48,
+            life: 0.8,
             penetrating: true
           });
         }
@@ -465,11 +482,11 @@ export class Player {
 
   getMayoOrbsWorld() {
     if (!this.form2Active || !this.mayoOrbs || this.mayoOrbs.length === 0) return [];
-    const radius = 55;
+    const radius = 75; // 嚴格 75px 環繞半徑
     return this.mayoOrbs.map(orb => ({
       x: this.x + Math.cos(orb.angle) * radius,
       y: (this.y - 40) + Math.sin(orb.angle) * radius,
-      radius: 12
+      radius: 14
     }));
   }
 
@@ -495,7 +512,6 @@ export class Player {
     if (this.dashTimer > 0) this.dashTimer -= dt;
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.shieldTimer > 0) this.shieldTimer -= dt;
-    if (this.coffeeSpeedTimer > 0) this.coffeeSpeedTimer -= dt;
     if (this.waterShieldTimer > 0) this.waterShieldTimer -= dt;
     if (this.cookingSparkTimer > 0) this.cookingSparkTimer -= dt;
 
@@ -520,8 +536,8 @@ export class Player {
       this.performDash();
     }
 
-    // Handle Movement Input
-    const speedMult = (this.coffeeSpeedTimer > 0 ? 1.25 : 1.0) * (this.dashTimer > 0 ? 2.2 : 1.0);
+    // Handle Movement Input (Coffee strictly provides NO speed buff)
+    const speedMult = this.dashTimer > 0 ? 2.2 : 1.0;
     const curSpeed = this.speed * speedMult;
 
     if (this.dashTimer <= 0) {

@@ -18,7 +18,7 @@ export const MONSTER_TYPES = {
     contactDamage: 10,
     attackDamage: 12,
     attackCooldown: 1.2,
-    telegraphDuration: 0.24,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_blue.png',
     assetP2: 'assets/monster_blue_p2.png',
     color: '#00E5FF',
@@ -46,7 +46,7 @@ export const MONSTER_TYPES = {
     contactDamage: 12,
     attackDamage: 15,
     attackCooldown: 1.4,
-    telegraphDuration: 0.28,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_red.png',
     assetP2: 'assets/monster_red_p2.png',
     color: '#FF5252',
@@ -74,7 +74,7 @@ export const MONSTER_TYPES = {
     contactDamage: 10,
     attackDamage: 13,
     attackCooldown: 1.3,
-    telegraphDuration: 0.26,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_pink.png',
     assetP2: 'assets/monster_pink_p2.png',
     color: '#FF80AB',
@@ -102,7 +102,7 @@ export const MONSTER_TYPES = {
     contactDamage: 15,
     attackDamage: 17,
     attackCooldown: 1.8,
-    telegraphDuration: 0.32,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_ice.png',
     assetP2: 'assets/monster_ice_p2.png',
     color: '#40C4FF',
@@ -130,7 +130,7 @@ export const MONSTER_TYPES = {
     contactDamage: 11,
     attackDamage: 14,
     attackCooldown: 1.5,
-    telegraphDuration: 0.30,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_grape.png',
     assetP2: 'assets/monster_grape_p2.png',
     color: '#BA68C8',
@@ -158,7 +158,7 @@ export const MONSTER_TYPES = {
     contactDamage: 12,
     attackDamage: 15,
     attackCooldown: 1.7,
-    telegraphDuration: 0.30,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_yellow.png',
     assetP2: 'assets/monster_yellow_p2.png',
     color: '#FFD700',
@@ -186,7 +186,7 @@ export const MONSTER_TYPES = {
     contactDamage: 20,
     attackDamage: 24,
     attackCooldown: 2.1,
-    telegraphDuration: 0.35,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_obsidian.png',
     assetP2: 'assets/monster_obsidian_p2.png',
     color: '#3949AB',
@@ -214,7 +214,7 @@ export const MONSTER_TYPES = {
     contactDamage: 12,
     attackDamage: 16,
     attackCooldown: 1.4,
-    telegraphDuration: 0.25,
+    telegraphDuration: 0.40,
     asset: 'assets/monster_transit_p1.png',
     assetP2: 'assets/monster_transit_p2.png',
     color: '#00E676',
@@ -244,12 +244,12 @@ export const BOSS_CONFIG = {
   width: 260,
   height: 280,
   arena: {
-    startX: 10600,
-    endX: 12000,
-    width: 1400,       // 嚴格 1400px 連續平整地板
+    startX: 14800,
+    endX: 16500,
+    width: 1700,       // 嚴格 1700px 連續平整石板地板
     groundY: 560,
-    wallLeft: 10600,
-    wallRight: 12000
+    wallLeft: 14800,
+    wallRight: 16500
   },
   phase1: {
     name: '夢影巨花王・晨霧守護態',
@@ -273,3 +273,5 @@ export const BOSS_CONFIG = {
     colorTheme: '#880E4F'
   }
 };
+
+export const MONSTERS = MONSTER_TYPES;

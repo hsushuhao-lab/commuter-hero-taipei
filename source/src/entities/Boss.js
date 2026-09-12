@@ -17,7 +17,7 @@ import { Monster } from './Monster.js';
 export class Boss {
   constructor() {
     this.config = BOSS_CONFIG;
-    this.x = 11450; // Arena right side (10600 ~ 12000)
+    this.x = 15650; // Arena right side (14800 ~ 16500)
     this.y = this.config.arena.groundY;
     this.width = this.config.width;
     this.height = this.config.height;
@@ -152,13 +152,14 @@ export class Boss {
     const floatY = Math.sin(this.bobTimer) * (this.phase === 2 ? 18 : 10);
     this.y = this.config.arena.groundY + floatY;
 
-    // Clamp inside 1400px flat arena bounds
+    // Clamp inside flat arena bounds
     const minX = this.config.arena.startX + 200;
-    const maxX = this.config.arena.endX - 100;
+    const maxX = this.config.arena.endX - 150;
     this.x = Math.max(minX, Math.min(maxX, this.x));
 
     // Slow repositioning towards player
-    const desiredX = player.x + (player.x < 11300 ? 380 : -380);
+    const arenaMid = (this.config.arena.startX + this.config.arena.endX) / 2;
+    const desiredX = player.x + (player.x < arenaMid ? 360 : -360);
     this.x += (desiredX - this.x) * dt * (this.phase === 2 ? 0.8 : 0.4);
 
     // AI Attack Loop
@@ -192,6 +193,7 @@ export class Boss {
     const color = this.phase === 2 ? '#AD1457' : '#E91E63';
     const speed = this.phase === 2 ? 330 : 270;
     const dmg = this.phase === 2 ? this.config.phase2.petalDamage : this.config.phase1.petalDamage;
+    const arenaB = { minX: this.config.arena.startX - 50, maxX: this.config.arena.endX + 50 };
 
     if (this.phase === 1) {
       // 7-way wide fan spread
@@ -205,11 +207,13 @@ export class Boss {
           y: pY,
           vx: Math.cos(ang) * speed,
           vy: Math.sin(ang) * speed,
+          maxDistance: 650,
+          arenaBounds: arenaB,
           width: 24,
           height: 16,
           color: color,
           damage: dmg,
-          life: 2.5,
+          life: 2.2,
           rotates: true,
           vRot: 3
         });
@@ -225,11 +229,13 @@ export class Boss {
           y: pY,
           vx: Math.cos(ang) * speed,
           vy: Math.sin(ang) * speed,
+          maxDistance: 650,
+          arenaBounds: arenaB,
           width: 26,
           height: 18,
           color: color,
           damage: dmg,
-          life: 2.8,
+          life: 2.4,
           rotates: true,
           vRot: 4
         });
@@ -244,11 +250,13 @@ export class Boss {
           y: pY,
           vx: Math.cos(directAngle + j * 0.15) * (speed + 60),
           vy: Math.sin(directAngle + j * 0.15) * (speed + 60),
+          maxDistance: 650,
+          arenaBounds: arenaB,
           width: 22,
           height: 14,
           color: '#FF1744',
           damage: dmg,
-          life: 2.2
+          life: 2.0
         });
       }
     }

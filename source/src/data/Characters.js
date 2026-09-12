@@ -25,36 +25,39 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 100,
-      speed: 340,
+      speed: 350,
       jumpForce: -620,
       gravity: 1400,
-      skillCooldown: 0, // 零冷卻！無限連續發射
-      ultCooldown: 9.0    // 秒
+      skillCooldown: 0.35, // 0.35s 靈敏折傘揮擊
+      ultCooldown: 7.0     // 7.0s 逆風衝刺
     },
     skill: {
       name: '雨傘風壓斬',
       key: 'S / J',
-      cooldown: 0,
-      damage: 35,
-      range: 850,
-      desc: '揮動折傘斬出青藍風刃，零冷卻無限連發！消弭前方敵彈並破空穿透。'
+      cooldown: 0.35,
+      damage: 38,
+      range: 150,           // 前方 150px
+      arcAngle: 80,         // 前方 80 度弧形
+      deflectRadius: 175,   // 敵彈反彈判定半徑 175px
+      desc: '揮動抗風折傘斬出前方 150px 弧形風刃（CD 0.35s），175px 半徑內抵消前方敵彈！'
     },
     ult: {
       name: '準時衝刺・逆風傘幕',
       key: 'F / K',
-      cooldown: 9.0,
-      damage: 180,
-      duration: 1.8,
-      desc: '展開抗風折傘高速貫穿突進，釋放 7 道大型風刃與金色雷光，清空全屏彈幕並賦予 1.8 秒無敵。'
+      cooldown: 7.0,
+      damage: 160,
+      duration: 1.2,
+      dashDistance: 650,    // 最多突進 650px
+      desc: '展開抗風折傘向前高速突進最多 650px，1.2 秒無敵並消弭路徑敵彈，釋放密集風刃！'
     },
     form2: {
       name: '通勤戰術型態',
       title: '機能守護・風刃貫穿',
       asset: 'assets/hero_yu_form2.png',
-      desc: '黑藍機能型外套護片、強化傘骨、淡藍能量線。風壓斬面積提升 100%，反制飛行彈幕，無敵突進貫穿全場！',
+      desc: '黑藍機能外套、強化傘骨。風壓斬反彈判定半徑擴展至 200px，斬擊自帶穿透風暴！',
       speedBuff: 45,
       hpBuff: 35,
-      skillBuffDesc: '雨傘風壓斬範圍 +100%，可反彈敵方投射物！'
+      skillBuffDesc: '雨傘風壓斬反彈判定半徑擴展至 200px，自帶穿透風暴！'
     }
   },
 
@@ -79,37 +82,40 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 90,
-      speed: 320,
+      speed: 330,
       jumpForce: -640,
       gravity: 1350,
-      skillCooldown: 0,
-      ultCooldown: 10.0
+      skillCooldown: 0.45,
+      ultCooldown: 8.0
     },
     skill: {
-      name: '美乃滋噴射・蛋能彈',
+      name: '美乃滋噴射・蛋能雙彈',
       key: 'S / J',
-      cooldown: 0,
-      damage: 28,
-      range: 900,
-      desc: '零冷卻無限連發雙子流心蛋彈，射速極高，命中濺射出美乃滋星爆！'
+      cooldown: 0.45,
+      damage: 24,
+      range: 500,           // 最大飛行 500px
+      splashRadius: 60,     // 命中爆炸 55~65px
+      lifetime: 1.0,
+      desc: '連發兩枚半熟蛋能量彈（CD 0.45s），最大射程 500px，命中爆散出 60px 美乃滋濺射！'
     },
     ult: {
       name: '元氣蛋浪・Oeuf Mayo 星雨',
       key: 'F / K',
-      cooldown: 10.0,
-      damage: 160,
+      cooldown: 8.0,
+      damage: 150,
       heal: 30,
       duration: 2.2,
-      desc: '張開巨大星環，漫天傾瀉金色流星蛋雨與蛋白光環，全屏轟炸、回復 30 HP 並獲 3 秒元氣護盾。'
+      zoneRadius: 450,      // 角色中心 800~900px gameplay zone
+      desc: '以自身為中心 900px 戰區傾瀉流星蛋雨，全區轟炸、回復 30 HP（二階 40 HP）並獲元氣護盾。'
     },
     form2: {
       name: '晨光蛋浪型態',
       title: '美味療癒・流心環繞',
       asset: 'assets/hero_shakira_form2.png',
-      desc: '白金晨光能量護裝。召喚 3~5 枚流心 Mayo Orbs 環繞防禦，自動反擊並吸收子彈！',
+      desc: '白金晨光能量護裝。召喚 3~5 枚流心 Mayo Orbs 環繞防禦（半徑 75px），自動反擊並吸收子彈！',
       speedBuff: 35,
       hpBuff: 45,
-      skillBuffDesc: '流心 Mayo Orbs 永久環繞護體，自動吸收敵彈！'
+      skillBuffDesc: '流心 Mayo Orbs 永久環繞護體（半徑 75px），自動吸收敵彈並撞擊近身怪物！'
     }
   },
 
@@ -134,37 +140,41 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 120,
-      speed: 310,
+      speed: 320,
       jumpForce: -610,
       gravity: 1450,
-      skillCooldown: 0,
+      skillCooldown: 0.55,
       ultCooldown: 8.5
     },
     skill: {
       name: '爆炒上菜・鐵鍋重擊',
       key: 'S / J',
-      cooldown: 0,
-      damage: 42,
-      range: 800,
-      knockback: 450,
-      desc: '零冷卻無限狂轟鑄鐵鍋氣烈焰，伴隨番茄青花菜殘影與強烈衝擊波！'
+      cooldown: 0.55,
+      damage: 46,
+      meleeRange: 140,      // 前方 125~145px 平底鍋本體
+      shockwaveRange: 240,  // 鍋氣衝擊波延伸至 230~250px
+      fanAngle: 105,        // 扇形範圍 105 度
+      knockback: 420,
+      desc: '平底鍋重擊前方 140px 並激發 240px 扇形鍋氣烈焰（CD 0.55s），造成強大擊退！'
     },
     ult: {
-      name: '主廚旋風鍋・海鷗料理風暴',
+      name: '主廚旋風鍋・料理風暴',
       key: 'F / K',
       cooldown: 8.5,
-      damage: 210,
+      damage: 190,
       duration: 2.0,
-      desc: '雙手握鍋旋轉掀起料理龍捲，向四周釋放 14 道火炎旋轉鍋氣，將敵群吸向中心後劇烈震退擊破！'
+      coreRadius: 320,      // 旋風核心半徑 300~330px
+      gustRange: 370,       // 14 道鍋氣最大飛行 350~380px
+      desc: '旋起半徑 320px 料理旋風，釋放 14 道最遠飛行 370px 的火炎旋轉鍋氣，牽引並震退敵群！'
     },
     form2: {
       name: '滿漢戰鬥主廚型態',
       title: '料理怒火・爆炒龍捲',
       asset: 'assets/hero_sandra_form2.png',
-      desc: '主廚頭巾、料理護具、強化鑄鐵鍋。平底鍋常駐金橙烈焰光環，爆炒引發巨型火炎龍捲！',
+      desc: '主廚頭巾、料理護具。平底鍋常駐火環，爆炒火龍波貫穿前方 450px 小怪！',
       speedBuff: 30,
       hpBuff: 60,
-      skillBuffDesc: '平底鍋常駐金橙烈焰，爆炒攻擊範圍翻倍！'
+      skillBuffDesc: '平底鍋常駐火環，爆炒火龍波貫穿前方 450px 小怪！'
     }
   }
 };

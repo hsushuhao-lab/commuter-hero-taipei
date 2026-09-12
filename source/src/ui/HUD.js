@@ -93,6 +93,17 @@ export class HUD {
     this.cutinChar = charConfig;
   }
 
+  getFormattedClockTime() {
+    const timeFormatted = Math.max(0, this.timeRemaining);
+    const secPassed = Math.max(0, 120 - Math.ceil(timeFormatted));
+    const displayMin = 58 + Math.floor(secPassed / 60);
+    const displaySec = secPassed % 60;
+    if (displayMin >= 60) {
+      return `08:${String(displayMin - 60).padStart(2, '0')}:${String(displaySec).padStart(2, '0')}`;
+    }
+    return `07:${String(displayMin).padStart(2, '0')}:${String(displaySec).padStart(2, '0')}`;
+  }
+
   calculateEvaluation(player, bossDefeated) {
     const timeLeft = this.timeRemaining;
     let stamp = 'Late';
@@ -101,38 +112,43 @@ export class HUD {
     if (!bossDefeated || player.isDead || timeLeft <= 0) {
       stamp = 'Late';
       rank = 'Rank D';
-    } else if (timeLeft >= 35) {
+    } else if (timeLeft >= 35 && player.coins >= 45 && player.hp >= 50) {
       stamp = 'Perfect';
-      if (player.coins >= 10 && player.hp >= 40) {
-        rank = 'Rank S';
-      } else {
-        rank = 'Rank A';
-      }
-    } else if (timeLeft >= 15) {
+      rank = 'Rank S';
+    } else if (timeLeft >= 20 && player.coins >= 30) {
       stamp = 'Great';
       rank = 'Rank A';
     } else {
-      stamp = 'Late';
+      stamp = 'On Time';
       rank = 'Rank B';
     }
 
     this.resultStamp = stamp;
     this.resultRank = rank;
+    this.punchedTimeText = this.getFormattedClockTime();
   }
 
   update(dt, player, boss) {
     if (this.isVictory || this.isGameOver) return;
 
-    this.timeRemaining -= dt;
-    if (this.timeRemaining <= 0) {
-      this.timeRemaining = 0;
-      this.isGameOver = true;
-      this.calculateEvaluation(player, boss.isDead);
+    // Pause timer during cutscenes, intro, boss roar, and cut-in
+    const isCutscenePaused = this.cutinActive || 
+                             (boss && boss.roarTimer > 0) || 
+                             window.gameCutsceneActive || 
+                             window.gamePaused;
+
+    if (!isCutscenePaused) {
+      this.timeRemaining -= dt;
+      if (this.timeRemaining <= 0) {
+        this.timeRemaining = 0;
+        this.isGameOver = true;
+        this.calculateEvaluation(player, boss ? boss.isDead : false);
+      }
     }
 
     if (player.isDead) {
       this.isGameOver = true;
-      this.calculateEvaluation(player, boss.isDead);
+      this.calculateEvaluation(player, boss ? boss.isDead : false);
     }
 
     if (this.cutinActive) {
@@ -141,7 +157,6 @@ export class HUD {
         this.cutinActive = false;
       }
     }
-
   }
 
   triggerVictory(player) {
@@ -156,8 +171,8 @@ export class HUD {
     // --- 1. Top HUD Bar ---
     this.renderTopBar(ctx, player, level, vw);
 
-    // --- 2. Boss Health Bar (When in Arena 10600 ~ 12000) ---
-    if (player.x >= 10400 && !boss.isDead) {
+    // --- 2. Boss Health Bar (When in Arena 14800 ~ 16500) ---
+    if (player.x >= 14600 && !boss.isDead) {
       this.renderBossBar(ctx, boss, vw);
     }
 
@@ -243,20 +258,10 @@ export class HUD {
     // Active Buffs Row
     let buffX = coinX;
     ctx.font = 'bold 10px sans-serif';
-    if (player.coffeeSpeedTimer > 0) {
-      ctx.fillStyle = '#D7CCC8';
-      ctx.fillText(`☕加速${player.coffeeSpeedTimer.toFixed(0)}s `, buffX, 64);
+    if (player.invulnerableTimer > 0) {
+      ctx.fillStyle = '#FFD54F';
+      ctx.fillText(`🛡️防護${player.invulnerableTimer.toFixed(1)}s `, buffX, 64);
       buffX += 58;
-    }
-    if (player.waterShieldTimer > 0) {
-      ctx.fillStyle = '#80D8FF';
-      ctx.fillText(`💧水盾 `, buffX, 64);
-      buffX += 45;
-    }
-    if (player.cookingSparkTimer > 0) {
-      ctx.fillStyle = '#FFAB91';
-      ctx.fillText(`🔥爆炒+50% `, buffX, 64);
-      buffX += 65;
     }
     if (player.dashCooldown <= 0) {
       ctx.fillStyle = '#69F0AE';
@@ -266,10 +271,7 @@ export class HUD {
     // 3. Commute Clock Countdown (120s)
     const clockX = 490;
     const timeFormatted = Math.ceil(this.timeRemaining);
-    const secPassed = 120 - timeFormatted;
-    const displayMin = 58 + Math.floor(secPassed / 60);
-    const displaySec = secPassed % 60;
-    const clockStr = `07:${String(displayMin).padStart(2, '0')}:${String(displaySec).padStart(2, '0')}`;
+    const clockStr = this.getFormattedClockTime();
 
     ctx.fillStyle = this.timeRemaining < 25 ? '#FF5252' : '#FFF';
     ctx.font = 'bold 16px monospace';
@@ -494,7 +496,7 @@ export class HUD {
     ctx.strokeRect(-80, -35, 160, 70);
     ctx.fillStyle = '#4CAF50';
     ctx.font = 'bold 24px monospace';
-    ctx.fillText('07:58:24', 0, -5);
+    ctx.fillText(this.punchedTimeText || this.getFormattedClockTime(), 0, -5);
     ctx.font = 'bold 16px sans-serif';
     ctx.fillText('ON TIME PUNCHED', 0, 20);
     ctx.restore();
@@ -504,7 +506,7 @@ export class HUD {
     ctx.font = '16px sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText(`英雄：${player.name}${player.form2Active ? ' (第二型態覺醒)' : ''}`, cx - 200, cy - 70);
-    ctx.fillText(`起點與終點：象山捷運站 ➔ 松德醫院大廳 (14,400px 全程抵達)`, cx - 200, cy - 44);
+    ctx.fillText(`起點與終點：象山捷運站 ➔ 松德院區大廳 (18,000px 全程抵達)`, cx - 200, cy - 44);
     ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, cx - 200, cy - 18);
     ctx.fillText(`收集金幣：${player.coins} 枚 (通勤共振雙向進化達成！)`, cx - 200, cy + 8);
 

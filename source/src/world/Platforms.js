@@ -86,19 +86,6 @@ export class PlatformManager {
           particles.emitCoinSparkle(item.x, item.y);
         } else if (item.type === 'coffee') {
           player.addCoffee();
-          audio.playPowerup();
-          particles.emitDust(item.x, item.y, 8, '#795548');
-        } else if (item.type === 'easycard') {
-          player.addCoins(3);
-          audio.playPowerup();
-          particles.emitCoinSparkle(item.x, item.y);
-        } else if (item.type === 'heart') {
-          player.addHp(25);
-          audio.playPowerup();
-        } else if (item.type === 'raindrop') {
-          player.addRaindrop();
-        } else if (item.type === 'cookingspark') {
-          player.addCookingSpark();
         }
       }
     }
@@ -108,6 +95,7 @@ export class PlatformManager {
       const dist = Math.hypot(player.x - this.clockInMachine.x, player.y - this.clockInMachine.y);
       if (dist < 55) {
         this.clockInMachine.punched = true;
+        this.clockInMachine.punchedTimeText = this.clockInMachine.customTimeText || '07:59:20';
         audio.playStamp();
         particles.emitHitSparks(this.clockInMachine.x, this.clockInMachine.y - 45, '#4CAF50', 25);
         particles.emitCoinSparkle(this.clockInMachine.x, this.clockInMachine.y - 60);
@@ -154,7 +142,7 @@ export class PlatformManager {
       ctx.fillRect(p.x, p.y + p.h - 4, p.w, 4);
     }
 
-    // 2. Render Collectibles
+    // 2. Render Collectibles (Only Coin and Coffee in gameplay)
     for (let item of this.items) {
       if (item.collected) continue;
       if (item.x + item.width < camera.x - 50 || item.x > camera.x + camera.viewportWidth + 50) continue;
@@ -162,19 +150,14 @@ export class PlatformManager {
       ctx.save();
       ctx.translate(item.x, item.y);
 
-      let img = this.imgCoin;
-      if (item.type === 'coffee') img = this.imgCoffee;
-      else if (item.type === 'easycard') img = this.imgEasyCard;
-      else if (item.type === 'heart') img = this.imgHeart;
-      else if (item.type === 'raindrop') img = this.imgRaindrop;
-      else if (item.type === 'cookingspark') img = this.imgCookingSpark;
+      const img = item.type === 'coffee' ? this.imgCoffee : this.imgCoin;
 
       if (img.complete && img.naturalWidth > 0) {
         const size = item.width;
         ctx.drawImage(img, -size / 2, -size / 2, size, size);
       } else {
         // Fallback
-        ctx.fillStyle = item.type === 'coin' ? '#FFD700' : (item.type === 'heart' ? '#F44336' : '#8D6E63');
+        ctx.fillStyle = item.type === 'coin' ? '#FFD700' : '#8D6E63';
         ctx.beginPath();
         ctx.arc(0, 0, 12, 0, Math.PI * 2);
         ctx.fill();
@@ -236,11 +219,12 @@ export class PlatformManager {
         ctx.lineWidth = 1;
         ctx.strokeRect(-screenW / 2, screenY, screenW, screenH);
 
+        const displayTime = m.punchedTimeText || '07:58:00';
         ctx.fillStyle = m.punched ? '#00E676' : '#FFD54F';
         ctx.font = 'bold 8px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(m.punched ? '07:58:24' : '07:56:00', 0, screenY + screenH / 2);
+        ctx.fillText(displayTime, 0, screenY + screenH / 2);
 
         // Punch status banner
         ctx.fillStyle = m.punched ? '#00E676' : '#FFD700';
@@ -248,7 +232,7 @@ export class PlatformManager {
         ctx.textAlign = 'center';
         ctx.shadowColor = m.punched ? '#00E676' : '#FFD700';
         ctx.shadowBlur = 10;
-        ctx.fillText(m.punched ? '★ 07:58:24 準時打卡成功！' : '🖹 松德院區打卡處', 0, -m.height - 10);
+        ctx.fillText(m.punched ? `★ ${displayTime} ON TIME!` : '🖹 松德院區打卡處', 0, -m.height - 10);
 
         ctx.restore();
       }

@@ -19,6 +19,10 @@ export class ProjectileManager {
       isPlayer: p.isPlayer || false,
       x: p.x || 0,
       y: p.y || 0,
+      startX: p.x || 0,
+      startY: p.y || 0,
+      maxDistance: p.maxDistance || null,
+      arenaBounds: p.arenaBounds || null,
       vx: p.vx || 0,
       vy: p.vy || 0,
       width: p.width || 16,
@@ -47,6 +51,23 @@ export class ProjectileManager {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       if (p.rotates) p.rotation += p.vRot * dt;
+
+      // Max physical distance culling
+      if (p.maxDistance !== null) {
+        const traveled = Math.hypot(p.x - p.startX, p.y - p.startY);
+        if (traveled >= p.maxDistance) {
+          this.projectiles.splice(i, 1);
+          continue;
+        }
+      }
+
+      // Arena bounds culling (Boss bullets cannot escape arena)
+      if (p.arenaBounds) {
+        if (p.x < p.arenaBounds.minX || p.x > p.arenaBounds.maxX) {
+          this.projectiles.splice(i, 1);
+          continue;
+        }
+      }
 
       // Particle trails
       if (p.isPlayer && p.type === 'wind_blade' && Math.random() < 0.4) {

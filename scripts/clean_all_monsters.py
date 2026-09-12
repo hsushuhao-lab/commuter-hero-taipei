@@ -114,9 +114,12 @@ for name, col_idx, y1, y2, pad_l, pad_r in MONSTER_CONFIGS:
     else:
         res = Image.fromarray(clean_arr)
         
+    # Standardize all monsters to naturally face RIGHT (+X forward direction)
+    res = res.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        
     out_path = os.path.join(assets_dir, f'monster_{name}.png')
     res.save(out_path)
     res.save(os.path.join(base_dir, 'source', 'assets', f'monster_{name}.png'))
-    print(f'Pristine monster_{name}.png: {res.size}')
+    print(f'Pristine monster_{name}.png (Facing RIGHT, transparent): {res.size}')
 
-print('All 7 monsters cleanly re-extracted with solid bodies, correct eyes, and zero floating debris!')
+print('All 7 monsters cleanly re-extracted: pure transparent cutout, zero background, naturally facing RIGHT!')

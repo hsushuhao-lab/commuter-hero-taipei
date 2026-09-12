@@ -186,6 +186,24 @@ export class PlatformManager {
         ctx.save();
         ctx.translate(m.x, m.y);
 
+        // Celebratory Green Beacon when punched
+        if (m.punched) {
+          ctx.save();
+          const beaconGrad = ctx.createLinearGradient(0, 0, 0, -300);
+          beaconGrad.addColorStop(0, 'rgba(76, 175, 80, 0.4)');
+          beaconGrad.addColorStop(0.5, 'rgba(0, 230, 118, 0.2)');
+          beaconGrad.addColorStop(1, 'rgba(0, 230, 118, 0)');
+          ctx.fillStyle = beaconGrad;
+          ctx.beginPath();
+          ctx.moveTo(-m.width * 0.7, 0);
+          ctx.lineTo(-m.width * 1.5, -300);
+          ctx.lineTo(m.width * 1.5, -300);
+          ctx.lineTo(m.width * 0.7, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
         // Render high-res AI cutout prop
         if (this.imgClockMachine.complete && this.imgClockMachine.naturalWidth > 0) {
           ctx.drawImage(this.imgClockMachine, -m.width / 2, -m.height, m.width, m.height);
@@ -198,13 +216,29 @@ export class PlatformManager {
           ctx.strokeRect(-m.width / 2, -m.height, m.width, m.height);
         }
 
-        // Punch status banner & digital clock glow
+        // Digital LED Clock Screen Overlay
+        const screenW = 44;
+        const screenH = 22;
+        const screenY = -m.height * 0.58;
+        ctx.fillStyle = m.punched ? '#1B5E20' : '#263238';
+        ctx.fillRect(-screenW / 2, screenY, screenW, screenH);
+        ctx.strokeStyle = m.punched ? '#00E676' : '#90A4AE';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-screenW / 2, screenY, screenW, screenH);
+
+        ctx.fillStyle = m.punched ? '#00E676' : '#FFD54F';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(m.punched ? '07:58:24' : '07:56:00', 0, screenY + screenH / 2);
+
+        // Punch status banner
         ctx.fillStyle = m.punched ? '#00E676' : '#FFD700';
-        ctx.font = 'bold 11px sans-serif';
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.shadowColor = m.punched ? '#00E676' : '#FFD700';
-        ctx.shadowBlur = 8;
-        ctx.fillText(m.punched ? '✓ 07:58 打卡完成' : '🖹 松德院區打卡處', 0, -m.height - 8);
+        ctx.shadowBlur = 10;
+        ctx.fillText(m.punched ? '★ 07:58:24 準時打卡成功！' : '🖹 松德院區打卡處', 0, -m.height - 10);
 
         ctx.restore();
       }

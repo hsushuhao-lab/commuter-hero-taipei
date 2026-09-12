@@ -28,9 +28,16 @@ export class HUD {
     this.resultStamp = '';
     this.resultRank = '';
 
-    // Mobile buttons rects
-    this.btnLeft = { x: 30, y: 430, w: 70, h: 70 };
-    this.btnRight = { x: 120, y: 430, w: 70, h: 70 };
+    // Mobile virtual joystick & action buttons
+    this.joystick = {
+      baseX: 110,
+      baseY: 435,
+      radius: 56,
+      knobX: 110,
+      knobY: 435,
+      knobRadius: 26,
+      active: false
+    };
     this.btnJump = { x: 860, y: 430, w: 70, h: 70 };
     this.btnSkill = { x: 770, y: 430, w: 65, h: 65 };
     this.btnUlt = { x: 860, y: 340, w: 70, h: 70 };
@@ -104,11 +111,11 @@ export class HUD {
       }
     }
 
-    // Check Victory
-    if (boss.isDead && !this.isVictory) {
-      this.isVictory = true;
-      this.calculateEvaluation(player, true);
-    }
+  }
+
+  triggerVictory(player) {
+    this.isVictory = true;
+    this.calculateEvaluation(player, true);
   }
 
   render(ctx, player, boss, level, camera) {
@@ -327,15 +334,50 @@ export class HUD {
   }
 
   renderMobileTouchUI(ctx, player, vw, vh) {
-    // Only draw touch controls if touch supported or on mobile
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    if (!isTouch && vw > 1024) return;
-
     ctx.save();
 
-    // D-Pad Left & Right
+    // 1. Virtual Joystick (Left Hand)
+    const j = this.joystick;
+    ctx.save();
+    // Outer Base Ring
+    ctx.fillStyle = j.active ? 'rgba(2, 136, 209, 0.35)' : 'rgba(18, 24, 38, 0.45)';
+    ctx.strokeStyle = j.active ? '#00E5FF' : 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(j.baseX, j.baseY, j.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Directional Guide Arrows (◀  ▶)
+    ctx.fillStyle = j.active ? '#00E5FF' : 'rgba(255, 255, 255, 0.6)';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀', j.baseX - j.radius + 15, j.baseY);
+    ctx.fillText('▶', j.baseX + j.radius - 15, j.baseY);
+
+    // Inner Knob (Follows touch/drag)
+    const knobGrad = ctx.createRadialGradient(j.knobX - 4, j.knobY - 4, 2, j.knobX, j.knobY, j.knobRadius);
+    knobGrad.addColorStop(0, j.active ? '#4FC3F7' : '#B0BEC5');
+    knobGrad.addColorStop(1, j.active ? '#0288D1' : '#37474F');
+    ctx.fillStyle = knobGrad;
+    ctx.strokeStyle = j.active ? '#E0F7FA' : '#ECEFF1';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(j.knobX, j.knobY, j.knobRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Knob Center Dot
+    ctx.fillStyle = '#FFF';
+    ctx.beginPath();
+    ctx.arc(j.knobX, j.knobY, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 2. Action Buttons (Right Hand)
     const drawBtn = (btn, label, active) => {
-      ctx.fillStyle = active ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)';
+      ctx.fillStyle = active ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)';
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -350,8 +392,6 @@ export class HUD {
       ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2);
     };
 
-    drawBtn(this.btnLeft, '◀', false);
-    drawBtn(this.btnRight, '▶', false);
     drawBtn(this.btnJump, '跳躍', false);
     drawBtn(this.btnSkill, '小招', player.skillCooldown > 0);
 

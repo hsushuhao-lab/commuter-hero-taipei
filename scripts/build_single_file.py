@@ -37,6 +37,7 @@ module_order = [
     os.path.join(src_dir, 'world', 'Level.js'),
     os.path.join(src_dir, 'ui', 'HUD.js'),
     os.path.join(src_dir, 'ui', 'StyleBible.js'),
+    os.path.join(src_dir, 'ui', 'Intro.js'),
     os.path.join(src_dir, 'main.js')
 ]
 

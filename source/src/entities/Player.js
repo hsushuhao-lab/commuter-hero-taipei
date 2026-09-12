@@ -354,10 +354,12 @@ export class Player {
     const curSpeed = this.speed * speedMult;
 
     if (input.isLeft()) {
-      this.vx = -curSpeed;
+      const mag = (input.joystickActive && input.joystickX < -0.18) ? Math.min(1.0, Math.abs(input.joystickX)) : 1.0;
+      this.vx = -curSpeed * Math.max(0.65, mag);
       this.facing = -1;
     } else if (input.isRight()) {
-      this.vx = curSpeed;
+      const mag = (input.joystickActive && input.joystickX > 0.18) ? Math.min(1.0, input.joystickX) : 1.0;
+      this.vx = curSpeed * Math.max(0.65, mag);
       this.facing = 1;
     } else {
       this.vx *= 0.75; // Friction
@@ -429,6 +431,12 @@ export class Player {
 
   updateAnimation(dt) {
     this.animTimer += dt;
+
+    if (this.animState === 'victory') {
+      // 3 frames victory pose
+      this.currentFrame = 25 + (Math.floor(this.animTimer * 6) % 3);
+      return;
+    }
 
     if (this.isUlting) {
       // 6 frames @ 10fps

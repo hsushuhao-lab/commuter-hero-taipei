@@ -8,12 +8,17 @@ export class InputManager {
     this.keys = {};
     this.justPressedKeys = {};
     
-    // Virtual touch buttons state
+    // Virtual touch buttons & Joystick state
     this.touchLeft = false;
     this.touchRight = false;
     this.touchJump = false;
     this.touchSkill = false;
     this.touchUlt = false;
+
+    // Virtual Joystick (-1.0 to 1.0)
+    this.joystickX = 0;
+    this.joystickY = 0;
+    this.joystickActive = false;
 
     // Buffer tracking
     this.jumpBufferTime = 0;
@@ -71,6 +76,9 @@ export class InputManager {
     this.touchJump = false;
     this.touchSkill = false;
     this.touchUlt = false;
+    this.joystickX = 0;
+    this.joystickY = 0;
+    this.joystickActive = false;
     this.jumpBufferTime = 0;
   }
 
@@ -82,22 +90,23 @@ export class InputManager {
   // --- Actions ---
 
   isLeft() {
-    return this.keys['ArrowLeft'] || this.keys['KeyA'] || this.touchLeft;
+    return this.keys['ArrowLeft'] || this.keys['KeyA'] || this.touchLeft || (this.joystickActive && this.joystickX < -0.18);
   }
 
   isRight() {
-    return this.keys['ArrowRight'] || this.keys['KeyD'] || this.touchRight;
+    return this.keys['ArrowRight'] || this.keys['KeyD'] || this.touchRight || (this.joystickActive && this.joystickX > 0.18);
   }
 
   isJumpHeld() {
-    return this.keys['Space'] || this.keys['KeyW'] || this.keys['ArrowUp'] || this.touchJump;
+    return this.keys['Space'] || this.keys['KeyW'] || this.keys['ArrowUp'] || this.touchJump || (this.joystickActive && this.joystickY < -0.65);
   }
 
   isJumpTriggered() {
     // Check key just pressed, or touch jump, or valid jump buffer within 150ms
     const directPress = this.justPressedKeys['Space'] || this.justPressedKeys['KeyW'] || this.justPressedKeys['ArrowUp'];
     const bufferValid = (performance.now() - this.jumpBufferTime) <= this.JUMP_BUFFER_MS;
-    return directPress || bufferValid || this.touchJump;
+    const joystickUp = this.joystickActive && this.joystickY < -0.65;
+    return directPress || bufferValid || this.touchJump || joystickUp;
   }
 
   consumeJumpBuffer() {

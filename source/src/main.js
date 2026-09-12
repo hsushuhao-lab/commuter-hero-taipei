@@ -16,6 +16,7 @@ import { PlatformManager } from './world/Platforms.js';
 import { Level } from './world/Level.js';
 import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
+import { introCinematic } from './ui/Intro.js';
 
 class Game {
   constructor() {
@@ -26,7 +27,7 @@ class Game {
     this.canvas.width = this.vw;
     this.canvas.height = this.vh;
 
-    this.state = 'MENU'; // MENU, SELECT, PLAYING, VICTORY, GAMEOVER
+    this.state = 'MENU'; // MENU, INTRO, SELECT, PLAYING, VICTORY_RUN, VICTORY, GAMEOVER
     this.selectedCharId = 'yu';
 
     this.camera = new Camera(this.vw, this.vh);
@@ -35,6 +36,14 @@ class Game {
     this.player = new Player(this.selectedCharId);
     this.boss = new Boss();
     this.boss.minions = this.level.monsters;
+
+    // Victory sequence tracking
+    this.victoryTimer = 0;
+    this.victorySubState = '';
+    this.victoryPunchTimer = 0;
+
+    // Joystick touch tracking
+    this.joystickPointerId = null;
 
     // Assets for Menu
     this.menuKeyart = new Image();
@@ -51,12 +60,21 @@ class Game {
   initEvents() {
     window.addEventListener('resize', () => this.resizeCanvas());
 
+    // Space / Enter / Escape to skip Intro
+    window.addEventListener('keydown', (e) => {
+      if (this.state === 'INTRO') {
+        if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') {
+          introCinematic.skip();
+        }
+      }
+    });
+
     // Tab toggle Style Bible
     input.onToggleStyleBible = () => {
       styleBibleUI.toggle();
     };
 
-    // Canvas click / touch for menus & mobile buttons
+    // Canvas pointerdown
     this.canvas.addEventListener('pointerdown', (e) => {
       const rect = this.canvas.getBoundingClientRect();
       const scaleX = this.vw / rect.width;
@@ -64,16 +82,38 @@ class Game {
       const mx = (e.clientX - rect.left) * scaleX;
       const my = (e.clientY - rect.top) * scaleY;
 
-      this.handlePointerDown(mx, my);
+      this.handlePointerDown(mx, my, e);
     });
 
-    this.canvas.addEventListener('pointerup', () => {
+    // Canvas pointermove for analog virtual joystick
+    this.canvas.addEventListener('pointermove', (e) => {
+      if (this.joystickPointerId !== null && e.pointerId === this.joystickPointerId && (this.state === 'PLAYING' || this.state === 'VICTORY_RUN')) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.vw / rect.width;
+        const scaleY = this.vh / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top) * scaleY;
+        hud.updateJoystick(mx, my, true);
+        input.setJoystick(hud.joystick.normX, hud.joystick.normY);
+      }
+    });
+
+    // Canvas pointerup / cancel
+    const endPointer = (e) => {
+      if (e && e.pointerId === this.joystickPointerId) {
+        this.joystickPointerId = null;
+        hud.resetJoystick();
+        input.resetJoystick();
+      }
       input.touchLeft = false;
       input.touchRight = false;
       input.touchJump = false;
       input.touchSkill = false;
       input.touchUlt = false;
-    });
+    };
+
+    this.canvas.addEventListener('pointerup', endPointer);
+    this.canvas.addEventListener('pointercancel', endPointer);
   }
 
   resizeCanvas() {
@@ -120,14 +160,32 @@ class Game {
       return;
     }
 
+    if (this.state === 'INTRO') {
+      // Top right skip button: x: vw - 140, y: 18, w: 120, h: 34
+      if (mx >= this.vw - 140 && mx <= this.vw - 20 && my >= 18 && my <= 52) {
+        introCinematic.skip();
+      } else {
+        introCinematic.nextAct();
+      }
+      return;
+    }
+
     if (this.state === 'MENU') {
-      // Start Game Button
-      if (mx >= 350 && mx <= 610 && my >= 360 && my <= 420) {
+      // 1. Start Game Button
+      if (mx >= 350 && mx <= 610 && my >= 340 && my <= 392) {
         this.state = 'SELECT';
         audio.playCoin();
       }
-      // Style Bible Button
-      if (mx >= 380 && mx <= 580 && my >= 440 && my <= 485) {
+      // 2. Watch Intro Button
+      else if (mx >= 350 && mx <= 610 && my >= 402 && my <= 452) {
+        this.state = 'INTRO';
+        introCinematic.start(() => {
+          this.state = 'SELECT';
+        });
+        audio.playCoin();
+      }
+      // 3. Style Bible Button
+      else if (mx >= 380 && mx <= 580 && my >= 462 && my <= 505) {
         styleBibleUI.toggle();
       }
     } 
@@ -152,11 +210,18 @@ class Game {
       }
     } 
     else if (this.state === 'PLAYING') {
-      // Mobile touch controls
+      // Check Virtual Joystick touch / click
+      const jDist = Math.hypot(mx - hud.joystick.baseX, my - hud.joystick.baseY);
+      if (jDist <= hud.joystick.radius + 35) {
+        this.joystickPointerId = e ? e.pointerId : 1;
+        hud.updateJoystick(mx, my, true);
+        input.setJoystick(hud.joystick.normX, hud.joystick.normY);
+        return;
+      }
+
+      // Mobile touch action buttons
       const hitCircle = (btn, x, y) => Math.hypot(x - (btn.x + btn.w / 2), y - (btn.y + btn.h / 2)) <= btn.w / 2 + 10;
 
-      if (hitCircle(hud.btnLeft, mx, my)) input.touchLeft = true;
-      if (hitCircle(hud.btnRight, mx, my)) input.touchRight = true;
       if (hitCircle(hud.btnJump, mx, my)) {
         input.touchJump = true;
         input.jumpBufferTime = performance.now();
@@ -164,9 +229,20 @@ class Game {
       if (hitCircle(hud.btnSkill, mx, my)) input.touchSkill = true;
       if (hitCircle(hud.btnUlt, mx, my)) input.touchUlt = true;
 
-      // Check Victory / Game Over retry click
-      if (hud.isVictory || hud.isGameOver) {
+      // Check Game Over retry click
+      if (hud.isGameOver) {
         this.startGame();
+      }
+    }
+    else if (this.state === 'VICTORY') {
+      if (hud.isVictory) {
+        this.startGame();
+      }
+    }
+    else if (this.state === 'VICTORY_RUN') {
+      // Tap screen to accelerate to final report
+      if (this.victoryTimer > 2.0) {
+        this.victoryTimer = 10.0;
       }
     }
   }
@@ -175,15 +251,18 @@ class Game {
     this.state = 'PLAYING';
     this.player = new Player(this.selectedCharId);
     this.camera.setTarget(this.player);
+    this.pm.reset();
     this.level.buildLevelGeometry();
     this.boss = new Boss();
     this.boss.minions = this.level.monsters;
-    this.pm.reset();
-    this.level.buildLevelGeometry();
     projectiles.reset();
     particles.reset();
     hud.reset();
     input.reset();
+    this.victoryTimer = 0;
+    this.victorySubState = '';
+    this.victoryPunchTimer = 0;
+    this.joystickPointerId = null;
 
     audio.playBgm('city_pop');
   }
@@ -204,6 +283,11 @@ class Game {
   }
 
   update(dt) {
+    if (this.state === 'INTRO') {
+      introCinematic.update(dt);
+      return;
+    }
+
     if (this.state === 'PLAYING') {
       // Update Entities & World
       this.player.update(dt, input, this.pm.platforms);
@@ -230,6 +314,119 @@ class Game {
       projectiles.update(dt);
       particles.update(dt);
       hud.update(dt, this.player, this.boss);
+
+      // Boss Defeated Check -> Transition to VICTORY_RUN animation!
+      if (this.boss.isDead && !this.player.isDead) {
+        this.state = 'VICTORY_RUN';
+        this.victoryTimer = 0;
+        this.victorySubState = 'BOSS_BURST';
+        // Clear remaining monster projectiles for celebratory sprint
+        projectiles.projectiles = projectiles.projectiles.filter(p => p.isPlayer);
+      }
+    }
+    else if (this.state === 'VICTORY_RUN') {
+      this.updateVictoryRun(dt);
+    }
+  }
+
+  updateVictoryRun(dt) {
+    this.victoryTimer += dt;
+    this.boss.update(dt, this.player, this.camera);
+    particles.update(dt);
+    this.pm.update(dt, this.player);
+    this.camera.update(dt);
+
+    if (this.victorySubState === 'BOSS_BURST') {
+      // Boss dissolves in golden light and flower petals for 1.8s
+      if (this.victoryTimer >= 1.8) {
+        this.victorySubState = 'SPRINT_TO_CLOCK';
+        this.player.facing = 1;
+        this.player.animState = 'run';
+      }
+    } 
+    else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
+      // Hero auto-sprints towards the punch clock machine at x = 7050
+      this.player.facing = 1;
+      this.player.animState = 'run';
+      this.player.vx = 420;
+      this.player.x += this.player.vx * dt;
+      this.player.updateAnimation(dt);
+
+      // Emit high-speed dust trails
+      if (Math.random() < 0.7) {
+        particles.emitDust(this.player.x - 20, this.player.y, 5, '#00E5FF');
+      }
+
+      // Camera smoothly tracks player
+      this.camera.targetX = this.player.x - this.camera.viewportWidth * 0.4;
+
+      // Reached punch clock at x = 7025
+      if (this.player.x >= 7025) {
+        this.player.x = 7030;
+        this.player.vy = -260;
+        this.player.animState = 'attack';
+        this.victorySubState = 'PUNCH_CLOCK';
+        this.victoryPunchTimer = 0;
+
+        // Stamp clock machine!
+        if (this.pm.clockInMachine) {
+          this.pm.clockInMachine.punched = true;
+        }
+        audio.playStamp();
+        this.camera.shake(8, 0.4);
+
+        // Huge celebratory bursts
+        particles.emitHitSparks(7050, this.player.y - 50, '#00E676', 50);
+        particles.emitCoinSparkle(7050, this.player.y - 80);
+        for (let i = 0; i < 60; i++) {
+          particles.emit({
+            x: 7050,
+            y: this.player.y - 60,
+            vx: (Math.random() - 0.5) * 380,
+            vy: -Math.random() * 340 - 60,
+            size: Math.random() * 8 + 4,
+            color: ['#00E676', '#FFD700', '#00E5FF', '#FF4081', '#76FF03'][Math.floor(Math.random() * 5)],
+            life: 2.8,
+            shape: 'star'
+          });
+        }
+      }
+    } 
+    else if (this.victorySubState === 'PUNCH_CLOCK') {
+      this.victoryPunchTimer = (this.victoryPunchTimer || 0) + dt;
+      this.player.vy += 820 * dt;
+      this.player.y += this.player.vy * dt;
+      if (this.player.y >= 520) {
+        this.player.y = 520;
+        this.player.vy = 0;
+        this.player.animState = 'victory';
+        this.victorySubState = 'VICTORY_CELEBRATE';
+      }
+      this.player.updateAnimation(dt);
+    } 
+    else if (this.victorySubState === 'VICTORY_CELEBRATE') {
+      this.player.animState = 'victory';
+      this.player.updateAnimation(dt);
+
+      // Continuous sparkles
+      if (Math.random() < 0.35) {
+        particles.emit({
+          x: this.player.x + (Math.random() * 80 - 40),
+          y: this.player.y - Math.random() * 80,
+          vx: (Math.random() - 0.5) * 60,
+          vy: -Math.random() * 80 - 20,
+          size: 6,
+          color: '#FFD700',
+          life: 1.2,
+          shape: 'star'
+        });
+      }
+
+      // Transition to final victory score screen
+      if (this.victoryTimer >= 6.2) {
+        this.state = 'VICTORY';
+        hud.triggerVictory(this.player);
+      }
     }
   }
 
@@ -279,12 +476,17 @@ class Game {
   render() {
     this.ctx.clearRect(0, 0, this.vw, this.vh);
 
+    if (this.state === 'INTRO') {
+      introCinematic.render(this.ctx, this.vw, this.vh);
+      return;
+    }
+
     if (this.state === 'MENU') {
       this.renderMenu();
     } else if (this.state === 'SELECT') {
       this.renderSelect();
     } else {
-      // PLAYING, VICTORY, GAMEOVER
+      // PLAYING, VICTORY_RUN, VICTORY, GAMEOVER
       // 1. Parallax Backgrounds
       this.level.renderBackgrounds(this.ctx, this.camera);
 
@@ -293,7 +495,7 @@ class Game {
 
       this.pm.render(this.ctx, this.camera);
       this.level.renderMonsters(this.ctx, this.camera);
-      if (this.player.x >= 5600) {
+      if (this.player.x >= 5600 || this.state === 'VICTORY_RUN' || this.state === 'VICTORY') {
         this.boss.render(this.ctx);
       }
       this.player.render(this.ctx);
@@ -304,10 +506,40 @@ class Game {
 
       // 3. Screen-Space HUD & UI
       hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
+
+      // 4. Cinematic Victory Run Banner Overlay
+      if (this.state === 'VICTORY_RUN') {
+        if (this.victorySubState === 'BOSS_BURST') {
+          this.renderVictoryBanner('⚡ 魔王崩解！晨霧散去！快奔向松德院區打卡！');
+        } else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
+          this.renderVictoryBanner('🏃 晨衝倒數！全力衝刺松德院區打卡機！');
+        } else if (this.victorySubState === 'PUNCH_CLOCK' || this.victorySubState === 'VICTORY_CELEBRATE') {
+          this.renderVictoryBanner('🎉 07:58:24 打卡成功！ON TIME！準時上班大成功！');
+        }
+      }
     }
 
-    // 4. Style Bible Modal Overlay
+    // 5. Style Bible Modal Overlay
     styleBibleUI.render(this.ctx, this.vw, this.vh);
+  }
+
+  renderVictoryBanner(text) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 20, 40, 0.85)';
+    ctx.fillRect(0, 85, this.vw, 46);
+    ctx.strokeStyle = '#00E676';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, 85, this.vw, 46);
+
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 20px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#00E676';
+    ctx.shadowBlur = 12;
+    ctx.fillText(text, this.vw / 2, 108);
+    ctx.restore();
   }
 
   renderMenu() {
@@ -332,37 +564,48 @@ class Game {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 44px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.font = 'bold 42px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 16;
-    ctx.fillText('08點上班大作戰：通勤英雄篇', this.vw / 2, 160);
+    ctx.fillText('08點上班大作戰：通勤英雄篇', this.vw / 2, 145);
 
     ctx.fillStyle = '#81D4FA';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('—— 象山晨衝・奔向松德 ——', this.vw / 2, 210);
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText('—— 象山晨衝・奔向松德 ——', this.vw / 2, 192);
 
     ctx.fillStyle = '#ECEFF1';
-    ctx.font = '15px sans-serif';
-    ctx.fillText('台北 08:00 晨間通勤冒險 × 奇幻花系怪獸大作戰', this.vw / 2, 260);
+    ctx.font = '14px sans-serif';
+    ctx.fillText('台北 08:00 晨間通勤冒險 × 奇幻花系怪獸大作戰', this.vw / 2, 235);
 
-    // Start Button
+    // 1. Start Game Button
     ctx.fillStyle = '#0288D1';
-    ctx.fillRect(350, 350, 260, 60);
+    ctx.fillRect(350, 340, 260, 52);
     ctx.strokeStyle = '#B3E5FC';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(350, 350, 260, 60);
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(350, 340, 260, 52);
     ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillText('出發上班！開始遊戲', this.vw / 2, 388);
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('出發上班！開始遊戲', this.vw / 2, 366);
 
-    // Style Bible Button
+    // 2. Watch Intro Button (人物與怪獸開頭動畫)
+    ctx.fillStyle = 'rgba(233, 30, 99, 0.75)';
+    ctx.fillRect(350, 402, 260, 48);
+    ctx.strokeStyle = '#FF80AB';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(350, 402, 260, 48);
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('🎬 開篇序幕 (人物與怪獸介紹)', this.vw / 2, 426);
+
+    // 3. Style Bible Button
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(380, 430, 200, 45);
+    ctx.fillRect(380, 462, 200, 42);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.strokeRect(380, 430, 200, 45);
+    ctx.strokeRect(380, 462, 200, 42);
     ctx.fillStyle = '#FFF';
     ctx.font = '14px sans-serif';
-    ctx.fillText('企劃與設定集 [TAB]', this.vw / 2, 458);
+    ctx.fillText('企劃與設定集 [TAB]', this.vw / 2, 483);
 
     ctx.restore();
   }

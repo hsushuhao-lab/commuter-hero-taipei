@@ -71,17 +71,18 @@ export class Boss {
     if (this.hp <= 0) {
       this.hp = 0;
       this.isDead = true;
+      this.deathSequenceTimer = 2.2;
       audio.playBossRoar();
       // Massive explosion
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 80; i++) {
         particles.emit({
-          x: this.x + (Math.random() * 200 - 100),
-          y: this.y - Math.random() * 200,
-          vx: (Math.random() * 2 - 1) * 260,
-          vy: (Math.random() * 2 - 1) * 260,
-          size: Math.random() * 8 + 4,
-          color: Math.random() < 0.5 ? '#FF80AB' : '#E040FB',
-          life: 2.0,
+          x: this.x + (Math.random() * 220 - 110),
+          y: this.y - Math.random() * 220,
+          vx: (Math.random() * 2 - 1) * 320,
+          vy: (Math.random() * 2 - 1) * 320,
+          size: Math.random() * 10 + 4,
+          color: Math.random() < 0.5 ? '#FF80AB' : (Math.random() < 0.5 ? '#E040FB' : '#FFD700'),
+          life: 2.2,
           shape: 'petal'
         });
       }
@@ -112,7 +113,24 @@ export class Boss {
   }
 
   update(dt, player, camera) {
-    if (this.isDead) return;
+    if (this.isDead) {
+      if (this.deathSequenceTimer > 0) {
+        this.deathSequenceTimer -= dt;
+        if (Math.random() < 0.4) {
+          particles.emit({
+            x: this.x + (Math.random() * 200 - 100),
+            y: this.y - Math.random() * 200,
+            vx: (Math.random() - 0.5) * 120,
+            vy: -Math.random() * 150,
+            size: 6,
+            color: '#FFD700',
+            life: 1.0,
+            shape: 'star'
+          });
+        }
+      }
+      return;
+    }
 
     this.bobTimer += dt * (this.phase === 2 ? 3.5 : 2.0);
     if (this.hitTimer > 0) this.hitTimer -= dt;
@@ -309,13 +327,16 @@ export class Boss {
   }
 
   render(ctx) {
-    if (this.isDead) return;
+    if (this.isDead && (!this.deathSequenceTimer || this.deathSequenceTimer <= 0)) return;
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.scale(this.facing, 1);
 
-    if (this.hitTimer > 0) {
+    if (this.isDead) {
+      ctx.globalAlpha = Math.max(0, this.deathSequenceTimer / 2.2);
+      ctx.filter = 'brightness(2.2) drop-shadow(0 0 24px #FFD700)';
+    } else if (this.hitTimer > 0) {
       ctx.filter = 'brightness(1.9) drop-shadow(0 0 16px #E91E63)';
     }
 

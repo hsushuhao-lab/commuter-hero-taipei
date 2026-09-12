@@ -65,7 +65,7 @@ export class HUD {
       rank = 'Rank D';
     } else if (timeLeft >= 35) {
       stamp = 'Perfect';
-      if (player.coins >= 20 && player.hp >= 40) {
+      if (player.coins >= 10 && player.hp >= 40) {
         rank = 'Rank S';
       } else {
         rank = 'Rank A';
@@ -185,17 +185,17 @@ export class HUD {
     ctx.font = 'bold 9px monospace';
     ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, hpX + 45, hpY + 8);
 
-    // 2. Commute Coins (🪙 x / 15)
+    // 2. Commute Coins (🪙 x / 6)
     const coinX = 280;
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(`🪙 ${player.coins} / 15`, coinX, 36);
+    ctx.fillText(`🪙 ${player.coins} / 6`, coinX, 36);
 
     // Ultimate status indicator
-    if (player.coins < 15) {
+    if (player.coins < 6) {
       ctx.fillStyle = '#B0BEC5';
       ctx.font = '11px sans-serif';
-      ctx.fillText(`🔒 大招需 15 枚 (尚差 ${15 - player.coins} 枚)`, coinX, 54);
+      ctx.fillText(`🔒 大招需 6 枚 (尚差 ${6 - player.coins} 枚)`, coinX, 54);
     } else if (player.ultCooldown > 0) {
       ctx.fillStyle = '#FFB74D';
       ctx.font = 'bold 11px sans-serif';
@@ -261,7 +261,7 @@ export class HUD {
     ctx.fillStyle = boss.phase === 2 ? '#FF4081' : '#FF80AB';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
-    const title = boss.phase === 2 ? '【PHASE 2：狂暴盛開態】夢影巨花王' : '【PHASE 1】夢影巨花王';
+    const title = boss.phase === 2 ? '【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王' : '【PHASE 1】松德院區門前・夢影巨花王';
     ctx.fillText(title, vw / 2, barY - 6);
 
     // Health Bar Container
@@ -357,8 +357,8 @@ export class HUD {
 
     // Ult Button with Lock / Ready / Cooldown Sweep
     const ub = this.btnUlt;
-    ctx.fillStyle = player.coins >= 15 ? 'rgba(2, 136, 209, 0.6)' : 'rgba(60, 60, 60, 0.6)';
-    ctx.strokeStyle = player.coins >= 15 ? '#00E5FF' : '#9E9E9E';
+    ctx.fillStyle = player.coins >= 6 ? 'rgba(2, 136, 209, 0.6)' : 'rgba(60, 60, 60, 0.6)';
+    ctx.strokeStyle = player.coins >= 6 ? '#00E5FF' : '#9E9E9E';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(ub.x + ub.w / 2, ub.y + ub.h / 2, ub.w / 2, 0, Math.PI * 2);
@@ -369,7 +369,7 @@ export class HUD {
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(player.coins >= 15 ? '大招' : '🔒', ub.x + ub.w / 2, ub.y + ub.h / 2);
+    ctx.fillText(player.coins >= 6 ? '大招' : '🔒', ub.x + ub.w / 2, ub.y + ub.h / 2);
 
     ctx.restore();
   }

@@ -167,34 +167,14 @@ export class Boss {
     const pX = this.x;
     const pY = this.y - 120;
     const color = this.phase === 2 ? '#AD1457' : '#E91E63';
-    const speed = this.phase === 2 ? 260 : 200;
+    const speed = this.phase === 2 ? 330 : 270;
     const dmg = this.phase === 2 ? this.config.phase2.petalDamage : this.config.phase1.petalDamage;
 
     if (this.phase === 1) {
-      // 5-way fan spread
+      // 7-way wide fan spread
       const baseAngle = Math.atan2(player.y - pY, player.x - pX);
-      for (let i = -2; i <= 2; i++) {
-        const ang = baseAngle + i * 0.22;
-        projectiles.spawn({
-          isPlayer: false,
-          type: 'petal',
-          x: pX,
-          y: pY,
-          vx: Math.cos(ang) * speed,
-          vy: Math.sin(ang) * speed,
-          width: 22,
-          height: 14,
-          color: color,
-          damage: dmg,
-          life: 2.2,
-          rotates: true,
-          vRot: 3
-        });
-      }
-    } else {
-      // Phase 2: 12-way Spiral Bullet Hell Ring
-      for (let i = 0; i < 12; i++) {
-        const ang = this.bobTimer * 2 + i * (Math.PI * 2 / 12);
+      for (let i = -3; i <= 3; i++) {
+        const ang = baseAngle + i * 0.20;
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
@@ -208,7 +188,44 @@ export class Boss {
           damage: dmg,
           life: 2.5,
           rotates: true,
+          vRot: 3
+        });
+      }
+    } else {
+      // Phase 2: 16-way Spiral Bullet Hell Ring + Target Needle
+      for (let i = 0; i < 16; i++) {
+        const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / 16);
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'petal',
+          x: pX,
+          y: pY,
+          vx: Math.cos(ang) * speed,
+          vy: Math.sin(ang) * speed,
+          width: 26,
+          height: 18,
+          color: color,
+          damage: dmg,
+          life: 2.8,
+          rotates: true,
           vRot: 4
+        });
+      }
+      // Targeted burst needle directly at player
+      const directAngle = Math.atan2(player.y - pY, player.x - pX);
+      for (let j = -1; j <= 1; j++) {
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'petal',
+          x: pX,
+          y: pY,
+          vx: Math.cos(directAngle + j * 0.15) * (speed + 60),
+          vy: Math.sin(directAngle + j * 0.15) * (speed + 60),
+          width: 22,
+          height: 14,
+          color: '#FF1744',
+          damage: dmg,
+          life: 2.2
         });
       }
     }
@@ -216,53 +233,78 @@ export class Boss {
   }
 
   triggerVineThrust(player) {
-    // Ground vine warning at player X
     const targetX = Math.max(this.config.arena.startX + 50, Math.min(this.config.arena.endX - 50, player.x));
     const groundY = this.config.arena.groundY;
 
-    // Telegraph first: ground crack dust
-    particles.emitDust(targetX, groundY, 6, '#4CAF50');
+    // Telegraph dust
+    particles.emitDust(targetX, groundY, 8, '#4CAF50');
 
-    setTimeout(() => {
-      // Vine emerges
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'vine',
-        x: targetX,
-        y: groundY,
-        vx: 0,
-        vy: -400,
-        width: 32,
-        height: 70,
-        damage: this.phase === 2 ? 10 : 8,
-        life: 0.35
+    if (this.phase === 1) {
+      setTimeout(() => {
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'vine',
+          x: targetX,
+          y: groundY,
+          vx: 0,
+          vy: -440,
+          width: 36,
+          height: 80,
+          damage: 10,
+          life: 0.38
+        });
+        audio.playHit();
+        particles.emitDust(targetX, groundY, 12, '#2E7D32');
+      }, 380);
+    } else {
+      // Phase 2: Triple consecutive ground vines tracking player's stride!
+      [-80, 0, 80].forEach((offset, idx) => {
+        setTimeout(() => {
+          const vx = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, targetX + offset));
+          particles.emitDust(vx, groundY, 6, '#C2185B');
+          setTimeout(() => {
+            projectiles.spawn({
+              isPlayer: false,
+              type: 'vine',
+              x: vx,
+              y: groundY,
+              vx: 0,
+              vy: -480,
+              width: 38,
+              height: 85,
+              damage: 15,
+              life: 0.40
+            });
+            audio.playHit();
+            particles.emitDust(vx, groundY, 14, '#880E4F');
+          }, 240);
+        }, idx * 120);
       });
-      audio.playHit();
-      particles.emitDust(targetX, groundY, 10, '#2E7D32');
-    }, 450);
+    }
   }
 
   summonMinions() {
     // Count active boss minions
     const activeMinions = this.minions.filter(m => !m.isDead && m.x >= this.config.arena.startX);
-    if (activeMinions.length >= 4) return;
+    if (activeMinions.length >= 5) return;
 
     const spawnY = this.config.arena.groundY - 10;
     if (this.phase === 1) {
-      // Spawn 1 light monster (red or blue)
-      const type = Math.random() < 0.5 ? 'red' : 'blue';
-      const m = new Monster(type, this.x - 120, spawnY);
+      // Spawn 1 light/fast monster (red, blue, or pink)
+      const types = ['red', 'blue', 'pink'];
+      const type = types[Math.floor(Math.random() * types.length)];
+      const m = new Monster(type, this.x - 140, spawnY);
       this.minions.push(m);
-      particles.emitDust(this.x - 120, spawnY, 8, '#AB47BC');
+      particles.emitDust(this.x - 140, spawnY, 10, '#AB47BC');
     } else {
-      // Phase 2: Spawn 2 distinct monsters together!
-      const types = ['ice', 'yellow', 'pink'];
+      // Phase 2: Spawn 2~3 distinct monsters simultaneously!
+      const types = ['ice', 'yellow', 'obsidian', 'pink', 'grape'];
       const t1 = types[Math.floor(Math.random() * types.length)];
       const t2 = 'grape';
-      const m1 = new Monster(t1, this.x - 160, spawnY);
-      const m2 = new Monster(t2, this.x - 80, spawnY - 40);
+      const m1 = new Monster(t1, this.x - 180, spawnY);
+      const m2 = new Monster(t2, this.x - 90, spawnY - 50, true);
       this.minions.push(m1, m2);
-      particles.emitDust(this.x - 160, spawnY, 12, '#880E4F');
+      particles.emitDust(this.x - 180, spawnY, 14, '#880E4F');
     }
   }
 

@@ -106,9 +106,7 @@ export class InputManager {
   }
 
   isSkillTriggered() {
-    const res = this.justPressedKeys['KeyS'] || this.justPressedKeys['KeyJ'] || this.touchSkill;
-    this.touchSkill = false;
-    return res;
+    return this.keys['KeyS'] || this.keys['KeyJ'] || this.justPressedKeys['KeyS'] || this.justPressedKeys['KeyJ'] || this.touchSkill;
   }
 
   isUltTriggered() {

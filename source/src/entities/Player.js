@@ -108,8 +108,8 @@ export class Player {
 
   addCoins(amount = 1) {
     this.coins += amount;
-    if (this.coins >= 15 && !this.hasUnlockedUlt) {
-      this.hasUnlockedUlt = true; // 永久解鎖！
+    if (this.coins >= 6 && !this.hasUnlockedUlt) {
+      this.hasUnlockedUlt = true; // 6 枚金幣永久解鎖！
       particles.emitCoinSparkle(this.x, this.y - 40);
     }
   }
@@ -158,10 +158,11 @@ export class Player {
   }
 
   triggerSkill() {
-    if (this.skillCooldown > 0 || this.isAttacking || this.isUlting || this.isDead) return;
-    this.skillCooldown = this.charConfig.skill.cooldown;
+    if (this.isUlting || this.isDead) return;
+    if (this.skillCooldown > 0) return; // 80ms 自動連發緩衝（按住連續發射，點擊瞬發）
+    this.skillCooldown = 0.08;
     this.isAttacking = true;
-    this.attackTimer = 0.36; // 5 frames @ ~14fps
+    this.attackTimer = 0.14;
     this.animState = 'attack';
     this.animTimer = 0;
 
@@ -172,48 +173,46 @@ export class Player {
     const spawnY = this.y - 35;
 
     if (this.id === 'yu') {
-      // Umbrella wind slash: melee swing + cyan projectile
+      // Umbrella wind slash: wide piercing wind blade
       projectiles.spawn({
         isPlayer: true,
         type: 'wind_blade',
         x: spawnX,
         y: spawnY,
-        vx: this.facing * 520,
+        vx: this.facing * 680,
         vy: 0,
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         damage: this.charConfig.skill.damage,
-        life: 0.55,
+        life: 1.2,
         canClearEnemyBullets: true
       });
     } else if (this.id === 'shakira') {
-      // Twin egg shots
+      // Twin egg shots rapid stream
       projectiles.spawn({
         isPlayer: true,
         type: 'egg',
         x: spawnX,
         y: spawnY - 6,
-        vx: this.facing * 580,
+        vx: this.facing * 720,
         vy: -20,
-        width: 18,
-        height: 14,
-        damage: this.charConfig.skill.damage * 0.55,
-        life: 0.75
+        width: 20,
+        height: 16,
+        damage: this.charConfig.skill.damage * 0.6,
+        life: 1.2
       });
-      setTimeout(() => {
-        projectiles.spawn({
-          isPlayer: true,
-          type: 'egg',
-          x: this.x + this.facing * 35,
-          y: this.y - 35 + 8,
-          vx: this.facing * 600,
-          vy: 20,
-          width: 18,
-          height: 14,
-          damage: this.charConfig.skill.damage * 0.55,
-          life: 0.75
-        });
-      }, 90);
+      projectiles.spawn({
+        isPlayer: true,
+        type: 'egg',
+        x: spawnX,
+        y: spawnY + 6,
+        vx: this.facing * 700,
+        vy: 20,
+        width: 20,
+        height: 16,
+        damage: this.charConfig.skill.damage * 0.6,
+        life: 1.2
+      });
     } else {
       // Sandra: Heavy skillet bash + fiery shockwave
       projectiles.spawn({
@@ -221,19 +220,19 @@ export class Player {
         type: 'pan_wave',
         x: spawnX,
         y: spawnY,
-        vx: this.facing * 420,
+        vx: this.facing * 580,
         vy: 0,
-        width: 36,
-        height: 36,
+        width: 42,
+        height: 42,
         damage: this.charConfig.skill.damage,
-        life: 0.45
+        life: 1.0
       });
     }
   }
 
   triggerUltimate() {
-    // 嚴格規則：15 金幣永久解鎖，解鎖後不扣幣！只受冷卻限制！
-    if (this.coins < 15 || this.ultCooldown > 0 || this.isUlting || this.isDead) return;
+    // 6 金幣永久解鎖，解鎖後不扣幣！只受冷卻限制！
+    if (this.coins < 6 || this.ultCooldown > 0 || this.isUlting || this.isDead) return;
 
     this.ultCooldown = this.charConfig.ult.cooldown;
     this.isUlting = true;

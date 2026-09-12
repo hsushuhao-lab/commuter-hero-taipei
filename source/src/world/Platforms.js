@@ -28,6 +28,8 @@ export class PlatformManager {
     this.imgBrick.src = 'assets/tile_brick.png';
     this.imgGround = new Image();
     this.imgGround.src = 'assets/tile_ground.png';
+    this.imgClockMachine = new Image();
+    this.imgClockMachine.src = 'assets/prop_clock_machine.png';
   }
 
   reset() {
@@ -57,8 +59,8 @@ export class PlatformManager {
     this.clockInMachine = {
       x,
       y,
-      width: 46,
-      height: 74,
+      width: 72,
+      height: 96,
       punched: false
     };
   }
@@ -96,10 +98,11 @@ export class PlatformManager {
     // Check Clock-In Machine Punch
     if (this.clockInMachine && !this.clockInMachine.punched) {
       const dist = Math.hypot(player.x - this.clockInMachine.x, player.y - this.clockInMachine.y);
-      if (dist < 45) {
+      if (dist < 55) {
         this.clockInMachine.punched = true;
         audio.playStamp();
-        particles.emitHitSparks(this.clockInMachine.x, this.clockInMachine.y - 40, '#4CAF50', 20);
+        particles.emitHitSparks(this.clockInMachine.x, this.clockInMachine.y - 45, '#4CAF50', 25);
+        particles.emitCoinSparkle(this.clockInMachine.x, this.clockInMachine.y - 60);
       }
     }
   }
@@ -176,40 +179,35 @@ export class PlatformManager {
       ctx.restore();
     }
 
-    // 3. Render Clock-In Machine
+    // 3. Render Clock-In Machine (松德院區打卡機)
     if (this.clockInMachine) {
       const m = this.clockInMachine;
-      ctx.save();
-      ctx.translate(m.x, m.y);
+      if (m.x + m.width >= camera.x - 50 && m.x <= camera.x + camera.viewportWidth + 50) {
+        ctx.save();
+        ctx.translate(m.x, m.y);
 
-      // Machine Body (Green/Grey metal standing kiosk)
-      ctx.fillStyle = '#2E7D32';
-      ctx.fillRect(-m.width / 2, -m.height, m.width, m.height);
-      ctx.strokeStyle = '#1B5E20';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-m.width / 2, -m.height, m.width, m.height);
+        // Render high-res AI cutout prop
+        if (this.imgClockMachine.complete && this.imgClockMachine.naturalWidth > 0) {
+          ctx.drawImage(this.imgClockMachine, -m.width / 2, -m.height, m.width, m.height);
+        } else {
+          // Fallback metal kiosk
+          ctx.fillStyle = '#2E7D32';
+          ctx.fillRect(-m.width / 2, -m.height, m.width, m.height);
+          ctx.strokeStyle = '#1B5E20';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(-m.width / 2, -m.height, m.width, m.height);
+        }
 
-      // Screen
-      ctx.fillStyle = '#000';
-      ctx.fillRect(-m.width / 2 + 6, -m.height + 8, m.width - 12, 22);
+        // Punch status banner & digital clock glow
+        ctx.fillStyle = m.punched ? '#00E676' : '#FFD700';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = m.punched ? '#00E676' : '#FFD700';
+        ctx.shadowBlur = 8;
+        ctx.fillText(m.punched ? '✓ 07:58 打卡完成' : '🖹 松德院區打卡處', 0, -m.height - 8);
 
-      // Digital Clock LED: 07:58:24
-      ctx.fillStyle = m.punched ? '#69F0AE' : '#76FF03';
-      ctx.font = 'bold 9px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(m.punched ? 'ON TIME!' : '07:58:24', 0, -m.height + 23);
-
-      // Card Slot
-      ctx.fillStyle = '#1B5E20';
-      ctx.fillRect(-14, -m.height + 36, 28, 4);
-
-      // Status indicator light
-      ctx.fillStyle = m.punched ? '#00E676' : '#FFD600';
-      ctx.beginPath();
-      ctx.arc(0, -m.height + 50, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
+        ctx.restore();
+      }
     }
 
     ctx.restore();

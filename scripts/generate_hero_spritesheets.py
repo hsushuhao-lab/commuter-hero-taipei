@@ -52,11 +52,17 @@ def transform_character(img, angle=0, scale_x=1.0, scale_y=1.0, flash_color=None
         ))
         
     if abs(angle) > 0.05:
-        scaled = scaled.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True)
+        # In PIL, positive angle rotates counterclockwise.
+        # To tilt forward to the right (clockwise), use negative angle:
+        scaled = scaled.rotate(-angle, resample=Image.Resampling.BICUBIC, expand=True)
     return scaled
 
 def build_character_sheet(char_key, base_img_path, colors):
     base = Image.open(base_img_path).convert('RGBA')
+    
+    # Flip base image horizontally so that the character faces RIGHT (forward into the commute)!
+    base = base.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    
     bw, bh = base.size
     
     # Target height 144px (1.8 head proportion in 256x256 box)
@@ -92,7 +98,6 @@ def build_character_sheet(char_key, base_img_path, colors):
         shadow_w = 30
         
         if anim_name == 'idle':
-            # Subtle breathing cycle (0, 1, 2, 3)
             phase = sub_idx * (2 * math.pi / 4)
             bob_y = int(math.sin(phase) * 2.5)
             scale_y = 1.0 + math.sin(phase) * 0.02
@@ -109,7 +114,6 @@ def build_character_sheet(char_key, base_img_path, colors):
                 scale_x = 1.12
                 body_angle = 1.5
                 shadow_w = 38
-                # Landing dust poofs left and right
                 d.ellipse([cx - 44, FEET_Y - 5, cx - 18, FEET_Y + 3], fill=(255, 255, 255, 170))
                 d.ellipse([cx + 18, FEET_Y - 5, cx + 44, FEET_Y + 3], fill=(255, 255, 255, 170))
                 d.ellipse([cx - 30, FEET_Y - 8, cx - 10, FEET_Y - 1], fill=(240, 240, 240, 130))
@@ -144,7 +148,7 @@ def build_character_sheet(char_key, base_img_path, colors):
         elif anim_name == 'run':
             p = sub_idx
             bob_offsets = [-4, -8, -3, 3, -1, 4]
-            lean_angles = [12, 14, 11, 13, 15, 12]
+            lean_angles = [12, 14, 11, 13, 15, 12] # Forward lean to the right!
             scale_ys    = [1.02, 1.05, 1.0, 0.96, 1.01, 0.95]
             scale_xs    = [0.98, 0.95, 1.0, 1.04, 0.99, 1.05]
             
@@ -377,7 +381,9 @@ def build_character_sheet(char_key, base_img_path, colors):
         
     out_path = os.path.join(assets_dir, f'hero_{char_key}_anim.png')
     sheet.save(out_path)
-    print(f'Saved {out_path} (32 frames, 2048x1024)')
+    # Also save to source/assets
+    sheet.save(os.path.join(base_dir, 'source', 'assets', f'hero_{char_key}_anim.png'))
+    print(f'Saved {out_path} (Facing RIGHT, 32 frames, 2048x1024)')
 
 build_character_sheet('yu', os.path.join(assets_dir, 'chibi_yu_clean.png'), {
     'accent': (123, 211, 255, 220),
@@ -394,4 +400,4 @@ build_character_sheet('sandra', os.path.join(assets_dir, 'chibi_sandra_clean.png
     'theme': (255, 210, 100, 240)
 })
 
-print('All 3 hero animation sheets successfully rebuilt with 0 seams and commercial-grade Chibi precision!')
+print('All 3 hero animation sheets successfully rebuilt FACING RIGHT!')

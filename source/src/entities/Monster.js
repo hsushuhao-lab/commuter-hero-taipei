@@ -12,13 +12,14 @@ import { particles } from './Particles.js';
 import { projectiles } from './Projectiles.js';
 
 export class Monster {
-  constructor(typeKey, x, y) {
+  constructor(typeKey, x, y, isSkyDrop = false) {
     this.config = MONSTER_TYPES[typeKey] || MONSTER_TYPES.red;
     this.typeKey = typeKey;
+    this.isSkyDrop = isSkyDrop;
     this.x = x;
-    this.y = y;
     this.originX = x;
     this.originY = y;
+    this.y = isSkyDrop ? y - 280 : y;
     this.vx = 0;
     this.vy = 0;
 
@@ -29,10 +30,10 @@ export class Monster {
     this.facing = -1;
 
     // AI & Attack Timers
-    this.attackCooldownTimer = Math.random() * 1.5; // Staggered first attack
+    this.attackCooldownTimer = Math.random() * 1.2; // Staggered first attack
     this.isTelegraphing = false;
     this.telegraphTimer = 0;
-    this.telegraphDuration = this.config.telegraphDuration || 0.42;
+    this.telegraphDuration = this.config.telegraphDuration || 0.32;
 
     // Visual & State
     this.isDead = false;
@@ -62,26 +63,38 @@ export class Monster {
   update(dt, player) {
     if (this.isDead) return;
 
-    this.bobTimer += dt * 3;
+    this.bobTimer += dt * 3.5;
     if (this.hitTimer > 0) this.hitTimer -= dt;
 
     // Face player
     this.facing = player.x < this.x ? -1 : 1;
 
-    // Patrol / Float behavior
     const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
 
+    // Sky drop descent behavior
+    if (this.isSkyDrop && this.y < this.originY) {
+      if (distToPlayer < 750) {
+        this.y += 140 * dt;
+        this.x += Math.sin(this.bobTimer * 2) * 50 * dt;
+        if (Math.random() < 0.25) {
+          particles.emitDust(this.x, this.y, 1, this.config.color);
+        }
+      }
+    }
+
+    // Patrol / Float behavior
     if (this.config.type === 'flying') {
       // Sinusoidal floating
-      this.y = this.originY + Math.sin(this.bobTimer) * 20;
-      if (distToPlayer < 450 && !this.isTelegraphing) {
-        this.vx = this.facing * this.config.speed * 0.7;
+      const targetBaseY = this.isSkyDrop && this.y < this.originY ? this.y : this.originY;
+      this.y = targetBaseY + Math.sin(this.bobTimer) * 22;
+      if (distToPlayer < 700 && !this.isTelegraphing) {
+        this.vx = this.facing * this.config.speed * 0.75;
       } else {
         this.vx = 0;
       }
     } else {
       // Ground patrol
-      if (distToPlayer < 400 && !this.isTelegraphing) {
+      if (distToPlayer < 650 && !this.isTelegraphing) {
         this.vx = this.facing * this.config.speed;
       } else {
         this.vx = 0;
@@ -90,8 +103,8 @@ export class Monster {
 
     this.x += this.vx * dt;
 
-    // Handle Attack & Telegraph
-    if (distToPlayer < 500) {
+    // Handle Attack & Telegraph (screen-spanning range)
+    if (distToPlayer < 800) {
       if (this.isTelegraphing) {
         this.telegraphTimer += dt;
         if (this.telegraphTimer >= this.telegraphDuration) {
@@ -117,123 +130,186 @@ export class Monster {
     const spawnY = this.y - 25;
 
     if (this.typeKey === 'red') {
-      // Line spike projectile
+      // Screen-spanning rapid piercing red lance
       projectiles.spawn({
         isPlayer: false,
         type: 'petal',
         x: spawnX,
         y: spawnY,
-        vx: dir * 360,
+        vx: dir * 560,
         vy: 0,
-        width: 22,
-        height: 12,
+        width: 32,
+        height: 14,
         color: '#FF5252',
         damage: this.config.attackDamage,
-        life: 1.2
+        life: 1.8
       });
     } 
     else if (this.typeKey === 'ice') {
-      // Ground shockwave
+      // Dual bi-directional ground frost shockwaves
       projectiles.spawn({
         isPlayer: false,
         type: 'pan_wave',
         x: spawnX,
         y: this.y,
-        vx: dir * 300,
+        vx: dir * 360,
         vy: 0,
-        width: 32,
-        height: 24,
+        width: 42,
+        height: 28,
         color: '#40C4FF',
         damage: this.config.attackDamage,
-        life: 0.9
+        life: 1.4
+      });
+      projectiles.spawn({
+        isPlayer: false,
+        type: 'pan_wave',
+        x: spawnX,
+        y: this.y,
+        vx: -dir * 360,
+        vy: 0,
+        width: 42,
+        height: 28,
+        color: '#40C4FF',
+        damage: this.config.attackDamage,
+        life: 1.4
       });
     }
     else if (this.typeKey === 'grape') {
-      // Parabolic toxic bubble
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'petal',
-        x: spawnX,
-        y: spawnY - 10,
-        vx: dir * 220,
-        vy: -150,
-        width: 18,
-        height: 18,
-        color: '#BA68C8',
-        damage: this.config.attackDamage,
-        life: 1.5,
-        rotates: true,
-        vRot: 4
+      // Triple toxic lob bubbles covering high, medium and low arcs
+      const angles = [
+        { vx: dir * 240, vy: -200 },
+        { vx: dir * 320, vy: -150 },
+        { vx: dir * 180, vy: -250 }
+      ];
+      angles.forEach(a => {
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'petal',
+          x: spawnX,
+          y: spawnY - 10,
+          vx: a.vx,
+          vy: a.vy,
+          width: 22,
+          height: 22,
+          color: '#BA68C8',
+          damage: this.config.attackDamage,
+          life: 2.2,
+          rotates: true,
+          vRot: 4
+        });
       });
     }
     else if (this.typeKey === 'blue') {
-      // High speed water blade
+      // Twin ultra-fast hydro cutters
       projectiles.spawn({
         isPlayer: false,
         type: 'wind_blade',
         x: spawnX,
-        y: spawnY,
-        vx: dir * 460,
-        vy: 0,
-        width: 26,
-        height: 20,
+        y: spawnY - 8,
+        vx: dir * 600,
+        vy: -25,
+        width: 32,
+        height: 22,
         color: '#00E5FF',
         damage: this.config.attackDamage,
-        life: 0.8
+        life: 1.5
+      });
+      projectiles.spawn({
+        isPlayer: false,
+        type: 'wind_blade',
+        x: spawnX,
+        y: spawnY + 8,
+        vx: dir * 600,
+        vy: 25,
+        width: 32,
+        height: 22,
+        color: '#00E5FF',
+        damage: this.config.attackDamage,
+        life: 1.5
       });
     }
     else if (this.typeKey === 'yellow') {
-      // Golden fan 3 petals
-      for (let i = -1; i <= 1; i++) {
+      // 5-Way wide golden petal fan covering 75 degrees
+      for (let i = -2; i <= 2; i++) {
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
           x: spawnX,
           y: spawnY,
-          vx: dir * 280,
-          vy: i * 80,
-          width: 20,
-          height: 14,
+          vx: dir * 360,
+          vy: i * 85,
+          width: 24,
+          height: 16,
           color: '#FFD700',
           damage: this.config.attackDamage,
-          life: 1.4,
+          life: 2.0,
           rotates: true,
           vRot: 3
         });
       }
     }
     else if (this.typeKey === 'obsidian') {
-      // Heavy ground slam shockwave
+      // Giant seismic shockwave + rising ground stone spike
       projectiles.spawn({
         isPlayer: false,
         type: 'pan_wave',
         x: spawnX,
         y: this.y,
-        vx: dir * 240,
+        vx: dir * 280,
         vy: 0,
-        width: 44,
-        height: 36,
+        width: 56,
+        height: 44,
         color: '#3949AB',
         damage: this.config.attackDamage,
-        life: 1.2
+        life: 1.8
       });
+      setTimeout(() => {
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'vine',
+          x: this.x + dir * 160,
+          y: this.y,
+          vx: 0,
+          vy: -380,
+          width: 34,
+          height: 70,
+          color: '#3949AB',
+          damage: this.config.attackDamage,
+          life: 0.38
+        });
+      }, 150);
     }
     else {
-      // Pink dive swoop
+      // Pink aerial dive swoop + dual flower bomb drop
       projectiles.spawn({
         isPlayer: false,
         type: 'petal',
         x: spawnX,
         y: spawnY,
-        vx: dir * 320,
-        vy: 120,
-        width: 20,
-        height: 16,
+        vx: dir * 380,
+        vy: 140,
+        width: 24,
+        height: 18,
         color: '#FF80AB',
         damage: this.config.attackDamage,
-        life: 1.0,
+        life: 1.6,
         rotates: true,
         vRot: 5
+      });
+      projectiles.spawn({
+        isPlayer: false,
+        type: 'petal',
+        x: spawnX - dir * 35,
+        y: spawnY - 15,
+        vx: dir * 260,
+        vy: 200,
+        width: 22,
+        height: 18,
+        color: '#FF80AB',
+        damage: this.config.attackDamage,
+        life: 1.6,
+        rotates: true,
+        vRot: 4
       });
     }
   }
@@ -295,45 +371,47 @@ export class Monster {
     const startY = this.y - 25;
 
     if (this.typeKey === 'red') {
-      // Red targeting laser line
+      // Screen-spanning red targeting laser line
       ctx.lineWidth = 3;
       ctx.setLineDash([8, 6]);
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      ctx.lineTo(startX + dir * 350, startY);
+      ctx.lineTo(startX + dir * 650, startY);
       ctx.stroke();
     } 
     else if (this.typeKey === 'ice') {
-      // Expanding ice circle at feet
+      // Expanding dual ice shockwave zone
       ctx.lineWidth = 2;
-      const radius = 20 + progress * 50;
+      const radius = 30 + progress * 80;
       ctx.beginPath();
       ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
       ctx.stroke();
     }
     else if (this.typeKey === 'grape') {
-      // Purple lob trajectory
+      // Wide triple purple lob arc
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      ctx.quadraticCurveTo(startX + dir * 120, startY - 120, startX + dir * 240, this.y);
+      ctx.quadraticCurveTo(startX + dir * 180, startY - 180, startX + dir * 360, this.y);
       ctx.stroke();
     }
     else if (this.typeKey === 'blue') {
-      // Water blade line
+      // Fast dual water cutter lines
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(startX + dir * 280, startY);
+      ctx.moveTo(startX, startY - 8);
+      ctx.lineTo(startX + dir * 600, startY - 8);
+      ctx.moveTo(startX, startY + 8);
+      ctx.lineTo(startX + dir * 600, startY + 8);
       ctx.stroke();
     }
     else if (this.typeKey === 'yellow') {
-      // Golden petal fan sector
+      // Golden petal 5-way fan sector
       ctx.beginPath();
       ctx.moveTo(startX, startY);
       const angleCenter = dir > 0 ? 0 : Math.PI;
-      ctx.arc(startX, startY, 260, angleCenter - 0.25, angleCenter + 0.25);
+      ctx.arc(startX, startY, 360, angleCenter - 0.45, angleCenter + 0.45);
       ctx.closePath();
       ctx.globalAlpha = alpha * 0.25;
       ctx.fill();
@@ -341,18 +419,18 @@ export class Monster {
       ctx.stroke();
     }
     else if (this.typeKey === 'obsidian') {
-      // Ground danger tremor zone
+      // Ground danger tremor zone + spike marker
       ctx.lineWidth = 3;
-      const zoneW = 220;
-      ctx.strokeRect(dir > 0 ? this.x : this.x - zoneW, this.y - 10, zoneW, 20);
+      const zoneW = 340;
+      ctx.strokeRect(dir > 0 ? this.x : this.x - zoneW, this.y - 12, zoneW, 24);
     }
     else {
-      // Pink dive trajectory
+      // Pink dive swoop line + bomb area
       ctx.lineWidth = 3;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      ctx.lineTo(startX + dir * 260, startY + 120);
+      ctx.lineTo(startX + dir * 380, startY + 160);
       ctx.stroke();
     }
 

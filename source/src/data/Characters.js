@@ -28,16 +28,16 @@ export const CHARACTERS = {
       speed: 340,
       jumpForce: -620,
       gravity: 1400,
-      skillCooldown: 2.2, // 秒
+      skillCooldown: 0, // 零冷卻！無限連續發射
       ultCooldown: 9.0    // 秒
     },
     skill: {
       name: '雨傘風壓斬',
       key: 'S / J',
-      cooldown: 2.2,
+      cooldown: 0,
       damage: 35,
-      range: 220,
-      desc: '揮動折傘斬出青藍風刃，消弭前方敵彈並擊退敵人。'
+      range: 850,
+      desc: '揮動折傘斬出青藍風刃，零冷卻無限連發！消弭前方敵彈並破空穿透。'
     },
     ult: {
       name: '準時衝刺・逆風傘幕',
@@ -73,16 +73,16 @@ export const CHARACTERS = {
       speed: 320,
       jumpForce: -640,
       gravity: 1350,
-      skillCooldown: 1.8,
+      skillCooldown: 0,
       ultCooldown: 10.0
     },
     skill: {
       name: '美乃滋噴射・蛋能彈',
       key: 'S / J',
-      cooldown: 1.8,
-      damage: 30,
-      range: 360,
-      desc: '連發兩枚金色流心蛋彈，命中濺射出美乃滋星爆，射程三人中最遠。'
+      cooldown: 0,
+      damage: 28,
+      range: 900,
+      desc: '零冷卻無限連發雙子流心蛋彈，射速極高，命中濺射出美乃滋星爆！'
     },
     ult: {
       name: '元氣蛋浪・Oeuf Mayo 星雨',
@@ -119,17 +119,17 @@ export const CHARACTERS = {
       speed: 310,
       jumpForce: -610,
       gravity: 1450,
-      skillCooldown: 2.5,
+      skillCooldown: 0,
       ultCooldown: 8.5
     },
     skill: {
       name: '爆炒上菜・鐵鍋重擊',
       key: 'S / J',
-      cooldown: 2.5,
-      damage: 48,
-      range: 170,
-      knockback: 420,
-      desc: '揮出帶有熾熱火花的鑄鐵鍋重擊，伴隨番茄青花菜殘影，產生強大擊退力與地面衝擊波。'
+      cooldown: 0,
+      damage: 42,
+      range: 800,
+      knockback: 450,
+      desc: '零冷卻無限狂轟鑄鐵鍋氣烈焰，伴隨番茄青花菜殘影與強烈衝擊波！'
     },
     ult: {
       name: '主廚旋風鍋・海鷗料理風暴',

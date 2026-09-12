@@ -3,6 +3,9 @@
 
 一款結合台北在地晨間地景與日系魔法少女奇幻花系怪獸的高完成度 2D 橫向卷軸跑酷動作遊戲。
 
+> **🌐 即時公開試玩網址 (Live URL)**：[https://hsushuhao-lab.github.io/commuter-hero-taipei/](https://hsushuhao-lab.github.io/commuter-hero-taipei/)  
+> **📦 GitHub 開放倉庫**：[https://github.com/hsushuhao-lab/commuter-hero-taipei](https://github.com/hsushuhao-lab/commuter-hero-taipei)
+
 ---
 
 ## 🌟 遊戲核心特色與重大里程碑

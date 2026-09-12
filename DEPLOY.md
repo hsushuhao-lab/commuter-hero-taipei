@@ -1,6 +1,9 @@
 # 《08點上班大作戰：通勤英雄篇》部署與執行手冊 (DEPLOYMENT GUIDE)
 **專案版本：v8.0.0 Commercial Release**
 
+> **🌐 即時公開試玩網址 (Live URL)**：[https://hsushuhao-lab.github.io/commuter-hero-taipei/](https://hsushuhao-lab.github.io/commuter-hero-taipei/)  
+> **📦 GitHub 專案倉庫**：[https://github.com/hsushuhao-lab/commuter-hero-taipei](https://github.com/hsushuhao-lab/commuter-hero-taipei)
+
 ---
 
 ## 🖥️ 一、本機離線雙擊執行 (最推薦方式)

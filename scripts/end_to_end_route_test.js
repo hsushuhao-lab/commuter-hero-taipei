@@ -25,7 +25,7 @@ global.window = {
     }
     createGain() {
       return {
-        gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, setTargetAtTime: () => {} },
+        gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, linearRampToValueAtTime: () => {}, setTargetAtTime: () => {} },
         connect: () => {}
       };
     }
@@ -146,6 +146,21 @@ for (const charId of testMatrix) {
         input.keys['ArrowRight'] = true;
         input.keys['ArrowLeft'] = false;
 
+        // v9.5 Cliff detection & jump
+        const lookAheadX = game.player.x + 95;
+        const groundAhead = game.pm.platforms.some(p => p.type === 'stone' && p.x <= lookAheadX && (p.x + p.w) >= lookAheadX && p.y >= 540);
+        if (!groundAhead && game.player.onGround) {
+          input.justPressedKeys['Space'] = true;
+          input.keys['Space'] = true;
+        } else if (game.player.onGround) {
+          input.keys['Space'] = false;
+        }
+
+        // Air dash across wider gaps
+        if (!game.player.onGround && game.player.dashCooldown <= 0 && game.player.y > 480) {
+          input.justPressedKeys['ShiftLeft'] = true;
+        }
+
         // Front combat
         const enemyAhead = game.level.monsters.find(m => !m.isDead && m.x > game.player.x && (m.x - game.player.x) < botSkillRange);
         if (enemyAhead) {
@@ -153,6 +168,7 @@ for (const charId of testMatrix) {
           // Jump-vault over grounded monster if within 140px
           if ((enemyAhead.x - game.player.x) < 140 && enemyAhead.y >= 500 && game.player.onGround) {
             input.justPressedKeys['Space'] = true;
+            input.keys['Space'] = true;
           }
           // Unleash Ult if unlocked
           if (game.player.coins >= 15 && game.player.ultCooldown <= 0) {

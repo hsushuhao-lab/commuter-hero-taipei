@@ -13,8 +13,9 @@ import { projectiles } from './Projectiles.js';
 
 export class Monster {
   constructor(typeKey, x, y, isSkyDrop = false) {
-    this.config = MONSTER_TYPES[typeKey] || MONSTER_TYPES.red;
-    this.typeKey = typeKey;
+    const isValid = typeKey && MONSTER_TYPES[typeKey] && !MONSTER_TYPES[typeKey].disabled && typeKey !== 'transit';
+    this.typeKey = isValid ? typeKey : 'red';
+    this.config = MONSTER_TYPES[this.typeKey];
     this.isSkyDrop = isSkyDrop;
     this.x = x;
     this.originX = x;
@@ -34,21 +35,31 @@ export class Monster {
     this.width = 54;
     this.height = 54;
     this.facing = -1;
+    this.patrolBounds = null;
 
     // AI & Attack Timers
     this.attackCooldownTimer = Math.random() * 1.2; // Staggered first attack
     this.isTelegraphing = false;
     this.telegraphTimer = 0;
     this.telegraphDuration = this.config.telegraphDuration || 0.32;
+    this.delayedSpawns = [];
+    this.turnaroundTimer = 0;
 
     // Visual & State
     this.isDead = false;
     this.hitTimer = 0;
     this.bobTimer = Math.random() * Math.PI * 2;
 
-    // Image
-    this.image = new Image();
-    this.image.src = this.config.asset;
+    // Preload P1 and P2 images
+    this.imageP1 = new Image();
+    this.imageP1.src = this.config.asset;
+    this.imageP2 = new Image();
+    if (this.config.phase2 && this.config.phase2.asset) {
+      this.imageP2.src = this.config.phase2.asset;
+    } else {
+      this.imageP2 = this.imageP1;
+    }
+    this.image = this.imageP1;
   }
 
   evolveToPhase2() {
@@ -60,9 +71,7 @@ export class Monster {
       const hpDiff = p2.hp - this.config.hp;
       this.hp = Math.min(p2.hp, this.hp + hpDiff);
       this.maxHp = p2.hp;
-      if (p2.asset) {
-        this.image.src = p2.asset;
-      }
+      this.image = this.imageP2;
       this.speed = p2.speed;
       this.attackDamage = p2.attackDamage;
       this.attackCooldown = p2.attackCooldown;
@@ -86,8 +95,20 @@ export class Monster {
     }
   }
 
-  update(dt, player) {
+  update(dt, player, platforms = []) {
     if (this.isDead) return;
+
+    // Process delayed spawns (dt-driven)
+    for (let i = this.delayedSpawns.length - 1; i >= 0; i--) {
+      const item = this.delayedSpawns[i];
+      item.delay -= dt;
+      if (item.delay <= 0) {
+        if (!this.isDead) {
+          item.spawn();
+        }
+        this.delayedSpawns.splice(i, 1);
+      }
+    }
 
     // 30 金幣觸發怪獸二階段全體進化 (Commuter Resonance)
     if (player.coins >= 30 && !this.isPhase2) {
@@ -96,9 +117,12 @@ export class Monster {
 
     this.bobTimer += dt * 3.5;
     if (this.hitTimer > 0) this.hitTimer -= dt;
+    if (this.turnaroundTimer > 0) this.turnaroundTimer -= dt;
 
-    // Face player
-    this.facing = player.x < this.x ? -1 : 1;
+    // Face player unless currently turning around from edge/boundary
+    if (this.turnaroundTimer <= 0) {
+      this.facing = player.x < this.x ? -1 : 1;
+    }
 
     const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
 
@@ -115,19 +139,7 @@ export class Monster {
 
     // Patrol / Float behavior
     if (this.typeKey === 'transit') {
-      // 捷運幽靈懸浮與瞬移
-      const targetBaseY = this.isSkyDrop && this.y < this.originY ? this.y : this.originY;
-      this.y = targetBaseY + Math.sin(this.bobTimer * 2) * 22;
-      if (distToPlayer < 750 && !this.isTelegraphing) {
-        this.vx = this.facing * this.speed;
-      } else {
-        this.vx = 0;
-      }
-      // Phase 2 悠遊卡寄靈隨機瞬移
-      if (this.isPhase2 && Math.random() < 0.008 && distToPlayer < 450) {
-        this.x += (Math.random() > 0.5 ? 1 : -1) * 120;
-        particles.emitHitSparks(this.x, this.y - 20, '#00E676', 12);
-      }
+      this.vx = 0;
     } else if (this.config.type === 'flying') {
       // Sinusoidal floating
       const targetBaseY = this.isSkyDrop && this.y < this.originY ? this.y : this.originY;
@@ -139,14 +151,54 @@ export class Monster {
       }
     } else {
       // Ground patrol
-      if (distToPlayer < 650 && !this.isTelegraphing) {
+      if ((distToPlayer < 650 || this.turnaroundTimer > 0) && !this.isTelegraphing) {
         this.vx = this.facing * this.speed;
       } else {
         this.vx = 0;
       }
+
+      // Patrol bounds check
+      if (this.patrolBounds) {
+        if (this.x <= this.patrolBounds.minX && this.vx <= 0) {
+          this.facing = 1;
+          this.vx = this.speed;
+          this.x = this.patrolBounds.minX;
+          this.turnaroundTimer = 0.8;
+        } else if (this.x >= this.patrolBounds.maxX && this.vx >= 0) {
+          this.facing = -1;
+          this.vx = -this.speed;
+          this.x = this.patrolBounds.maxX;
+          this.turnaroundTimer = 0.8;
+        }
+      }
+
+      // Edge turnaround check (never walk off cliff/platform)
+      if (platforms && platforms.length > 0 && Math.abs(this.vx) > 0) {
+        const lookAheadX = this.x + this.facing * 30;
+        const checkY = this.y + 10;
+        const hasFloorAhead = platforms.some(p => 
+          p.x <= lookAheadX && (p.x + p.w) >= lookAheadX &&
+          p.y >= this.y - 10 && p.y <= checkY + 30
+        );
+        if (!hasFloorAhead) {
+          this.facing = -this.facing;
+          this.vx = this.facing * this.speed;
+          this.turnaroundTimer = 0.8;
+        }
+      }
     }
 
     this.x += this.vx * dt;
+
+    // Assertion check for finite numeric properties
+    if (!Number.isFinite(this.x) || !Number.isFinite(this.y) || 
+        !Number.isFinite(this.vx) || !Number.isFinite(this.vy) || 
+        !Number.isFinite(this.hp)) {
+      console.error(`[Monster Stability Error] Non-finite value in monster ${this.typeKey}: x=${this.x}, y=${this.y}, vx=${this.vx}, vy=${this.vy}, hp=${this.hp}`);
+      this.isDead = true;
+      this.hp = 0;
+      return;
+    }
 
     // Handle Attack & Telegraph (screen-visible range, no offscreen snipes)
     if (distToPlayer < 650) {
@@ -316,22 +368,25 @@ export class Monster {
         damage: this.attackDamage,
         life: 1.6
       });
-      setTimeout(() => {
-        projectiles.spawn({
-          isPlayer: false,
-          type: 'vine',
-          x: this.x + dir * 140,
-          y: this.y,
-          vx: 0,
-          vy: -350,
-          maxDistance: 280,
-          width: 34,
-          height: 70,
-          color: '#3949AB',
-          damage: this.attackDamage,
-          life: 0.38
-        });
-      }, 150);
+      this.delayedSpawns.push({
+        delay: 0.15,
+        spawn: () => {
+          projectiles.spawn({
+            isPlayer: false,
+            type: 'vine',
+            x: this.x + dir * 140,
+            y: this.y,
+            vx: 0,
+            vy: -350,
+            maxDistance: 280,
+            width: 34,
+            height: 70,
+            color: '#3949AB',
+            damage: this.attackDamage,
+            life: 0.38
+          });
+        }
+      });
     }
     else if (this.typeKey === 'transit') {
       // 捷運幽靈 / 悠遊卡寄靈 瞬移雷射
@@ -350,22 +405,25 @@ export class Monster {
         life: 1.4
       });
       if (this.isPhase2) {
-        setTimeout(() => {
-          projectiles.spawn({
-            isPlayer: false,
-            type: 'transit_beam',
-            x: spawnX,
-            y: spawnY - 14,
-            vx: dir * 600,
-            vy: 0,
-            maxDistance: 550,
-            width: 40,
-            height: 18,
-            color: '#00E676',
-            damage: this.attackDamage,
-            life: 1.4
-          });
-        }, 120);
+        this.delayedSpawns.push({
+          delay: 0.12,
+          spawn: () => {
+            projectiles.spawn({
+              isPlayer: false,
+              type: 'transit_beam',
+              x: spawnX,
+              y: spawnY - 14,
+              vx: dir * 600,
+              vy: 0,
+              maxDistance: 550,
+              width: 40,
+              height: 18,
+              color: '#00E676',
+              damage: this.attackDamage,
+              life: 1.4
+            });
+          }
+        });
       }
     }
     else {
@@ -406,7 +464,7 @@ export class Monster {
   }
 
   render(ctx) {
-    if (this.isDead) return;
+    if (this.isDead || !Number.isFinite(this.x) || !Number.isFinite(this.y)) return;
 
     // Render Telegraph Warning Area (0.4s @ 60fps)
     if (this.isTelegraphing) {

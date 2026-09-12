@@ -87,9 +87,10 @@ export class HUD {
     this.resultRank = '';
   }
 
-  triggerCutin(charConfig) {
+  triggerCutin(charConfig, duration = 0.65) {
     this.cutinActive = true;
-    this.cutinTimer = 1.0;  // v9.4: extended for new animation
+    this.cutinDuration = duration;
+    this.cutinTimer = duration;
     this.cutinChar = charConfig;
   }
 
@@ -106,21 +107,30 @@ export class HUD {
 
   calculateEvaluation(player, bossDefeated) {
     const timeLeft = this.timeRemaining;
+    const falls = player.fallCount || 0;
     let stamp = 'Late';
     let rank = 'Rank B';
 
+    // v9.5 Rank Specification:
+    // S: 剩餘 >= 25s 且 Fall <= 1
+    // A: 剩餘 >= 15s
+    // B: 剩餘 >= 5s
+    // D: < 5s 或大量跌落 / 失敗
     if (!bossDefeated || player.isDead || timeLeft <= 0) {
       stamp = 'Late';
       rank = 'Rank D';
-    } else if (timeLeft >= 35 && player.coins >= 45 && player.hp >= 50) {
+    } else if (timeLeft >= 25 && falls <= 1) {
       stamp = 'Perfect';
       rank = 'Rank S';
-    } else if (timeLeft >= 20 && player.coins >= 30) {
+    } else if (timeLeft >= 15) {
       stamp = 'Great';
       rank = 'Rank A';
-    } else {
+    } else if (timeLeft >= 5 && falls <= 3) {
       stamp = 'On Time';
       rank = 'Rank B';
+    } else {
+      stamp = 'Overtime';
+      rank = 'Rank D';
     }
 
     this.resultStamp = stamp;
@@ -266,6 +276,17 @@ export class HUD {
     if (player.dashCooldown <= 0) {
       ctx.fillStyle = '#69F0AE';
       ctx.fillText(`⚡衝刺可 `, buffX, 64);
+      buffX += 50;
+    }
+    // v9.5: ULT WIND-UP indicator
+    if (player.isUlting && player.ultPhase === 'WINDUP') {
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.shadowColor = '#FFA000';
+      ctx.shadowBlur = 8;
+      ctx.fillText(`⚡ ULT WIND-UP`, buffX, 64);
+      ctx.shadowBlur = 0;
+      buffX += 95;
     }
 
     // 3. Commute Clock Countdown (120s)
@@ -315,11 +336,21 @@ export class HUD {
     const barX = (vw - barW) / 2;
     const barY = 82;
 
-    // Boss Name & Phase
-    ctx.fillStyle = boss.phase === 2 ? '#FF4081' : '#FF80AB';
+    // Boss Name & Phase (v9.5 True Two-Phase)
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
-    const title = boss.phase === 2 ? '【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王' : '【PHASE 1】松德院區門前・夢影巨花王';
+    let title = '【PHASE 1：晨霧守護態】松德院區門前・夢影巨花王 (HP 2400)';
+    let barColor = '#E91E63';
+
+    if (boss.isTransforming) {
+      title = '🌹【變身中・100%無敵】PHASE 2：夢境狂暴盛開！';
+      barColor = '#FF1744';
+    } else if (boss.phase === 2) {
+      title = '🌹【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王 (HP 3200)';
+      barColor = '#C2185B';
+    }
+
+    ctx.fillStyle = boss.isTransforming ? '#FF1744' : (boss.phase === 2 ? '#FF4081' : '#FF80AB');
     ctx.fillText(title, vw / 2, barY - 6);
 
     // Health Bar Container
@@ -330,21 +361,21 @@ export class HUD {
     ctx.strokeRect(barX, barY, barW, barH);
 
     // HP Fill
-    const ratio = Math.max(0, boss.hp / boss.maxHp);
-    ctx.fillStyle = boss.phase === 2 ? '#C2185B' : '#E91E63';
+    const ratio = Math.max(0, boss.hp / (boss.maxHp || 2400));
+    ctx.fillStyle = barColor;
     ctx.fillRect(barX, barY, barW * ratio, barH);
 
     // Numeric HP
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px monospace';
-    ctx.fillText(`${Math.ceil(boss.hp)} / ${boss.maxHp}`, vw / 2, barY + 11);
+    ctx.fillText(`${Math.ceil(boss.hp)} / ${boss.maxHp || 2400}`, vw / 2, barY + 11);
 
     ctx.restore();
   }
 
   renderCutinOverlay(ctx, vw, vh) {
     ctx.save();
-    const totalDuration = 1.0;
+    const totalDuration = this.cutinDuration || 0.65;
     const progress = Math.max(0, Math.min(1, this.cutinTimer / totalDuration));
     const char = this.cutinChar;
 
@@ -590,13 +621,14 @@ export class HUD {
 
     // Stats
     ctx.fillStyle = '#fff';
-    ctx.font = '14px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.font = '13px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'left';
     const statsX = cx - 140;
     ctx.fillText(`英雄：${player.name}${player.form2Active ? '【覺醒 II】' : ''}`, statsX, cy - 90);
-    ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 64);
-    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 38);
-    ctx.fillText(`收集金幣：${player.coins} 枚 (通勤共振達成！)`, statsX, cy - 12);
+    ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 68);
+    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 46);
+    ctx.fillText(`收集金幣：${player.coins} 枚 | 墜崖失誤：${player.fallCount || 0} 次`, statsX, cy - 24);
+    ctx.fillText(`雙階巨花王：完整討伐確認 (Phase 1 2400 + Phase 2 3200)`, statsX, cy - 2);
 
     // Rank — large centered
     ctx.fillStyle = '#FFD700';

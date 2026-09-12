@@ -207,8 +207,9 @@ export const MONSTER_TYPES = {
   transit: {
     id: 'monster_transit',
     name: '車票幽靈',
+    disabled: true, // v9.5: 悠遊卡怪獸已從遊戲正式排除
     type: 'ghost',
-    role: '穿梭城市之旅途幽靈',
+    role: '穿梭城市之旅途幽靈 (已退役)',
     hp: 85,
     speed: 95,
     contactDamage: 12,
@@ -218,7 +219,7 @@ export const MONSTER_TYPES = {
     asset: 'assets/monster_transit_p1.png',
     assetP2: 'assets/monster_transit_p2.png',
     color: '#00E676',
-    desc: '半透明奶白色捷運幽靈。捷運連結短瞬移，召喚捷運軌跡光帶與刷卡光線！',
+    desc: '半透明奶白色捷運幽靈。',
     telegraphType: 'transit_beam',
     score: 220,
     phase2: {
@@ -228,7 +229,7 @@ export const MONSTER_TYPES = {
       attackDamage: 22,
       attackCooldown: 1.1,
       asset: 'assets/monster_transit_p2.png',
-      desc: '彩虹捷運光帶纏繞，可開啟小型傳送門召喚殘影雙重雷射！'
+      desc: '彩虹捷運光帶纏繞。'
     }
   }
 };
@@ -237,10 +238,10 @@ export const BOSS_CONFIG = {
   id: 'boss_flower_king',
   name: '夢影巨花王',
   title: '晨霧夢境的支配者',
-  maxHp: 2600,
-  phase1Threshold: 2600,
-  phase2Threshold: 1300, // Phase 2 at 50% HP (< 1300 HP) or 60 coins
-  coinsEnrageThreshold: 60, // 60 金幣強制提前進入 Phase 2 狂暴盛開態！
+  maxHp: 2400,          // Phase 1 Max HP = 2400
+  phase1Hp: 2400,       // v9.5: Phase 1 獨立血條
+  phase2Hp: 3200,       // v9.5: Phase 2 獨立血條 (3200 HP)
+  transformDuration: 2.8, // 2.8s 變身無敵
   width: 260,
   height: 280,
   // Anti-Facetank: vine cleave triggers after 1.2s of continuous close-range fighting
@@ -261,30 +262,33 @@ export const BOSS_CONFIG = {
   phase1: {
     name: '夢影巨花王・晨霧守護態',
     bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就一下下……」',
-    attackCooldown: 1.35,   // 9-way spiral petals, slightly tighter
+    attackCooldown: 1.35,   // 9-way spiral petals
     petalDamage: 15,
-    petalCount: 9,          // Upgraded from 7-way to 9-way interlaced spiral
+    petalCount: 9,          // 9-way interlaced spiral
     petalSpeed: 320,        // px/s
     vineDamage: 19,
     groundSpikeCount: 3,    // 3~4 consecutive ground spikes
     sporeDamage: 10,        // sleep spore damage
     sporeSlowDuration: 1.5, // seconds of slow on hit
-    summonCooldown: 5.2,
+    summonCooldown: 5.5,
     bulletSpeed: 320,
     colorTheme: '#E91E63'
   },
   phase2: {
     name: '夢影巨花王・狂暴盛開態',
     bannerText: 'PHASE 2：夢境狂暴盛開！「既然不讓我睡，那你也別想上班！」',
-    attackCooldown: 0.78,
+    attackCooldown: 0.85,
     petalDamage: 20,
     petalCount: 16,         // 360° 16-way crimson petal storm
     petalSpeed: 360,        // px/s
     targetedDamage: 26,
-    vineDamage: 28,
-    summonCooldown: 3.0,
+    vineDamage: 26,
+    summonCooldown: 4.2,
     bulletSpeed: 360,
     chomperDamage: 22,      // Venus Flytrap chomp
+    scytheDamage: 22,       // 死神鐮刀
+    thornsDamage: 18,       // 旋刺龍卷
+    miasmaDamage: 12,       // 暗影瘴氣
     colorTheme: '#880E4F'
   }
 };

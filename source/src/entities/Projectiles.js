@@ -13,6 +13,10 @@ export class ProjectileManager {
     this.projectiles = [];
   }
 
+  clear() {
+    this.reset();
+  }
+
   spawn(p) {
     this.projectiles.push({
       id: p.id || 'proj',
@@ -36,7 +40,12 @@ export class ProjectileManager {
       rotates: p.rotates || false,
       rotation: p.rotation || 0,
       vRot: p.vRot || 0,
-      canClearEnemyBullets: p.canClearEnemyBullets || false
+      canClearEnemyBullets: p.canClearEnemyBullets || false,
+      splashRadius: p.splashRadius || 0,
+      splashDamage: p.splashDamage || 0,
+      isMeleeArc: p.isMeleeArc || false,
+      zoneCenterX: p.zoneCenterX || null,
+      zoneRadius: p.zoneRadius || null
     });
   }
 

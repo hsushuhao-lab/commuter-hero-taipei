@@ -17,6 +17,14 @@ import { particles } from './Particles.js';
 import { projectiles } from './Projectiles.js';
 import { Monster } from './Monster.js';
 
+function baseAngleOffset(i, count, baseAngle, spiralOffset) {
+  return baseAngle + (i - Math.floor(count / 2)) * 0.22 + spiralOffset * (i % 2 === 0 ? 1 : -1) * 0.08;
+}
+
+function normalizeAngle(ang) {
+  return (ang + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+}
+
 export class Boss {
   constructor() {
     this.config = BOSS_CONFIG;
@@ -25,10 +33,16 @@ export class Boss {
     this.width = this.config.width;
     this.height = this.config.height;
 
-    this.hp = this.config.maxHp;
-    this.maxHp = this.config.maxHp;
+    this.hp = 2400;
+    this.maxHp = 2400;
     this.phase = 1; // 1 or 2
     this.phase2Triggered = false;
+
+    // v9.5: True Two-Phase State
+    this.isTransforming = false;
+    this.transformTimer = 0;
+    this.resonanceEnraged = false; // 60 coins buff only, does NOT skip P1!
+    this.multiHitGate = new Map(); // 100ms multi-hit throttle per attackInstanceId
 
     this.vx = 0;
     this.facing = -1;
@@ -52,10 +66,10 @@ export class Boss {
     // Spore projectiles in world (tracked separately for slow effect)
     this.spores = [];
 
-    // Telegraph
-    this.isTelegraphing = false;
-    this.telegraphTimer = 0;
-    this.telegraphType = 'none';
+    // Active dt-driven telegraph queue
+    this.activeTelegraphs = [];
+    this.activeBoomerangs = [];
+    this.activeSpikeQueue = [];
 
     // Ground spike telegraph markers
     this.groundSpikeWarnings = [];
@@ -64,6 +78,7 @@ export class Boss {
     this.isDead = false;
     this.hitTimer = 0;
     this.roarTimer = 0;
+    this.deathSequenceTimer = 0;
 
     // ── Entrance Animation ────────────────────────────────────────────
     this.entranceTimer = 0;         // Counts down from 2.0 while boss rises
@@ -71,7 +86,7 @@ export class Boss {
     this.entranceTriggered = false; // Set true the first time player reaches x>=14700
 
     // ── Phase 2 Transform Animation ───────────────────────────────────
-    this.phase2TransformTimer = 0;  // Counts down from 2.5 during transform freeze
+    this.phase2TransformTimer = 0;  // Counts down from 2.8 during transform freeze
     this.phase2ScaleAnim = 0.0;     // Normalised 0→1 progress for easing
 
     // ── Phase 2 Exclusive Attacks ─────────────────────────────────────
@@ -91,24 +106,52 @@ export class Boss {
     this.minions = [];
   }
 
-  takeDamage(amount) {
-    if (this.isDead) return;
+  takeDamage(amount, attackInstanceId = null) {
+    // 100% Invulnerable during transform, entrance, or when dead
+    if (this.isDead || this.isTransforming || (this.entranceTriggered && this.entranceTimer > 0)) {
+      return false;
+    }
+
+    // v9.5 Multi-hit gate: same attackInstanceId hits Boss at most once per 100ms
+    if (attackInstanceId) {
+      const now = performance.now ? performance.now() : Date.now();
+      const lastHit = this.multiHitGate.get(attackInstanceId) || 0;
+      if (now - lastHit < 100) {
+        return false;
+      }
+      this.multiHitGate.set(attackInstanceId, now);
+      if (this.multiHitGate.size > 80) {
+        for (const [id, t] of this.multiHitGate.entries()) {
+          if (now - t > 1000) this.multiHitGate.delete(id);
+        }
+      }
+    }
+
     this.hp -= amount;
     this.hitTimer = 0.12;
     audio.playHit();
     particles.emitHitSparks(this.x, this.y - 120, '#E91E63', 8);
 
-    // Check Phase 2 Trigger (< 1300 HP = 50%)
-    if (this.hp <= this.config.phase2Threshold && !this.phase2Triggered) {
-      this.triggerPhase2();
+    // Phase 1 HP reaches <= 0 -> Trigger 2.8s Transform! (NO overkill leak!)
+    if (this.phase === 1 && this.hp <= 0) {
+      this.hp = 0;
+      this.startTransform();
+      return true;
     }
 
-    if (this.hp <= 0) {
+    // Phase 2 HP reaches <= 0 -> Real Boss Death!
+    if (this.phase === 2 && this.hp <= 0) {
       this.hp = 0;
       this.isDead = true;
       this.deathSequenceTimer = 2.2;
       audio.playBossRoar();
-      // Massive explosion
+      if (audio.fadeToVictory) {
+        audio.fadeToVictory(0.6);
+      } else {
+        audio.playBgm('victory_theme');
+      }
+
+      // Massive celebration explosion
       for (let i = 0; i < 80; i++) {
         particles.emit({
           x: this.x + (Math.random() * 220 - 110),
@@ -122,25 +165,34 @@ export class Boss {
         });
       }
     }
+    return true;
   }
 
-  triggerPhase2() {
-    this.phase = 2;
-    this.phase2Triggered = true;
-    this.roarTimer = 2.5;             // Extended freeze to match transform duration
-    this.phase2TransformTimer = 2.5;  // Visual transform animation timer
+  startTransform() {
+    if (this.isTransforming) return;
+    this.isTransforming = true;
+    this.transformTimer = this.config.transformDuration || 2.8;
+    this.roarTimer = this.transformTimer;
+    this.phase2TransformTimer = this.transformTimer;
     this.phase2ScaleAnim = 0.0;
 
-    audio.playBossRoar();
-    audio.playBgm('boss_p2'); // 高速狂暴 BGM!
+    // Clear all projectiles, spores, active telegraphs
+    projectiles.clear();
+    this.spores = [];
+    this.spinningThorns = [];
+    this.activeTelegraphs = [];
 
-    // ── Expanding ring of 100 crimson petals ─────────────────────────
+    audio.playBossRoar();
+    // In Phase 2: audio.setBossIntensity(2) on same boss_theme track!
+    if (audio.setBossIntensity) {
+      audio.setBossIntensity(2);
+    }
+
+    // Expanding ring of 100 crimson petals
     for (let i = 0; i < 100; i++) {
       const angle = (i / 100) * Math.PI * 2;
-      // Two rings: inner fast burst + outer slow drift
       const isOuter = i >= 50;
       const speed = isOuter ? (120 + Math.random() * 80) : (280 + Math.random() * 120);
-      const ringDelay = isOuter ? 0.08 : 0; // slight stagger (handled via initial distance offset)
       particles.emit({
         x: this.x + Math.cos(angle) * (isOuter ? 30 : 10),
         y: (this.y - 120) + Math.sin(angle) * (isOuter ? 30 : 10),
@@ -148,31 +200,35 @@ export class Boss {
         vy: Math.sin(angle) * speed - 40,
         size: isOuter ? (Math.random() * 5 + 3) : (Math.random() * 8 + 5),
         color: isOuter ? '#B71C1C' : '#FF1744',
-        life: 2.0 + Math.random() * 0.5,
+        life: 2.5 + Math.random() * 0.5,
         shape: 'petal',
         rotates: true,
         vRot: 4 + Math.random() * 3
       });
     }
 
-    // ── Flashing light burst (large bright circle particles) ─────────
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
+    // Flashing light burst
+    for (let i = 0; i < 20; i++) {
+      const a = (i / 20) * Math.PI * 2;
       particles.emit({
         x: this.x + Math.cos(a) * 60,
         y: (this.y - 120) + Math.sin(a) * 60,
         vx: Math.cos(a) * 50,
         vy: Math.sin(a) * 50,
-        size: 18 + Math.random() * 10,
+        size: 20 + Math.random() * 10,
         color: '#FF80AB',
-        life: 0.5,
+        life: 0.8,
         shape: 'circle',
         fade: true
       });
     }
 
-    // ── Floating dramatic text ────────────────────────────────────────
-    particles.emitFloatingText(this.x, this.y - 220, '🌹 PHASE 2：狂暴深淵裂變態！', '#FF1744');
+    particles.emitFloatingText(this.x, this.y - 220, '🌹 PHASE 2：夢境狂暴盛開！', '#FF1744');
+  }
+
+  triggerPhase2() {
+    // Legacy method alias
+    this.startTransform();
   }
 
   update(dt, player, camera) {
@@ -195,14 +251,15 @@ export class Boss {
       return;
     }
 
-    // 60 金幣提早觸發 Boss Phase 2 狂暴盛開態！(Commuter Resonance)
-    if (player && player.coins >= (this.config.coinsEnrageThreshold || 60) && !this.phase2Triggered) {
-      this.triggerPhase2();
+    // v9.5: 60 金幣不再跳過 Phase 1，只提供共振強化難度 (Commuter Resonance Buff)
+    if (player && player.coins >= (this.config.coinsEnrageThreshold || 60) && !this.resonanceEnraged) {
+      this.resonanceEnraged = true;
+      particles.emitFloatingText(this.x, this.y - 240, '⚡ 共振強化：難度激化！', '#FFD700');
     }
 
     this.bobTimer += dt * (this.phase === 2 ? 3.5 : 2.0);
     if (this.hitTimer > 0) this.hitTimer -= dt;
-    if (this.roarTimer > 0) {
+    if (this.roarTimer > 0 && !this.isTransforming) {
       this.roarTimer -= dt;
       camera.shake(12, 0.1);
       return; // Roar freeze
@@ -228,6 +285,7 @@ export class Boss {
         this.entranceTriggered = true;
         this.entranceTimer = 2.0;
         audio.playBossRoar();
+        projectiles.clear();
         // Emit 60 upward green petals from boss position
         for (let i = 0; i < 60; i++) {
           const a = (i / 60) * Math.PI * 2;
@@ -250,7 +308,6 @@ export class Boss {
         this.entranceTimer -= dt;
         // Lerp boss from groundY+300 (below ground) up to groundY
         const progress = 1.0 - Math.max(0, this.entranceTimer) / 2.0;
-        // Use smoothstep for natural deceleration
         const smooth = progress * progress * (3 - 2 * progress);
         this._entranceYOffset = (1.0 - smooth) * 300;
         return; // Freeze AI during entrance
@@ -261,13 +318,91 @@ export class Boss {
     }
 
     // ═══════════════════════════════════════════════════════
-    // Phase 2 Transform Animation tick (independent of roarTimer)
+    // Phase 2 Transform Animation & 100% Invulnerability
     // ═══════════════════════════════════════════════════════
-    if (this.phase2TransformTimer > 0) {
-      this.phase2TransformTimer -= dt;
-      // progress 0→1 over the 2.5s window
-      const p = 1.0 - Math.max(0, this.phase2TransformTimer) / 2.5;
-      this.phase2ScaleAnim = p; // Used in render for sinusoidal scale
+    if (this.isTransforming) {
+      this.transformTimer -= dt;
+      this.phase2TransformTimer = this.transformTimer;
+      camera.shake(14, 0.1);
+      const p = 1.0 - Math.max(0, this.transformTimer) / (this.config.transformDuration || 2.8);
+      this.phase2ScaleAnim = p;
+
+      // Crimson swirl particles during transform
+      if (Math.random() < 0.6) {
+        particles.emit({
+          x: this.x + (Math.random() - 0.5) * 160,
+          y: this.y - 80 - Math.random() * 120,
+          vx: (Math.random() - 0.5) * 100,
+          vy: -80 - Math.random() * 100,
+          size: Math.random() * 8 + 4,
+          color: Math.random() < 0.5 ? '#FF1744' : '#880E4F',
+          life: 0.8,
+          shape: 'petal',
+          rotates: true
+        });
+      }
+
+      if (this.transformTimer <= 0) {
+        this.isTransforming = false;
+        this.phase = 2;
+        this.phase2Triggered = true;
+        this.hp = this.config.phase2Hp || 3200;
+        this.maxHp = this.config.phase2Hp || 3200;
+        this.roarTimer = 0;
+        this.attackTimer = 1.2;
+        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 3200', '#FF1744');
+      }
+      return; // 100% frozen during transform!
+    }
+
+    // Update active dt-driven telegraph queue
+    for (let i = this.activeTelegraphs.length - 1; i >= 0; i--) {
+      const tg = this.activeTelegraphs[i];
+      tg.timer -= dt;
+      if (tg.timer <= 0) {
+        if (typeof tg.onExecute === 'function') {
+          tg.onExecute();
+        }
+        this.activeTelegraphs.splice(i, 1);
+      }
+    }
+
+    // Update active boomerangs (Abyssal Scythe return)
+    for (let i = this.activeBoomerangs.length - 1; i >= 0; i--) {
+      const b = this.activeBoomerangs[i];
+      b.timer -= dt;
+      if (b.timer <= 0 && !b.returning) {
+        b.returning = true;
+        if (b.proj && b.proj.life > 0) {
+          const retAngle = Math.atan2(player.y - b.proj.y, player.x - b.proj.x);
+          b.proj.vx = Math.cos(retAngle) * b.speed;
+          b.proj.vy = Math.sin(retAngle) * b.speed;
+        }
+        this.activeBoomerangs.splice(i, 1);
+      }
+    }
+
+    // Update active spike queue (Vine Thrust)
+    for (let i = this.activeSpikeQueue.length - 1; i >= 0; i--) {
+      const sq = this.activeSpikeQueue[i];
+      sq.delay -= dt;
+      if (sq.delay <= 0) {
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'vine',
+          x: sq.x,
+          y: sq.y,
+          vx: 0,
+          vy: -480,
+          width: 36,
+          height: 80,
+          damage: sq.damage,
+          life: 0.38
+        });
+        audio.playHit();
+        particles.emitDust(sq.x, sq.y, 8, '#388E3C');
+        this.activeSpikeQueue.splice(i, 1);
+      }
     }
 
     // Facing player
@@ -287,61 +422,50 @@ export class Boss {
     const desiredX = player.x + (player.x < arenaMid ? 360 : -360);
     this.x += (desiredX - this.x) * dt * (this.phase === 2 ? 0.8 : 0.4);
 
-    // ═══════════════════════════════════════════════════════
-    // Anti-Facetank: Vine Cleave detection
-    // ═══════════════════════════════════════════════════════
+    // Anti-Facetank
     const distToPlayer = Math.abs(player.x - this.x);
     const af = this.config.antiFacetank;
     if (distToPlayer < af.distThreshold && this.vineCleaveCooldown <= 0) {
       this.facetankTimer += dt;
       if (this.facetankTimer >= af.standingDuration) {
-        // Trigger Vine Cleave!
         this._triggerVineCleave(player, af);
         this.facetankTimer = 0;
-        this.vineCleaveCooldown = 3.0; // 3 second cooldown before next potential cleave
+        this.vineCleaveCooldown = 3.0;
       }
     } else {
-      // Player moved away — reset timer
       this.facetankTimer = Math.max(0, this.facetankTimer - dt * 1.5);
     }
 
-    // ═══════════════════════════════════════════════════════
     // AI Attack Loop
-    // ═══════════════════════════════════════════════════════
     const currentConfig = this.phase === 2 ? this.config.phase2 : this.config.phase1;
+    const p1CooldownMult = this.resonanceEnraged ? 0.90 : 1.0;
+    const p2CooldownMult = this.resonanceEnraged ? 0.85 : 1.0;
+
     this.attackTimer -= dt;
     this.vineTimer -= dt;
     this.summonTimer -= dt;
     this.sporeTimer -= dt;
 
     if (this.phase === 1) {
-      // ── Phase 1 attack rotation ──────────────────────────────────────
-      // Standard Petal Attack (9-way spiral)
+      // Phase 1 attack rotation
       if (this.attackTimer <= 0) {
-        this.attackTimer = currentConfig.attackCooldown;
+        this.attackTimer = currentConfig.attackCooldown * p1CooldownMult;
         this.firePetalBarrage(player);
       }
-
-      // Vine Ground Thrust (3-4 consecutive spikes)
       if (this.vineTimer <= 0) {
-        this.vineTimer = 4.5;
+        this.vineTimer = 4.5 * p1CooldownMult;
         this.triggerVineThrust(player);
       }
-
-      // Monster Minion Summoning
       if (this.summonTimer <= 0) {
-        this.summonTimer = currentConfig.summonCooldown;
+        this.summonTimer = currentConfig.summonCooldown * p1CooldownMult;
         this.summonMinions();
       }
-
-      // Sleep Spore Clouds
       if (this.sporeTimer <= 0) {
-        this.sporeTimer = 6.5;
+        this.sporeTimer = 6.5 * p1CooldownMult;
         this.launchSpores(player);
       }
     } else {
-      // ── Phase 2 sequenced attack rotation (mod 5) ────────────────────
-      // Shared timers for P2 exclusive attacks
+      // Phase 2 sequenced attack rotation (mod 5)
       this.scytheTimer -= dt;
       this.thornTimer -= dt;
       this.miasmaTimer -= dt;
@@ -352,54 +476,54 @@ export class Boss {
         this.phase2AttackSequence++;
 
         switch (seq) {
-          case 0: // 花瓣暴風雨 — Petal Barrage
-            this.attackTimer = currentConfig.attackCooldown;
+          case 0: // 花瓣暴風雨 (with safe cone)
+            this.attackTimer = (currentConfig.attackCooldown || 0.85) * p2CooldownMult;
             this.firePetalBarrage(player);
             break;
-          case 1: // 死神鐮刀 — Abyssal Scythe (boomerang)
-            this.attackTimer = 4.5;
+          case 1: // 死神鐮刀 (0.45s telegraph)
+            this.attackTimer = 4.5 * p2CooldownMult;
             this.scytheTimer = 4.5;
-            this.fireAbyssalScythe(player);
+            this.queueAbyssalScythe(player);
             break;
-          case 2: // 旋刺龍卷 — Spinning Thorns
-            this.attackTimer = 6.0;
-            this.thornTimer = 6.0;
-            this.triggerSpinningThorns();
+          case 2: // 旋刺龍卷 (0.60s telegraph)
+            this.attackTimer = 5.5 * p2CooldownMult;
+            this.thornTimer = 5.5;
+            this.queueSpinningThorns();
             break;
-          case 3: // 暗影瘴氣 — Shadow Miasma
-            this.attackTimer = 5.5;
-            this.miasmaTimer = 5.5;
-            this.castShadowMiasma(player);
+          case 3: // 暗影瘴氣 (0.55s telegraph)
+            this.attackTimer = 5.0 * p2CooldownMult;
+            this.miasmaTimer = 5.0;
+            this.queueShadowMiasma(player);
             break;
-          case 4: // 捕蠅草巨顎 — Venus Chomp
-            this.attackTimer = 5.5;
-            this.chomperTimer = 5.5;
-            this.triggerVenusChomper(player);
+          case 4: // 捕蠅草巨顎 (0.45s telegraph)
+            this.attackTimer = 5.0 * p2CooldownMult;
+            this.chomperTimer = 5.0;
+            this.queueVenusChomper(player);
             break;
         }
       }
 
       // Vine Ground Thrust (triple, Phase 2)
       if (this.vineTimer <= 0) {
-        this.vineTimer = 3.0;
+        this.vineTimer = 3.2 * p2CooldownMult;
         this.triggerVineThrust(player);
       }
 
       // Monster Minion Summoning
       if (this.summonTimer <= 0) {
-        this.summonTimer = currentConfig.summonCooldown;
+        this.summonTimer = currentConfig.summonCooldown * p2CooldownMult;
         this.summonMinions();
       }
 
       // Sleep Spore Clouds (faster in Phase 2)
       if (this.sporeTimer <= 0) {
-        this.sporeTimer = 4.0;
+        this.sporeTimer = 4.0 * p2CooldownMult;
         this.launchSpores(player);
       }
     }
 
-    // Update spore cloud projectiles
     this._updateSpores(dt, player);
+    this._updateSpinningThorns(dt, player);
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -448,28 +572,34 @@ export class Boss {
   // ══════════════════════════════════════════════════════════════════
   // 9-Way Interlaced Spiral Petals (Phase 1) / 16-Way Crimson Storm (Phase 2)
   // ══════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // 9-Way Spiral Petals (Phase 1) / 16-Way Crimson Storm (Phase 2)
+  // v9.5: Guaranteed safe cone angle allowing skilled dodge
+  // ══════════════════════════════════════════════════════════════════
   firePetalBarrage(player) {
     const pX = this.x;
     const pY = this.y - 120;
     const arenaB = { minX: this.config.arena.startX - 50, maxX: this.config.arena.endX + 50 };
+    const directAngle = Math.atan2(player.y - pY, player.x - pX);
 
     if (this.phase === 1) {
-      // 9-way interlaced spiral petals at 320 px/s
-      const baseAngle = Math.atan2(player.y - pY, player.x - pX);
-      const count = this.config.phase1.petalCount || 9; // 9 directions
-      const spread = (Math.PI * 2) / count; // Even distribution for spiral feel
-      // Spiral offset using bob timer
+      // 9-way interlaced spiral petals at 320 px/s with safe angle gap
+      const count = this.config.phase1.petalCount || 9;
       const spiralOffset = this.bobTimer * 0.5;
+      const speed = 320 * (this.resonanceEnraged ? 1.08 : 1.0);
 
       for (let i = 0; i < count; i++) {
-        const ang = baseAngle + (i - Math.floor(count / 2)) * 0.22 + spiralOffset * (i % 2 === 0 ? 1 : -1) * 0.08;
+        const ang = baseAngleOffset(i, count, directAngle, spiralOffset);
+        // Leave a 24° safe window right next to player dodge trajectory
+        if (Math.abs(normalizeAngle(ang - directAngle)) < 0.22) continue;
+
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
           x: pX,
           y: pY,
-          vx: Math.cos(ang) * 320,
-          vy: Math.sin(ang) * 320,
+          vx: Math.cos(ang) * speed,
+          vy: Math.sin(ang) * speed,
           maxDistance: 680,
           arenaBounds: arenaB,
           width: 24,
@@ -482,160 +612,107 @@ export class Boss {
         });
       }
     } else {
-      // Phase 2: 16-way 360° crimson petal storm with 0.35s warning flash
-      // The warning is handled visually by a brief camera shake and glow
+      // Phase 2: 16-way 360° crimson petal storm with 35° safe cone
+      const speed = 360 * (this.resonanceEnraged ? 1.10 : 1.0);
+      const safeHalfAngle = 0.32; // ~36 degree safe cone
+      const dmg = (this.config.phase2.petalDamage || 20) * (this.resonanceEnraged ? 1.10 : 1.0);
+
       for (let i = 0; i < 16; i++) {
         const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / 16);
+        if (Math.abs(normalizeAngle(ang - directAngle)) < safeHalfAngle) continue;
+
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
           x: pX,
           y: pY,
-          vx: Math.cos(ang) * 360,
-          vy: Math.sin(ang) * 360,
+          vx: Math.cos(ang) * speed,
+          vy: Math.sin(ang) * speed,
           maxDistance: 680,
           arenaBounds: arenaB,
           width: 26,
           height: 18,
           color: '#AD1457',
-          damage: this.config.phase2.petalDamage,
+          damage: dmg,
           life: 2.4,
           rotates: true,
           vRot: 4
         });
       }
-      // Targeted burst needle directly at player (3-way)
-      const directAngle = Math.atan2(player.y - pY, player.x - pX);
-      for (let j = -1; j <= 1; j++) {
+
+      // 2 targeted needles with slight offset (not directly on center, allowing sidestep)
+      [-0.18, 0.18].forEach(off => {
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
           x: pX,
           y: pY,
-          vx: Math.cos(directAngle + j * 0.15) * 420,
-          vy: Math.sin(directAngle + j * 0.15) * 420,
+          vx: Math.cos(directAngle + off) * (speed + 40),
+          vy: Math.sin(directAngle + off) * (speed + 40),
           maxDistance: 680,
           arenaBounds: arenaB,
           width: 22,
           height: 14,
           color: '#FF1744',
-          damage: this.config.phase2.targetedDamage,
+          damage: (this.config.phase2.targetedDamage || 26) * (this.resonanceEnraged ? 1.10 : 1.0),
           life: 2.0
         });
-      }
-
-      // Phase 2 warning glow burst (visual only)
-      for (let i = 0; i < 8; i++) {
-        particles.emit({
-          x: pX + (Math.random() - 0.5) * 60,
-          y: pY + (Math.random() - 0.5) * 40,
-          vx: (Math.random() - 0.5) * 80,
-          vy: (Math.random() - 0.5) * 80,
-          size: 5 + Math.random() * 4,
-          color: '#FF1744',
-          life: 0.35,
-          shape: 'circle'
-        });
-      }
+      });
     }
     audio.playTelegraph();
   }
 
   // ══════════════════════════════════════════════════════════════════
   // Ground Spike Vine Thrust (Phase 1: 3-4 consecutive / Phase 2: triple)
+  // dt-driven spike queue with visual warning
   // ══════════════════════════════════════════════════════════════════
   triggerVineThrust(player) {
-    const targetX = Math.max(this.config.arena.startX + 50, Math.min(this.config.arena.endX - 50, player.x));
+    const targetX = Math.max(this.config.arena.startX + 60, Math.min(this.config.arena.endX - 60, player.x));
     const groundY = this.config.arena.groundY;
+    const spikeCount = this.phase === 1 ? (3 + (Math.random() < 0.4 ? 1 : 0)) : 3;
+    const dmg = (this.phase === 1 ? this.config.phase1.vineDamage : this.config.phase2.vineDamage) * (this.resonanceEnraged ? 1.10 : 1.0);
 
-    if (this.phase === 1) {
-      // 0.45s red line warning, then 3-4 consecutive spikes
-      const spikeCount = 3 + (Math.random() < 0.4 ? 1 : 0); // 3 or 4 spikes
+    for (let k = 0; k < spikeCount; k++) {
+      const offset = this.phase === 1 ? (k * 80 * (player.x < this.x ? -1 : 1)) : ((k - 1) * 80);
+      const spikeX = Math.max(this.config.arena.startX + 50, Math.min(this.config.arena.endX - 50, targetX + offset));
+      const delay = 0.45 + k * (this.phase === 1 ? 0.15 : 0.12);
 
-      // Emit warning red lines for all spikes first
-      for (let k = 0; k < spikeCount; k++) {
-        const spikeX = targetX + k * 80 * (player.x < this.x ? -1 : 1);
-        const clampedX = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, spikeX));
-
-        // Red warning line particles at ground level
-        for (let j = 0; j < 6; j++) {
-          particles.emit({
-            x: clampedX,
-            y: groundY - 5 - j * 8,
-            vx: (Math.random() - 0.5) * 20,
-            vy: -15,
-            size: 3,
-            color: '#FF1744',
-            life: 0.45,
-            shape: 'rect'
-          });
-        }
-
-        // After 0.45s warning, fire the spike
-        setTimeout(() => {
-          const cx = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, spikeX));
-          particles.emitDust(cx, groundY, 6, '#2E7D32');
-          setTimeout(() => {
-            projectiles.spawn({
-              isPlayer: false,
-              type: 'vine',
-              x: cx,
-              y: groundY,
-              vx: 0,
-              vy: -460,
-              width: 36,
-              height: 80,
-              damage: this.config.phase1.vineDamage,
-              life: 0.38
-            });
-            audio.playHit();
-            particles.emitDust(cx, groundY, 10, '#388E3C');
-          }, 450);
-        }, k * 150); // Stagger each spike by 150ms
+      // Warning particles at ground level
+      for (let j = 0; j < 5; j++) {
+        particles.emit({
+          x: spikeX,
+          y: groundY - 5 - j * 8,
+          vx: (Math.random() - 0.5) * 15,
+          vy: -15,
+          size: 3,
+          color: '#FF1744',
+          life: delay,
+          shape: 'rect'
+        });
       }
-    } else {
-      // Phase 2: triple consecutive vines tracking player's stride
-      [-80, 0, 80].forEach((offset, idx) => {
-        setTimeout(() => {
-          const vx = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, targetX + offset));
-          particles.emitDust(vx, groundY, 6, '#C2185B');
-          setTimeout(() => {
-            projectiles.spawn({
-              isPlayer: false,
-              type: 'vine',
-              x: vx,
-              y: groundY,
-              vx: 0,
-              vy: -500,
-              width: 38,
-              height: 85,
-              damage: this.config.phase2.vineDamage,
-              life: 0.40
-            });
-            audio.playHit();
-            particles.emitDust(vx, groundY, 14, '#880E4F');
-          }, 240);
-        }, idx * 120);
+
+      this.activeSpikeQueue.push({
+        x: spikeX,
+        y: groundY,
+        delay,
+        damage: dmg
       });
     }
+    audio.playTelegraph();
   }
 
   // ══════════════════════════════════════════════════════════════════
-  // Sleep Spore Clouds – Slow purple drift spores (both phases)
+  // Sleep Spore Clouds (both phases)
   // ══════════════════════════════════════════════════════════════════
   launchSpores(player) {
     const sporeCount = this.phase === 2 ? 3 : 2;
-    const arenaB = { minX: this.config.arena.startX, maxX: this.config.arena.endX };
-
     for (let i = 0; i < sporeCount; i++) {
-      // Spore starts from boss body and drifts slowly across arena
       const startX = this.x + (Math.random() * 80 - 40);
       const startY = this.y - 140 - Math.random() * 40;
       const targetX = player.x + (Math.random() * 120 - 60);
       const angle = Math.atan2((player.y - 80) - startY, targetX - startX);
-      const speed = 90 + Math.random() * 40; // slow drift
+      const speed = 90 + Math.random() * 40;
 
-      // Spore is tracked by Boss for collision, not by projectiles system
       this.spores.push({
         x: startX,
         y: startY,
@@ -650,7 +727,6 @@ export class Boss {
         pulseTimer: 0
       });
 
-      // Visual spore particle cloud
       particles.emit({
         x: startX,
         y: startY,
@@ -667,6 +743,261 @@ export class Boss {
     audio.playTelegraph();
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2: Venus Flytrap Chomp (0.45s red wedge telegraph)
+  // ══════════════════════════════════════════════════════════════════
+  queueVenusChomper(player) {
+    audio.playBossRoar();
+    const tx = Math.max(this.config.arena.startX + 200, Math.min(this.config.arena.endX - 200, player.x));
+    this.activeTelegraphs.push({
+      type: 'chomp',
+      timer: 0.45,
+      maxTimer: 0.45,
+      x: tx,
+      y: this.config.arena.groundY,
+      onExecute: () => {
+        this.executeVenusChomper(tx, player);
+      }
+    });
+  }
+
+  executeVenusChomper(targetX, player) {
+    if (this.isDead || this.isTransforming) return;
+    const lungeX = this.x + (targetX - this.x) * 0.7;
+    this.x = Math.max(this.config.arena.startX + 200, Math.min(this.config.arena.endX - 150, lungeX));
+    const dmg = (this.config.phase2.chomperDamage || 22) * (this.resonanceEnraged ? 1.10 : 1.0);
+
+    projectiles.spawn({
+      isPlayer: false,
+      type: 'vine',
+      x: this.x + this.facing * 80,
+      y: this.y - 80,
+      vx: this.facing * 220,
+      vy: 0,
+      width: 75,
+      height: 105,
+      damage: dmg,
+      life: 0.32
+    });
+    particles.emitHitSparks(this.x + this.facing * 80, this.y - 80, '#FF1744', 20);
+    audio.playHit();
+  }
+
+  summonMinions() {
+    const activeMinions = this.minions.filter(m => !m.isDead && m.x >= this.config.arena.startX);
+    if (activeMinions.length >= 4) return; // Prevent overcrowding
+
+    const spawnY = this.config.arena.groundY - 10;
+    if (this.phase === 1) {
+      const types = ['red', 'blue', 'pink'];
+      const type = types[Math.floor(Math.random() * types.length)];
+      const m = new Monster(type, this.x - 140, spawnY);
+      this.minions.push(m);
+      particles.emitDust(this.x - 140, spawnY, 10, '#AB47BC');
+    } else {
+      const types = ['ice', 'yellow', 'obsidian', 'pink', 'grape'];
+      const t1 = types[Math.floor(Math.random() * types.length)];
+      const m1 = new Monster(t1, this.x - 180, spawnY);
+      this.minions.push(m1);
+      particles.emitDust(this.x - 180, spawnY, 14, '#880E4F');
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2 EXCLUSIVE: 死神鐮刀 (0.45s purple line telegraph, 0.55s boomerang return)
+  // ══════════════════════════════════════════════════════════════════
+  queueAbyssalScythe(player) {
+    audio.playTelegraph();
+    this.activeTelegraphs.push({
+      type: 'scythe',
+      timer: 0.45,
+      maxTimer: 0.45,
+      startX: this.x,
+      startY: this.y - 120,
+      targetX: player.x,
+      targetY: player.y - 35,
+      onExecute: () => {
+        this.fireAbyssalScythe(player);
+      }
+    });
+  }
+
+  fireAbyssalScythe(player) {
+    const pX = this.x;
+    const pY = this.y - 120;
+    const baseAngle = Math.atan2(player.y - pY, player.x - pX);
+    const offsets = [-0.42, 0, 0.42];
+    const speed = 300 * (this.resonanceEnraged ? 1.10 : 1.0);
+    const dmg = (this.config.phase2.scytheDamage || 22) * (this.resonanceEnraged ? 1.10 : 1.0);
+
+    audio.playBossRoar();
+    particles.emitFloatingText(this.x, this.y - 180, '☠ 死神鐮刀！', '#4A148C');
+
+    offsets.forEach((offset) => {
+      const ang = baseAngle + offset;
+      const proj = projectiles.spawn({
+        isPlayer: false,
+        type: 'petal',
+        x: pX,
+        y: pY,
+        vx: Math.cos(ang) * speed,
+        vy: Math.sin(ang) * speed,
+        width: 30,
+        height: 30,
+        color: '#4A148C',
+        damage: dmg,
+        life: 2.6,
+        rotates: true,
+        vRot: 6
+      });
+
+      // Register boomerang return after 0.55s
+      this.activeBoomerangs.push({
+        proj,
+        timer: 0.55,
+        speed: speed * 0.85
+      });
+    });
+
+    for (let i = 0; i < 16; i++) {
+      const a = baseAngle + (Math.random() - 0.5) * 1.0;
+      particles.emit({
+        x: pX + Math.cos(a) * 30,
+        y: pY + Math.sin(a) * 30,
+        vx: Math.cos(a) * 160,
+        vy: Math.sin(a) * 160,
+        size: 6,
+        color: '#7B1FA2',
+        life: 0.5,
+        shape: 'petal',
+        rotates: true
+      });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2 EXCLUSIVE: 旋刺龍卷 (0.60s circle telegraph)
+  // ══════════════════════════════════════════════════════════════════
+  queueSpinningThorns() {
+    audio.playTelegraph();
+    this.activeTelegraphs.push({
+      type: 'thorns',
+      timer: 0.60,
+      maxTimer: 0.60,
+      x: this.x,
+      y: this.y - 80,
+      radius: 120,
+      onExecute: () => {
+        this.triggerSpinningThorns();
+      }
+    });
+  }
+
+  triggerSpinningThorns() {
+    audio.playBossRoar();
+    particles.emitFloatingText(this.x, this.y - 180, '🌀 旋刺龍卷！', '#006064');
+
+    const count = 12;
+    const dmg = (this.config.phase2.thornsDamage || 18) * (this.resonanceEnraged ? 1.10 : 1.0);
+    for (let i = 0; i < count; i++) {
+      const startAngle = (i / count) * Math.PI * 2;
+      this.spinningThorns.push({
+        angle: startAngle,
+        radius: 120,
+        angularSpeed: 4.0,
+        driftSpeed: 28,
+        life: 2.0,
+        maxLife: 2.0,
+        damage: dmg,
+        hasHit: false,
+        pulseTimer: 0,
+        size: 14
+      });
+    }
+
+    for (let i = 0; i < count * 2; i++) {
+      const a = (i / (count * 2)) * Math.PI * 2;
+      particles.emit({
+        x: this.x + Math.cos(a) * 60,
+        y: (this.y - 80) + Math.sin(a) * 60,
+        vx: Math.cos(a) * 140,
+        vy: Math.sin(a) * 140,
+        size: 5,
+        color: '#00BCD4',
+        life: 0.5,
+        shape: 'petal',
+        rotates: true
+      });
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2 EXCLUSIVE: 暗影瘴氣 (0.55s ground circles telegraph)
+  // ══════════════════════════════════════════════════════════════════
+  queueShadowMiasma(player) {
+    audio.playTelegraph();
+    const arenaStart = this.config.arena.startX;
+    const arenaEnd = this.config.arena.endX;
+    const groundY = this.config.arena.groundY;
+    const zones = [];
+    const count = 4;
+    const rangeWidth = arenaEnd - arenaStart - 240;
+    for (let i = 0; i < count; i++) {
+      zones.push({
+        x: arenaStart + 120 + (i + 0.3 + Math.random() * 0.4) * (rangeWidth / count),
+        y: groundY - 40,
+        radius: 45
+      });
+    }
+
+    this.activeTelegraphs.push({
+      type: 'miasma',
+      timer: 0.55,
+      maxTimer: 0.55,
+      zones,
+      onExecute: () => {
+        this.castShadowMiasma(zones);
+      }
+    });
+  }
+
+  castShadowMiasma(zones) {
+    audio.playTelegraph();
+    particles.emitFloatingText(this.x, this.y - 180, '💀 暗影瘴氣！', '#4A148C');
+    const dmg = (this.config.phase2.miasmaDamage || 12) * (this.resonanceEnraged ? 1.10 : 1.0);
+
+    for (const z of zones) {
+      this.spores.push({
+        x: z.x,
+        y: z.y - 30,
+        vx: (Math.random() - 0.5) * 25,
+        vy: -10 - Math.random() * 10,
+        radius: 45,
+        life: 4.5,
+        maxLife: 4.5,
+        damage: dmg,
+        slowDuration: 2.0,
+        hasHit: false,
+        pulseTimer: 0,
+        isMiasma: true
+      });
+
+      for (let j = 0; j < 8; j++) {
+        particles.emit({
+          x: z.x + (Math.random() - 0.5) * 40,
+          y: z.y - 20,
+          vx: (Math.random() - 0.5) * 40,
+          vy: -Math.random() * 50 - 20,
+          size: 10,
+          color: '#4A148C',
+          life: 0.6,
+          shape: 'circle',
+          fade: true
+        });
+      }
+    }
+  }
+
   _updateSpores(dt, player) {
     for (let i = this.spores.length - 1; i >= 0; i--) {
       const s = this.spores[i];
@@ -680,22 +1011,19 @@ export class Boss {
 
       s.x += s.vx * dt;
       s.y += s.vy * dt;
-      s.vy -= 15 * dt; // Gentle float upward over time
-      s.vx *= 0.98;    // Slight drag
+      s.vy -= 15 * dt;
+      s.vx *= 0.98;
 
-      // Clamp inside arena
       s.x = Math.max(this.config.arena.startX + 10, Math.min(this.config.arena.endX - 10, s.x));
 
-      // Collision with player
       if (!s.hasHit && player && !player.isDead) {
         const dist = Math.hypot(s.x - player.x, s.y - (player.y - 35));
         if (dist < s.radius + 20) {
           s.hasHit = true;
           player.takeDamage(s.damage);
-          // Apply slow effect
           if (player.speed > 0) {
-            player._sporeSlowTimer = s.slowDuration;
-            player._sporeSlowFactor = 0.45; // 45% speed
+            player._sporeSlowTimer = s.slowDuration || 2.0;
+            player._sporeSlowFactor = 0.45;
           }
           particles.emitHitSparks(s.x, s.y, '#CE93D8', 10);
           particles.emitFloatingText(s.x, s.y - 30, '💤 孢子遲緩！', '#CE93D8');
@@ -704,7 +1032,6 @@ export class Boss {
         }
       }
 
-      // Emit trailing purple wisps
       if (Math.random() < 0.3) {
         particles.emit({
           x: s.x + (Math.random() * 12 - 6),
@@ -712,7 +1039,7 @@ export class Boss {
           vx: (Math.random() - 0.5) * 20,
           vy: (Math.random() - 0.5) * 20,
           size: 4 + Math.random() * 4,
-          color: `rgba(${180 + Math.floor(Math.random()*60)}, ${100 + Math.floor(Math.random()*50)}, 255, 0.6)`,
+          color: s.isMiasma ? 'rgba(74, 20, 140, 0.6)' : `rgba(${180 + Math.floor(Math.random()*60)}, ${100 + Math.floor(Math.random()*50)}, 255, 0.6)`,
           life: 0.4,
           shape: 'circle',
           fade: true
@@ -721,201 +1048,6 @@ export class Boss {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // Phase 2: Venus Flytrap Chomp – lunge forward, bite
-  // ══════════════════════════════════════════════════════════════════
-  triggerVenusChomper(player) {
-    // Telegraph: crimson flash + 0.4s warning
-    audio.playBossRoar();
-    for (let i = 0; i < 15; i++) {
-      particles.emit({
-        x: this.x + this.facing * (40 + i * 8),
-        y: this.y - 100,
-        vx: this.facing * 60,
-        vy: (Math.random() - 0.5) * 80,
-        size: 6 + Math.random() * 5,
-        color: Math.random() < 0.5 ? '#880E4F' : '#FF1744',
-        life: 0.5,
-        shape: 'petal',
-        rotates: true,
-        vRot: 5
-      });
-    }
-
-    setTimeout(() => {
-      if (this.isDead) return;
-      // Lunge: move rapidly toward player position
-      const lungeTargetX = player.x;
-      const lerpFactor = 0.7;
-      const lungeX = this.x + (lungeTargetX - this.x) * lerpFactor;
-      this.x = Math.max(this.config.arena.startX + 200, Math.min(this.config.arena.endX - 150, lungeX));
-
-      // Chomp projectile: wide, short-lived
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'vine',
-        x: this.x + this.facing * 80,
-        y: this.y - 80,
-        vx: this.facing * 200,
-        vy: 0,
-        width: 70,
-        height: 100,
-        damage: this.config.phase2.chomperDamage,
-        life: 0.3
-      });
-
-      particles.emitHitSparks(this.x + this.facing * 80, this.y - 80, '#FF1744', 20);
-      audio.playHit();
-    }, 400);
-  }
-
-  summonMinions() {
-    // Count active boss minions
-    const activeMinions = this.minions.filter(m => !m.isDead && m.x >= this.config.arena.startX);
-    if (activeMinions.length >= 5) return;
-
-    const spawnY = this.config.arena.groundY - 10;
-    if (this.phase === 1) {
-      // Spawn 1 light/fast monster (red, blue, or pink)
-      const types = ['red', 'blue', 'pink'];
-      const type = types[Math.floor(Math.random() * types.length)];
-      const m = new Monster(type, this.x - 140, spawnY);
-      this.minions.push(m);
-      particles.emitDust(this.x - 140, spawnY, 10, '#AB47BC');
-    } else {
-      // Phase 2: Berserk dual summon – Amethyst monster + Flying monster!
-      const types = ['ice', 'yellow', 'obsidian', 'pink', 'grape'];
-      const t1 = types[Math.floor(Math.random() * types.length)];
-      const t2 = 'grape'; // Berserk ranged attacker
-      const m1 = new Monster(t1, this.x - 180, spawnY);
-      const m2 = new Monster(t2, this.x - 90, spawnY - 50, true);
-      this.minions.push(m1, m2);
-      particles.emitDust(this.x - 180, spawnY, 14, '#880E4F');
-      // Extra burst particles for berserk feel
-      for (let i = 0; i < 12; i++) {
-        particles.emit({
-          x: this.x - 140,
-          y: spawnY - 40,
-          vx: (Math.random() - 0.5) * 200,
-          vy: -Math.random() * 150 - 40,
-          size: 5 + Math.random() * 4,
-          color: Math.random() < 0.5 ? '#8E24AA' : '#E91E63',
-          life: 0.8,
-          shape: 'star'
-        });
-      }
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════════════
-  // Phase 2 EXCLUSIVE: 死神鐮刀 – Abyssal Scythe boomerang (3 projectiles)
-  // Fires at angles -0.5, 0, +0.5 from player; curves back after 0.8s
-  // ══════════════════════════════════════════════════════════════════
-  fireAbyssalScythe(player) {
-    const pX = this.x;
-    const pY = this.y - 120;
-    const baseAngle = Math.atan2(player.y - pY, player.x - pX);
-    const offsets = [-0.5, 0, 0.5];
-    const speed = 300;
-
-    audio.playBossRoar();
-    particles.emitFloatingText(this.x, this.y - 180, '☠ 死神鐮刀！', '#4A148C');
-
-    offsets.forEach((offset, idx) => {
-      const ang = baseAngle + offset;
-      const proj = projectiles.spawn({
-        isPlayer: false,
-        type: 'petal',
-        x: pX,
-        y: pY,
-        vx: Math.cos(ang) * speed,
-        vy: Math.sin(ang) * speed,
-        width: 30,
-        height: 30,
-        color: '#4A148C',
-        damage: this.config.phase2.petalDamage + 4,
-        life: 2.5,
-        rotates: true,
-        vRot: 6,
-        isBoomerang: true,
-        boomerangReturning: false,
-        boomerangTimer: 0.8
-      });
-
-      // After 0.8s, reverse velocity to curve back toward player direction
-      setTimeout(() => {
-        if (!proj || proj.life <= 0) return;
-        const returnAngle = Math.atan2(player.y - proj.y, player.x - proj.x);
-        proj.vx = Math.cos(returnAngle) * (speed * 0.85);
-        proj.vy = Math.sin(returnAngle) * (speed * 0.85);
-        proj.boomerangReturning = true;
-      }, 800);
-    });
-
-    // Visual: deep purple arc burst
-    for (let i = 0; i < 18; i++) {
-      const a = baseAngle + (Math.random() - 0.5) * 1.2;
-      particles.emit({
-        x: pX + Math.cos(a) * 30,
-        y: pY + Math.sin(a) * 30,
-        vx: Math.cos(a) * (180 + Math.random() * 80),
-        vy: Math.sin(a) * (180 + Math.random() * 80),
-        size: 6 + Math.random() * 4,
-        color: Math.random() < 0.5 ? '#4A148C' : '#7B1FA2',
-        life: 0.6,
-        shape: 'petal',
-        rotates: true,
-        vRot: 5
-      });
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════════════
-  // Phase 2 EXCLUSIVE: 旋刺龍卷 – Spinning Thorns (12 orbiting projectiles)
-  // Orbit at radius 120, angular speed 4.0 rad/s, drift outward, last 2.0s
-  // ══════════════════════════════════════════════════════════════════
-  triggerSpinningThorns() {
-    audio.playBossRoar();
-    particles.emitFloatingText(this.x, this.y - 180, '🌀 旋刺龍卷！', '#006064');
-
-    const count = 12;
-    for (let i = 0; i < count; i++) {
-      const startAngle = (i / count) * Math.PI * 2;
-      this.spinningThorns.push({
-        angle: startAngle,
-        radius: 120,
-        angularSpeed: 4.0,      // rad/s orbit speed
-        driftSpeed: 28,          // px/s outward drift
-        life: 2.0,
-        maxLife: 2.0,
-        damage: (this.config.phase2.vineDamage || 14),
-        hasHit: false,
-        pulseTimer: 0,
-        size: 14
-      });
-    }
-
-    // Spawn visual burst
-    for (let i = 0; i < count * 2; i++) {
-      const a = (i / (count * 2)) * Math.PI * 2;
-      particles.emit({
-        x: this.x + Math.cos(a) * 60,
-        y: (this.y - 80) + Math.sin(a) * 60,
-        vx: Math.cos(a) * 140,
-        vy: Math.sin(a) * 140,
-        size: 5 + Math.random() * 4,
-        color: Math.random() < 0.5 ? '#00BCD4' : '#004D40',
-        life: 0.5,
-        shape: 'petal',
-        rotates: true,
-        vRot: 8
-      });
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════════════
-  // Update spinning thorn orbit positions, collision, cleanup
-  // ══════════════════════════════════════════════════════════════════
   _updateSpinningThorns(dt, player) {
     for (let i = this.spinningThorns.length - 1; i >= 0; i--) {
       const t = this.spinningThorns[i];
@@ -927,15 +1059,12 @@ export class Boss {
         continue;
       }
 
-      // Orbit and outward drift
       t.angle += t.angularSpeed * dt;
       t.radius += t.driftSpeed * dt;
 
-      // World position
       const wx = this.x + Math.cos(t.angle) * t.radius;
       const wy = (this.y - 80) + Math.sin(t.angle) * t.radius;
 
-      // Trail particle
       if (Math.random() < 0.5) {
         particles.emit({
           x: wx,
@@ -950,75 +1079,21 @@ export class Boss {
         });
       }
 
-      // Collision with player
       if (!t.hasHit && player && !player.isDead) {
         const dist = Math.hypot(wx - player.x, wy - (player.y - 35));
         if (dist < t.size + 22) {
           t.hasHit = true;
           player.takeDamage(t.damage);
           particles.emitHitSparks(wx, wy, '#00BCD4', 10);
-          particles.emitFloatingText(wx, wy - 30, '🌀 旋刺！', '#00BCD4');
-          this.spinningThorns.splice(i, 1);
-          continue;
         }
       }
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════
-  // Phase 2 EXCLUSIVE: 暗影瘴氣 – Shadow Miasma (4 large spore zones)
-  // radius 45, damage 12/hit, slow 2.0s, random arena positions
-  // ══════════════════════════════════════════════════════════════════
-  castShadowMiasma(player) {
-    const arenaStart = this.config.arena.startX;
-    const arenaEnd = this.config.arena.endX;
-    const groundY = this.config.arena.groundY;
-    const count = 4;
-
-    audio.playTelegraph();
-    particles.emitFloatingText(this.x, this.y - 180, '💀 暗影瘴氣！', '#4A148C');
-
-    for (let i = 0; i < count; i++) {
-      // Place at semi-random arena positions (avoid boss position)
-      const rangeWidth = arenaEnd - arenaStart - 200;
-      const spawnX = arenaStart + 100 + Math.random() * rangeWidth;
-      const spawnY = groundY - 80 - Math.random() * 60;
-
-      // Add to spores array with enhanced miasma properties
-      this.spores.push({
-        x: spawnX,
-        y: spawnY,
-        vx: (Math.random() - 0.5) * 30,  // Very slow drift
-        vy: -8 - Math.random() * 12,      // Slight upward float
-        radius: 45,                         // Much larger than normal (22)
-        life: 4.5,
-        maxLife: 4.5,
-        damage: 12,
-        slowDuration: 2.0,
-        hasHit: false,
-        pulseTimer: 0,
-        isMiasma: true                      // Flag for different render color
-      });
-
-      // Spawn visual cloud burst at location
-      for (let j = 0; j < 10; j++) {
-        const a = (j / 10) * Math.PI * 2;
-        particles.emit({
-          x: spawnX + Math.cos(a) * 20,
-          y: spawnY + Math.sin(a) * 20,
-          vx: Math.cos(a) * (40 + Math.random() * 40),
-          vy: Math.sin(a) * (40 + Math.random() * 40) - 20,
-          size: 10 + Math.random() * 8,
-          color: Math.random() < 0.5 ? 'rgba(74, 20, 140, 0.7)' : 'rgba(30, 0, 60, 0.8)',
-          life: 0.8,
-          shape: 'circle',
-          fade: true
-        });
-      }
-    }
-  }
-
   render(ctx) {
+    // Render active telegraphs (Scythe, Thorns, Miasma, Chomp)
+    this._renderTelegraphs(ctx);
+
     // Render spore clouds (includes Shadow Miasma zones)
     this._renderSpores(ctx);
 
@@ -1057,7 +1132,7 @@ export class Boss {
       const ringTime = this.bobTimer * 6;
       const ringRadius = 130 + Math.sin(ringTime) * 20;
       ctx.save();
-      ctx.globalAlpha = Math.min(1.0, (this.phase2TransformTimer / 2.5) * 1.2);
+      ctx.globalAlpha = Math.min(1.0, (this.phase2TransformTimer / 2.8) * 1.2);
       ctx.strokeStyle = '#FF1744';
       ctx.lineWidth = 8;
       ctx.shadowColor = '#FF1744';
@@ -1082,12 +1157,9 @@ export class Boss {
     // Compute transform scale: sinusoidal 0.5→1.3→1.0 over phase2TransformTimer
     let transformScale = 1.0;
     if (this.phase2TransformTimer > 0) {
-      // phase2ScaleAnim goes 0→1 as timer counts down 2.5→0
       const t = this.phase2ScaleAnim; // 0=start, 1=end
-      // Sinusoidal: starts at 0.5, peaks at 1.3 around t=0.5, settles at 1.0
       transformScale = 0.5 + Math.sin(t * Math.PI) * 0.8 + (1.0 - Math.sin(t * Math.PI) * 0.5) * t * 0.5;
       transformScale = Math.max(0.5, Math.min(1.35, transformScale));
-      // Additional high-frequency shimmer
       transformScale += Math.sin(this.bobTimer * 6) * 0.15;
     }
 
@@ -1112,6 +1184,19 @@ export class Boss {
       ctx.beginPath();
       ctx.arc(0, -120, 35 + Math.sin(this.bobTimer * 2) * 8, 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    // v9.5 Resonance Buff Red Aura
+    if (this.resonanceEnraged && !this.isDead) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 23, 68, 0.65)';
+      ctx.lineWidth = 3 + Math.sin(this.bobTimer * 6) * 1.5;
+      ctx.shadowColor = '#FF1744';
+      ctx.shadowBlur = 16;
+      ctx.beginPath();
+      ctx.arc(0, -110, 115, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
     // Anti-facetank warning indicator: pulse red aura when player is in danger zone
@@ -1206,6 +1291,97 @@ export class Boss {
         ctx.fillRect(w.x - 10, w.y - 40, 20, 40);
         ctx.restore();
       }
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Telegraph Rendering System (Scythe line, Thorns circle, Miasma zones, Chomp wedge)
+  // ══════════════════════════════════════════════════════════════════
+  _renderTelegraphs(ctx) {
+    for (const tg of this.activeTelegraphs) {
+      const progress = 1.0 - (tg.timer / tg.maxTimer);
+      ctx.save();
+
+      if (tg.type === 'scythe') {
+        // 0.45s Purple Warning Line
+        ctx.strokeStyle = '#AB47BC';
+        ctx.lineWidth = 3 + Math.sin(tg.timer * 30) * 1.5;
+        ctx.setLineDash([12, 8]);
+        ctx.shadowColor = '#AB47BC';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(tg.startX, tg.startY);
+        const ang = Math.atan2(tg.targetY - tg.startY, tg.targetX - tg.startX);
+        ctx.lineTo(tg.startX + Math.cos(ang) * 700, tg.startY + Math.sin(ang) * 700);
+        ctx.stroke();
+
+        ctx.fillStyle = '#E1BEE7';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('⚠ SCYTHE', tg.startX - 30, tg.startY - 20);
+      }
+      else if (tg.type === 'thorns') {
+        // 0.60s Teal Warning Radius Circle
+        ctx.strokeStyle = '#00BCD4';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur = 10;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.arc(tg.x, tg.y, tg.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner shrinking countdown ring
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tg.x, tg.y, tg.radius * (1.0 - progress), 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#80DEEA';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText('⚠ THORNS', tg.x - 30, tg.y - tg.radius - 8);
+      }
+      else if (tg.type === 'miasma') {
+        // 0.55s Ground Purple Danger Circles
+        if (tg.zones) {
+          for (const z of tg.zones) {
+            ctx.fillStyle = 'rgba(74, 20, 140, 0.25)';
+            ctx.beginPath();
+            ctx.arc(z.x, z.y, z.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#7B1FA2';
+            ctx.lineWidth = 2 + Math.sin(tg.timer * 25);
+            ctx.setLineDash([6, 6]);
+            ctx.stroke();
+
+            ctx.fillStyle = '#EA80FC';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText('☠ MIASMA', z.x - 28, z.y - 10);
+          }
+        }
+      }
+      else if (tg.type === 'chomp') {
+        // 0.45s Red Warning Wedge on Ground
+        ctx.fillStyle = 'rgba(213, 0, 0, 0.35)';
+        ctx.strokeStyle = '#FF1744';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#FF1744';
+        ctx.shadowBlur = 12;
+
+        const cw = 110;
+        const ch = 70;
+        ctx.beginPath();
+        ctx.ellipse(tg.x, tg.y - 15, cw * (0.5 + progress * 0.5), ch * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#FF5252';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('⚠ CHOMP DANGER', tg.x - 55, tg.y - 45);
+      }
+
+      ctx.restore();
     }
   }
 }

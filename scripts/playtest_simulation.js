@@ -32,6 +32,7 @@ global.window = {
         gain: {
           setValueAtTime: () => {},
           exponentialRampToValueAtTime: () => {},
+          linearRampToValueAtTime: () => {},
           setTargetAtTime: () => {}
         },
         connect: () => {}
@@ -183,41 +184,43 @@ testAssert('Coffee heals 25 HP (cap maxHp), removes speed buff, and shows HP FUL
   assert.strictEqual(player.invulnerableTimer, 0, 'Full HP coffee strictly grants no invulnerability buff');
 });
 
-// 5. Hero Skills Physical Ranges, Arcs, Deflect, and Cooldowns
+// 5. Hero Skills Physical Ranges, Arcs, Deflect, and Cooldowns (v9.5.0)
 testAssert('All 3 Heroes have calibrated physical ranges, arcs, deflect radii, and cooldowns', () => {
   const yu = CHARACTERS.yu;
   const shakira = CHARACTERS.shakira;
   const sandra = CHARACTERS.sandra;
 
-  assert.strictEqual(yu.skill.range, 190);
-  assert.strictEqual(yu.skill.arcAngle, 90);
-  assert.strictEqual(yu.skill.deflectRadius, 210);
-  assert.strictEqual(yu.skill.cooldown, 0.30);
+  assert.strictEqual(yu.skill.range, 210);
+  assert.strictEqual(yu.skill.arcAngle, 95);
+  assert.strictEqual(yu.skill.deflectRadius, 230);
+  assert.strictEqual(yu.skill.cooldown, 0.32);
 
-  assert.strictEqual(shakira.skill.range, 560);
-  assert.strictEqual(shakira.skill.splashRadius, 80);
-  assert.strictEqual(shakira.skill.cooldown, 0.38);
+  assert.strictEqual(shakira.skill.range, 600);
+  assert.strictEqual(shakira.skill.splashRadius, 90);
+  assert.strictEqual(shakira.skill.cooldown, 0.42);
 
   assert.strictEqual(sandra.skill.meleeRange, 150);
-  assert.strictEqual(sandra.skill.shockwaveRange, 280);
+  assert.strictEqual(sandra.skill.combo2Range, 290);
   assert.strictEqual(sandra.skill.fanAngle, 110);
   assert.strictEqual(sandra.skill.cooldown, 0.45);
+  assert.strictEqual(sandra.skill.comboWindow, 0.32);
 });
 
-// 6. Yu 15-Coin Ult Specs
-testAssert('Yu 15-Coin Ult: Max rush 720px, invulnerable 1.2s, CD 6.5s', () => {
+// 6. Yu Ult Specs (v9.5.0: 760px Corridor, 1.3s invulnerable, CD 7.0s)
+testAssert('Yu Ult: Max rush 760px corridor, invulnerable 1.3s, CD 7.0s', () => {
   const yu = CHARACTERS.yu;
-  assert.strictEqual(yu.ult.dashDistance, 720);
-  assert.strictEqual(yu.ult.duration, 1.2);
-  assert.strictEqual(yu.ult.cooldown, 6.5);
+  assert.strictEqual(yu.ult.corridorWidth, 760);
+  assert.strictEqual(yu.ult.corridorHeight, 180);
+  assert.strictEqual(yu.ult.duration, 1.3);
+  assert.strictEqual(yu.ult.cooldown, 7.0);
 });
 
-// 7. Shakira 15-Coin Ult Specs
-testAssert('Shakira 15-Coin Ult: Zone radius 480px (960px width), 30 HP heal, CD 7.5s', () => {
+// 7. Shakira Ult Specs (v9.5.0: 500px Zone radius, 30 HP heal, CD 8.0s)
+testAssert('Shakira Ult: Zone radius 500px, 30 HP heal, CD 8.0s', () => {
   const shakira = CHARACTERS.shakira;
-  assert.strictEqual(shakira.ult.zoneRadius, 480);
+  assert.strictEqual(shakira.ult.zoneRadius, 500);
   assert.strictEqual(shakira.ult.heal, 30);
-  assert.strictEqual(shakira.ult.cooldown, 7.5);
+  assert.strictEqual(shakira.ult.cooldown, 8.0);
   
   // Shakira Mayo Orbs orbit radius strictly 75px
   const player = new Player('shakira');
@@ -228,12 +231,12 @@ testAssert('Shakira 15-Coin Ult: Zone radius 480px (960px width), 30 HP heal, CD
   assert(Math.abs(orbDist - 75) < 1.0, `Mayo Orb distance should be 75px, got ${orbDist}`);
 });
 
-// 8. Sandra 15-Coin Ult Specs
-testAssert('Sandra 15-Coin Ult: Cyclone core radius 340px, gust range 400px, CD 7.8s', () => {
+// 8. Sandra Ult Specs (v9.5.0: Cyclone core radius 350px, gust range 420px, CD 8.2s)
+testAssert('Sandra Ult: Cyclone core radius 350px, gust range 420px, CD 8.2s', () => {
   const sandra = CHARACTERS.sandra;
-  assert.strictEqual(sandra.ult.coreRadius, 340);
-  assert.strictEqual(sandra.ult.gustRange, 400);
-  assert.strictEqual(sandra.ult.cooldown, 7.8);
+  assert.strictEqual(sandra.ult.coreRadius, 350);
+  assert.strictEqual(sandra.ult.gustRange, 420);
+  assert.strictEqual(sandra.ult.cooldown, 8.2);
 });
 
 // 9. Monster 3D Distribution & Fair Combat Telegraph
@@ -253,16 +256,17 @@ testAssert('Monster 3D distribution across ground, high brick, and slope platfor
   }
 });
 
-// 10. Boss Arena Continuity, Projectile Clamping & v9.3 HP/Phase Upgrade
-testAssert('Boss v9.3: HP=2600, Phase2Threshold=1300, 9-way Phase1 petals, Arena floor continuous', () => {
+// 10. Boss Arena Continuity, Projectile Clamping & v9.5 True Two-Phase Upgrade
+testAssert('Boss v9.5: P1 HP=2400, P2 HP=3200, Transform=2.8s, Arena floor continuous', () => {
   const pm = new PlatformManager();
   const level = new Level(pm);
   assert.strictEqual(BOSS_CONFIG.arena.startX, 14800);
   assert.strictEqual(BOSS_CONFIG.arena.endX, 16500);
   assert.strictEqual(BOSS_CONFIG.arena.width, 1700);
-  // v9.3 HP checks
-  assert.strictEqual(BOSS_CONFIG.maxHp, 2600, `Expected maxHp=2600, got ${BOSS_CONFIG.maxHp}`);
-  assert.strictEqual(BOSS_CONFIG.phase2Threshold, 1300, `Expected phase2Threshold=1300, got ${BOSS_CONFIG.phase2Threshold}`);
+  // v9.5 HP checks
+  assert.strictEqual(BOSS_CONFIG.phase1Hp, 2400, `Expected phase1Hp=2400, got ${BOSS_CONFIG.phase1Hp}`);
+  assert.strictEqual(BOSS_CONFIG.phase2Hp, 3200, `Expected phase2Hp=3200, got ${BOSS_CONFIG.phase2Hp}`);
+  assert.strictEqual(BOSS_CONFIG.transformDuration, 2.8, `Expected transformDuration=2.8, got ${BOSS_CONFIG.transformDuration}`);
   assert(BOSS_CONFIG.antiFacetank, 'antiFacetank config must exist');
   assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveDamage, 18);
   assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveKnockback, 250);
@@ -282,7 +286,7 @@ testAssert('Boss v9.3: HP=2600, Phase2Threshold=1300, 9-way Phase1 petals, Arena
   player.y = 560;
   assert.strictEqual(boss.x, 15650);
   boss.firePetalBarrage(player);
-  assert(projectiles.projectiles.length >= 9, `Phase1 should fire >= 9 petals, got ${projectiles.projectiles.length}`);
+  assert(projectiles.projectiles.length >= 8, `Phase1 should fire >= 8 petals (9-way minus safe cone), got ${projectiles.projectiles.length}`);
   for (const proj of projectiles.projectiles) {
     assert(proj.arenaBounds, 'Boss projectiles must have arenaBounds');
     assert.strictEqual(proj.arenaBounds.minX, 14750);
@@ -315,8 +319,8 @@ testAssert('120s commute timer pauses during cut-in, boss roar, and victory run'
   assert(hud.timeRemaining < 120, 'Timer should tick during normal gameplay');
 });
 
-// 12. v9.3 Victory Flow: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → PUNCH_CLOCK
-testAssert('v9.3 Victory sequence: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → PUNCH_CLOCK', () => {
+// 12. v9.5 Victory Flow: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → TRIPLE PUNCH
+testAssert('v9.5 Victory sequence: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → TRIPLE PUNCH', () => {
   const game = new Game();
   game.startGame();
   game.boss.isDead = true;
@@ -347,7 +351,20 @@ testAssert('v9.3 Victory sequence: BOSS_BURST → COMPANION_RUSH → DIALOGUE �
   // Sprint to x=17630 in GROUP_SPRINT
   game.player.x = 17625;
   game.updateVictoryRun(0.05);
-  assert.strictEqual(game.victorySubState, 'PUNCH_CLOCK', 'After GROUP_SPRINT should reach PUNCH_CLOCK');
+  assert.strictEqual(game.victorySubState, 'PUNCH_PLAYER', 'After GROUP_SPRINT should reach PUNCH_PLAYER');
+  game.updateVictoryRun(0.05);
+  assert.strictEqual(game.punchedCount, 1, 'Player punch = 1/3');
+  
+  game.updateVictoryRun(0.6);
+  assert.strictEqual(game.victorySubState, 'PUNCH_COMPANION_1', 'Next is PUNCH_COMPANION_1');
+  game.updateVictoryRun(0.05);
+  assert.strictEqual(game.punchedCount, 2, 'Companion 1 punch = 2/3');
+
+  game.updateVictoryRun(0.6);
+  assert.strictEqual(game.victorySubState, 'PUNCH_COMPANION_2', 'Next is PUNCH_COMPANION_2');
+  game.updateVictoryRun(0.05);
+  assert.strictEqual(game.punchedCount, 3, 'Companion 2 punch = 3/3');
+  assert.strictEqual(game.pm.clockInMachine.punchedCount, 3, 'Clock machine punchedCount must be 3');
   assert(game.pm.clockInMachine.punched, 'Clock-in machine must be marked punched');
   assert(game.pm.clockInMachine.punchedTimeText, 'Clock-in machine must display punched time');
 });

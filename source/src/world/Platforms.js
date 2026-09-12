@@ -62,7 +62,8 @@ export class PlatformManager {
       y,
       width: 72,
       height: 96,
-      punched: false
+      punched: false,
+      punchedCount: 0
     };
   }
 
@@ -137,6 +138,48 @@ export class PlatformManager {
       // Underside Deep Cast Shadow (4px)
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(p.x, p.y + p.h - 4, p.w, 4);
+
+      // Visual Cliff Edge Markers for Stone Platforms bordering gaps (Scenes 1–4)
+      if (p.type === 'stone' && p.x < 14000) {
+        const hasLeftNeighbor = this.platforms.some(other => other !== p && other.type === 'stone' && Math.abs((other.x + other.w) - p.x) < 5);
+        const hasRightNeighbor = this.platforms.some(other => other !== p && other.type === 'stone' && Math.abs(other.x - (p.x + p.w)) < 5);
+
+        // Right Cliff Edge
+        if (!hasRightNeighbor && (p.x + p.w) < 14000) {
+          const rx = p.x + p.w;
+          ctx.save();
+          // Deep abyss vertical shadow gradient
+          const abyssGrad = ctx.createLinearGradient(rx - 15, p.y, rx + 25, p.y + 100);
+          abyssGrad.addColorStop(0, 'rgba(0,0,0,0.65)');
+          abyssGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = abyssGrad;
+          ctx.fillRect(rx - 10, p.y + 4, 25, 90);
+
+          // Cracked edge hazard lines
+          ctx.fillStyle = '#FF9800';
+          ctx.fillRect(rx - 10, p.y, 10, 4);
+          ctx.fillStyle = '#263238';
+          ctx.fillRect(rx - 5, p.y, 5, 4);
+          ctx.restore();
+        }
+
+        // Left Cliff Edge
+        if (!hasLeftNeighbor && p.x > 0 && p.x < 14000) {
+          const lx = p.x;
+          ctx.save();
+          const abyssGrad = ctx.createLinearGradient(lx + 15, p.y, lx - 25, p.y + 100);
+          abyssGrad.addColorStop(0, 'rgba(0,0,0,0.65)');
+          abyssGrad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = abyssGrad;
+          ctx.fillRect(lx - 15, p.y + 4, 25, 90);
+
+          ctx.fillStyle = '#FF9800';
+          ctx.fillRect(lx, p.y, 10, 4);
+          ctx.fillStyle = '#263238';
+          ctx.fillRect(lx + 5, p.y, 5, 4);
+          ctx.restore();
+        }
+      }
     }
 
     // 2. Render Collectibles (v9.2: Only Coin and Coffee in gameplay)
@@ -398,11 +441,13 @@ export class PlatformManager {
         ctx.strokeRect(-screenW / 2, screenY, screenW, screenH);
 
         const displayTime = m.punchedTimeText || '07:58:00';
+        const count = m.punchedCount || (m.punched ? 1 : 0);
+        const displayCount = count > 0 ? `${count}/3 PUNCH` : displayTime;
         ctx.fillStyle = m.punched ? '#00E676' : '#FFD54F';
         ctx.font = 'bold 8px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(displayTime, 0, screenY + screenH / 2);
+        ctx.fillText(m.punched ? displayCount : displayTime, 0, screenY + screenH / 2);
 
         // Punch status banner
         ctx.fillStyle = m.punched ? '#00E676' : '#FFD700';
@@ -410,7 +455,10 @@ export class PlatformManager {
         ctx.textAlign = 'center';
         ctx.shadowColor = m.punched ? '#00E676' : '#FFD700';
         ctx.shadowBlur = 10;
-        ctx.fillText(m.punched ? `★ ${displayTime} ON TIME!` : '🖹 松德院區打卡處', 0, -m.height - 10);
+        const bannerText = m.punched 
+          ? (count >= 3 ? `★ 3 / 3 PUNCHED - ${displayTime} ON TIME!` : `★ ${count} / 3 PUNCHED - 打卡中...`)
+          : '🖹 松德院區打卡處';
+        ctx.fillText(bannerText, 0, -m.height - 10);
 
         ctx.restore();
       }

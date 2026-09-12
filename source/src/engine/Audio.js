@@ -20,6 +20,7 @@ export class AudioManager {
     this.bgmStep = 0;
     this.tempo = 125;
     this.isDucked = false;
+    this.bossIntensity = 1; // v9.5: 1 = Phase 1, 2 = Phase 2 intensity layer
   }
 
   init() {
@@ -70,22 +71,68 @@ export class AudioManager {
     this.currentBgmType = null;
   }
 
+  setBossIntensity(level) {
+    this.bossIntensity = level;
+  }
+
+  fadeToVictory(fadeDuration = 0.6) {
+    if (!this.ctx || !this.bgmGain) {
+      this.playBgm('victory_theme');
+      return;
+    }
+    const t = this.ctx.currentTime;
+    this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, t);
+    this.bgmGain.gain.linearRampToValueAtTime(0.01, t + fadeDuration);
+    setTimeout(() => {
+      this.playBgm('victory_theme');
+      if (this.bgmGain && this.ctx) {
+        this.bgmGain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+        this.bgmGain.gain.linearRampToValueAtTime(0.45, this.ctx.currentTime + 0.3);
+      }
+    }, fadeDuration * 1000);
+  }
+
   playBgm(type) {
     this.ensureContext();
-    if (this.currentBgmType === type) return;
+
+    // v9.5 Three-Theme Rule & Canonical Mapping
+    // 1. commute_theme (Scene 1 to Boss gate; no switching in rainy park!)
+    // 2. boss_theme (Phase 1 & Phase 2 share track; Phase 2 sets intensity 2)
+    // 3. victory_theme (Celebration, triple clock-in, evaluation)
+    let canonical = type;
+    if (type === 'city_pop') canonical = 'commute_theme';
+    if (type === 'boss_p1') {
+      canonical = 'boss_theme';
+      this.bossIntensity = 1;
+    }
+    if (type === 'boss_p2') {
+      canonical = 'boss_theme';
+      this.bossIntensity = 2;
+    }
+    if (type === 'victory') canonical = 'victory_theme';
+
+    // Disallow switching away from commute_theme while in scenes 1-4 (e.g. rainy_park)
+    if (type === 'rainy_park') {
+      return; // Do not switch BGM in Hulin Park; commute_theme persists!
+    }
+
+    if (this.currentBgmType === canonical) {
+      // If already playing boss_theme and boss_p2 was requested, intensity was updated above
+      return;
+    }
+
     this.stopBgm();
-    this.currentBgmType = type;
+    this.currentBgmType = canonical;
     this.bgmStep = 0;
 
-    let intervalMs = 125;
-    if (type === 'city_pop') intervalMs = 120; // 125 BPM
-    else if (type === 'rainy_park') intervalMs = 145; // 105 BPM
-    else if (type === 'boss_p1') intervalMs = 110; // 136 BPM
-    else if (type === 'boss_p2') intervalMs = 90;  // 166 BPM (High BPM 狂暴)
+    let intervalMs = 120; // Default 125 BPM
+    if (canonical === 'commute_theme') intervalMs = 120; // 125 BPM City Pop
+    else if (canonical === 'boss_theme') intervalMs = 105; // 142 BPM Tension
+    else if (canonical === 'victory_theme') intervalMs = 115; // 130 BPM Victory Fanfare
 
     this.bgmLoopTimer = setInterval(() => {
       if (this.isMuted || !this.ctx) return;
-      this.tickBgm(type);
+      this.tickBgm(canonical);
       this.bgmStep = (this.bgmStep + 1) % 64;
     }, intervalMs);
   }
@@ -94,7 +141,7 @@ export class AudioManager {
     const t = this.ctx.currentTime;
     const step = this.bgmStep;
 
-    if (type === 'city_pop') {
+    if (type === 'commute_theme') {
       // Upbeat City Pop Bassline & Chords (Amaj7 - G#m7 - C#m7 - F#m7)
       const bassNotes = [220, 220, 330, 220, 207, 207, 311, 207, 164, 164, 246, 164, 185, 185, 277, 185];
       const note = bassNotes[step % 16];
@@ -109,42 +156,54 @@ export class AudioManager {
         this.synthChords([440, 554, 659, 830], t, 0.25);
       }
     } 
-    else if (type === 'rainy_park') {
-      // Subdued, melancholy rain vibe (Dm7 - Am7 - Gm7 - A7)
-      const rainBass = [146, 0, 146, 220, 110, 0, 110, 164, 98, 0, 98, 146, 110, 0, 164, 220];
-      const note = rainBass[step % 16];
-      if (note > 0 && step % 4 === 0) {
-        this.synthBass(note, t, 0.35, 'triangle');
-      }
-      if (step % 8 === 4) this.synthSnare(t, 0.15);
-      // Soft electric piano chime
-      if (step % 16 === 0) {
-        this.synthChords([293, 349, 440, 523], t, 0.45, 0.08);
-      }
-    }
-    else if (type === 'boss_p1') {
-      // Dramatic driving tension (Em - C - D - B7)
+    else if (type === 'boss_theme') {
+      // Base: Dramatic driving tension (Em - C - D - B7)
       const bossNotes = [164, 164, 246, 164, 130, 130, 196, 130, 146, 146, 220, 146, 123, 123, 185, 123];
       const note = bossNotes[step % 16];
       this.synthBass(note, t, 0.14, 'sawtooth');
+
+      // Kick & Snare
       if (step % 4 === 0) this.synthKick(t);
       if (step % 4 === 2) this.synthSnare(t, 0.4);
       this.synthHiHat(t, 0.05);
+
       if (step % 8 === 0) {
         this.synthArp([329, 392, 493, 659], t, 0.15);
       }
+
+      // v9.5 Intensity 2 Layer (Phase 2 Berserk - Hi-hats, distorted bass, double kick, rapid arps)
+      if (this.bossIntensity >= 2) {
+        // Double kick on every other beat
+        if (step % 2 === 0) this.synthKick(t, 0.65);
+        // Rapid hi-hats on off-beats
+        if (step % 2 === 1) this.synthHiHat(t, 0.06);
+        // Snare with extra power
+        if (step % 4 === 2) this.synthSnare(t, 0.6);
+        // Extra rapid upper arpeggios
+        const arpFreqs = [440, 554, 659, 880, 1108, 880, 659, 554];
+        this.synthArp([arpFreqs[step % 8]], t, 0.08, 0.16);
+      }
     }
-    else if (type === 'boss_p2') {
-      // Intense 166 BPM Double-Time Bullet Hell Drum & Bass
-      const p2Notes = [110, 110, 164, 110, 123, 123, 185, 123, 130, 130, 196, 130, 146, 164, 196, 220];
-      const note = p2Notes[step % 16];
-      this.synthBass(note, t, 0.10, 'sawtooth');
-      this.synthKick(t, 0.7); // Driving kick on every beat
-      if (step % 2 === 1) this.synthHiHat(t, 0.08);
-      if (step % 4 === 2) this.synthSnare(t, 0.6);
-      // Rapid arpeggios
-      const arpFreqs = [440, 554, 659, 880, 1108, 880, 659, 554];
-      this.synthArp([arpFreqs[step % 8]], t, 0.08, 0.14);
+    else if (type === 'victory_theme') {
+      // Triumphant Victory Fanfare (C - G - Am - F - G - C)
+      const vicBass = [130, 130, 196, 196, 220, 220, 174, 196];
+      const bNote = vicBass[Math.floor(step / 2) % 8];
+      if (step % 2 === 0) {
+        this.synthBass(bNote, t, 0.20, 'triangle');
+      }
+      if (step % 4 === 0) this.synthKick(t, 0.6);
+      if (step % 4 === 2) this.synthSnare(t, 0.45);
+      if (step % 2 === 0) this.synthHiHat(t, 0.05);
+
+      // Uplifting Brass Fanfare Stabs & Chords
+      if (step % 8 === 0) {
+        this.synthChords([523, 659, 784, 1046], t, 0.35, 0.18); // High C major
+      } else if (step % 8 === 4) {
+        this.synthChords([587, 784, 880, 1174], t, 0.30, 0.16); // G / D
+      }
+      // Cheerful sparkling arpeggio
+      const vicArp = [523, 659, 784, 988, 1046, 988, 784, 659];
+      this.synthArp([vicArp[step % 8]], t, 0.09, 0.12);
     }
   }
 

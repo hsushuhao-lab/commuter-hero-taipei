@@ -113,21 +113,33 @@ export class Level {
     // Locate the solid ground platform at x
     const plat = this.pm.platforms.find(p => p.type === 'stone' && p.x <= x && (p.x + p.w) >= x);
     const y = plat ? plat.y : 560;
-    this.monsters.push(new Monster(type, x, y));
+    const m = new Monster(type, x, y);
+    if (plat) {
+      m.patrolBounds = { minX: plat.x + 30, maxX: plat.x + plat.w - 30 };
+    }
+    this.monsters.push(m);
   }
 
   spawnMonsterOnPlatform(type, x, fallbackY = 420) {
     // Locate brick platform at x
     const plat = this.pm.platforms.find(p => p.type === 'brick' && p.x <= x && (p.x + p.w) >= x);
     const y = plat ? plat.y : fallbackY;
-    this.monsters.push(new Monster(type, x, y));
+    const m = new Monster(type, x, y);
+    if (plat) {
+      m.patrolBounds = { minX: plat.x + 25, maxX: plat.x + plat.w - 25 };
+    }
+    this.monsters.push(m);
   }
 
   spawnMonsterOnSlope(type, x, terraceY = 440) {
     // Specific terraced hill platform
     const plat = this.pm.platforms.find(p => p.x <= x && (p.x + p.w) >= x && Math.abs(p.y - terraceY) < 30);
     const y = plat ? plat.y : terraceY;
-    this.monsters.push(new Monster(type, x, y));
+    const m = new Monster(type, x, y);
+    if (plat) {
+      m.patrolBounds = { minX: plat.x + 25, maxX: plat.x + plat.w - 25 };
+    }
+    this.monsters.push(m);
   }
 
   spawnFlyingMonster(type, x, altitude = 240) {
@@ -142,217 +154,202 @@ export class Level {
     const groundY = 560;
 
     // =========================================================================
-    // ★ MAIN SAFE ROUTE: 100% CONTINUOUS GROUND PATH WITH 50px BOUNDARY OVERLAPS ★
+    // ★ v9.5 CLIFF ROUTE: 6 REAL GAPS IN SCENES 1–4, 100% FLAT ARENA & LOBBY ★
+    // Gaps:
+    // Gap 1 (S1): 1800 ~ 1940 (width 140px, Easy)
+    // Gap 2 (S2): 4850 ~ 5010 (width 160px, Normal)
+    // Gap 3 (S2): 6250 ~ 6425 (width 175px, Normal)
+    // Gap 4 (S3): 8200 ~ 8385 (width 185px, Normal)
+    // Gap 5 (S3): 9750 ~ 9945 (width 195px, Hard)
+    // Gap 6 (S4): 11950 ~ 12160 (width 210px, Hard)
+    // Reset Zones: S1 (2900~3500), S2 (6500~7000), S3 (9100~9650), S4 (13300~14000)
     // =========================================================================
-    // S1: 0 ~ 3550
-    this.pm.addPlatform(0, groundY, 3550, 40, 'stone');
-    // S2: 3500 ~ 7050 (50px overlap with S1)
-    this.pm.addPlatform(3500, groundY, 3550, 40, 'stone');
-    // S3: 7000 ~ 10550 (50px overlap with S2)
-    this.pm.addPlatform(7000, groundY, 3550, 40, 'stone');
-    // S4: 10500 ~ 14050 (50px overlap with S3)
-    this.pm.addPlatform(10500, groundY, 3550, 40, 'stone');
-    // S5 Forecourt: 14000 ~ 14850 (50px overlap with S4)
+
+    // Scene 1: 0 ~ 1800, Gap 1 (1800~1940), 1940 ~ 3500
+    this.pm.addPlatform(0, groundY, 1800, 40, 'stone');
+    this.pm.addPlatform(1940, groundY, 1560, 40, 'stone');
+
+    // Scene 2: 3500 ~ 4850, Gap 2 (4850~5010), 5010 ~ 6250, Gap 3 (6250~6425), 6425 ~ 7000
+    this.pm.addPlatform(3500, groundY, 1350, 40, 'stone');
+    this.pm.addPlatform(5010, groundY, 1240, 40, 'stone');
+    this.pm.addPlatform(6425, groundY, 575, 40, 'stone');
+
+    // Scene 3: 7000 ~ 8200, Gap 4 (8200~8385), 8385 ~ 9750, Gap 5 (9750~9945), 9945 ~ 10500
+    this.pm.addPlatform(7000, groundY, 1200, 40, 'stone');
+    this.pm.addPlatform(8385, groundY, 1365, 40, 'stone');
+    this.pm.addPlatform(9945, groundY, 555, 40, 'stone');
+
+    // Scene 4: 10500 ~ 11950, Gap 6 (11950~12160), 12160 ~ 14000
+    this.pm.addPlatform(10500, groundY, 1450, 40, 'stone');
+    this.pm.addPlatform(12160, groundY, 1840, 40, 'stone');
+
+    // Scene 5 Forecourt: 14000 ~ 14850 (flat continuous floor)
     this.pm.addPlatform(14000, groundY, 850, 40, 'stone');
-    // S5 Boss Arena: 14800 ~ 16550 (50px overlap with Forecourt, flat continuous arena floor)
+
+    // Scene 5 Boss Arena: 14800 ~ 16550 (100% flat continuous arena floor, 0 gaps)
     this.pm.addPlatform(14800, groundY, 1750, 60, 'stone');
-    // S5 Interior Lobby: 16500 ~ 18050 (50px overlap with Arena, flat lobby floor to punch clock)
+
+    // Scene 5 Interior Lobby: 16500 ~ 18050 (100% flat continuous lobby floor, 0 gaps)
     this.pm.addPlatform(16500, groundY, 1550, 60, 'stone');
 
     // =========================================================================
     // --- SCENE 1: 象山捷運站 2 號出口 (0 ~ 3500) ---
+    // Platforms reduced by 41.7% (from 12 to 7). Ground Reset Zone: 2900 ~ 3500
     // =========================================================================
-    // 捷運出口階梯與高台
-    this.pm.addPlatform(360, 460, 180, 24, 'brick');
-    this.pm.addPlatform(620, 390, 180, 24, 'brick');
-    this.pm.addPlatform(880, 320, 190, 24, 'brick');
-    this.pm.addPlatform(1150, 410, 180, 24, 'brick');
-    this.pm.addPlatform(1420, 340, 180, 24, 'brick');
-    this.pm.addPlatform(1690, 430, 180, 24, 'brick');
-    this.pm.addPlatform(1960, 350, 190, 24, 'brick');
-    this.pm.addPlatform(2240, 420, 180, 24, 'brick');
-    this.pm.addPlatform(2520, 340, 190, 24, 'brick');
-    this.pm.addPlatform(2800, 420, 180, 24, 'brick');
-    this.pm.addPlatform(3080, 350, 190, 24, 'brick');
-    this.pm.addPlatform(3340, 430, 180, 24, 'brick');
+    this.pm.addPlatform(400, 460, 180, 24, 'brick');
+    this.pm.addPlatform(700, 390, 180, 24, 'brick');
+    this.pm.addPlatform(1050, 430, 180, 24, 'brick');
+    this.pm.addPlatform(1380, 350, 180, 24, 'brick');
+    this.pm.addPlatform(2100, 440, 180, 24, 'brick');
+    this.pm.addPlatform(2400, 370, 180, 24, 'brick');
+    this.pm.addPlatform(2700, 440, 180, 24, 'brick');
 
-    // Collectibles: 20 Coins (Milestone 15 Unlock Ult) + 4 Coffee
-    [220, 410, 630, 900, 1160, 1430, 1700, 1970, 2250, 2530, 2810, 3090, 3250, 3360, 3450].forEach((cx, idx) => {
-      const cy = (idx % 2 === 0) ? groundY - 35 : 320;
-      this.pm.addItem('coin', cx, cy);
+    // S1 Collectibles: 20 Coins + 4 Coffee (None in Gap 1: 1800~1940)
+    [220, 410, 630, 900, 1160, 1430, 1650, 2000, 2250, 2530, 2810, 2980, 3150, 3300, 3450].forEach(cx => {
+      this.pm.addItem('coin', cx, groundY - 35);
     });
-    // 5 extra coins on brick platforms
-    this.pm.addItem('coin', 360, 420);
-    this.pm.addItem('coin', 880, 280);
-    this.pm.addItem('coin', 1690, 390);
-    this.pm.addItem('coin', 2520, 300);
-    this.pm.addItem('coin', 3080, 310);
-    // 4 coffee total
-    this.pm.addItem('coffee', 1000, 360);
-    this.pm.addItem('coffee', 2350, groundY - 35);
-    this.pm.addItem('coffee', 620, 350);
-    this.pm.addItem('coffee', 2800, 380);
+    this.pm.addItem('coin', 400, 420);
+    this.pm.addItem('coin', 700, 350);
+    this.pm.addItem('coin', 1380, 310);
+    this.pm.addItem('coin', 2100, 400);
+    this.pm.addItem('coin', 2700, 400);
 
-    // Monsters: Ground 45%, Platform 25%, Slope 20%, Flying 10%
-    this.spawnMonsterOnGround('red', 480);
-    this.spawnMonsterOnPlatform('blue', 620);
-    this.spawnFlyingMonster('pink', 900, 220);
-    this.spawnMonsterOnPlatform('yellow', 1150);
+    this.pm.addItem('coffee', 1050, 390);
+    this.pm.addItem('coffee', 2400, 330);
+    this.pm.addItem('coffee', 2350, groundY - 35);
+    this.pm.addItem('coffee', 3200, groundY - 35);
+
+    // S1 Monsters
+    this.spawnMonsterOnGround('red', 500);
+    this.spawnMonsterOnPlatform('blue', 700);
+    this.spawnFlyingMonster('pink', 950, 220);
+    this.spawnMonsterOnPlatform('yellow', 1050);
     this.spawnMonsterOnGround('red', 1450);
-    this.spawnMonsterOnPlatform('blue', 1690);
-    this.spawnMonsterOnGround('pink', 2000);
-    this.spawnMonsterOnPlatform('yellow', 2240);
-    this.spawnMonsterOnPlatform('blue', 2520);
-    this.spawnMonsterOnGround('red', 2850);
-    this.spawnFlyingMonster('pink', 3100, 230);
-    this.spawnMonsterOnPlatform('yellow', 3340);
+    this.spawnMonsterOnGround('pink', 2150);
+    this.spawnMonsterOnPlatform('yellow', 2400);
+    this.spawnMonsterOnPlatform('blue', 2700);
+    this.spawnMonsterOnGround('red', 3100);
+    this.spawnFlyingMonster('pink', 3350, 230);
 
     // =========================================================================
     // --- SCENE 2: 信義街廓／巷弄通勤段 (3500 ~ 7000) ---
+    // Platforms reduced by 41.7% (from 12 to 7). Ground Reset Zone: 6500 ~ 7000
     // =========================================================================
-    // 騎樓高台、早餐店遮雨棚
-    this.pm.addPlatform(3680, 440, 180, 24, 'brick');
-    this.pm.addPlatform(3950, 360, 190, 24, 'brick');
-    this.pm.addPlatform(4220, 430, 180, 24, 'brick');
-    this.pm.addPlatform(4500, 350, 190, 24, 'brick');
-    this.pm.addPlatform(4780, 420, 180, 24, 'brick');
-    this.pm.addPlatform(5060, 340, 190, 24, 'brick');
-    this.pm.addPlatform(5340, 420, 180, 24, 'brick');
-    this.pm.addPlatform(5620, 350, 190, 24, 'brick');
+    this.pm.addPlatform(3750, 430, 180, 24, 'brick');
+    this.pm.addPlatform(4100, 360, 180, 24, 'brick');
+    this.pm.addPlatform(4450, 430, 180, 24, 'brick');
+    this.pm.addPlatform(5200, 440, 180, 24, 'brick');
+    this.pm.addPlatform(5550, 360, 180, 24, 'brick');
     this.pm.addPlatform(5900, 430, 180, 24, 'brick');
-    this.pm.addPlatform(6180, 350, 190, 24, 'brick');
-    this.pm.addPlatform(6460, 420, 180, 24, 'brick');
-    this.pm.addPlatform(6740, 340, 190, 24, 'brick');
+    this.pm.addPlatform(6100, 360, 140, 24, 'brick');
 
-    // Collectibles: 20 Coins (Milestone 30 Monster P2) + 5 Coffee
-    [3620, 3850, 4080, 4310, 4540, 4770, 5000, 5230, 5460, 5690, 5920, 6150, 6380, 6610, 6840].forEach((cx, idx) => {
-      const cy = (idx % 2 === 0) ? groundY - 35 : 350;
-      this.pm.addItem('coin', cx, cy);
+    // S2 Collectibles: 20 Coins + 5 Coffee (None in Gaps: 4850~5010, 6250~6425)
+    [3620, 3850, 4080, 4310, 4540, 4750, 5050, 5250, 5480, 5700, 5950, 6180, 6460, 6680, 6880].forEach(cx => {
+      this.pm.addItem('coin', cx, groundY - 35);
     });
-    // 5 extra coins on elevated platforms
-    this.pm.addItem('coin', 3680, 400);
-    this.pm.addItem('coin', 4220, 390);
-    this.pm.addItem('coin', 5060, 300);
+    this.pm.addItem('coin', 3750, 390);
+    this.pm.addItem('coin', 4450, 390);
+    this.pm.addItem('coin', 5200, 400);
     this.pm.addItem('coin', 5900, 390);
-    this.pm.addItem('coin', 6740, 300);
-    // 5 coffee total (morning energy boost!)
-    this.pm.addItem('coffee', 4250, 380);
-    this.pm.addItem('coffee', 5360, groundY - 35);
-    this.pm.addItem('coffee', 6480, 370);
-    this.pm.addItem('coffee', 3950, 320);
-    this.pm.addItem('coffee', 6180, 310);
+    this.pm.addItem('coin', 6100, 320);
 
-    // Monsters: Ground, Platform, Flying
+    this.pm.addItem('coffee', 4100, 320);
+    this.pm.addItem('coffee', 5550, 320);
+    this.pm.addItem('coffee', 4600, groundY - 35);
+    this.pm.addItem('coffee', 5800, groundY - 35);
+    this.pm.addItem('coffee', 6750, groundY - 35);
+
+    // S2 Monsters
     this.spawnMonsterOnGround('grape', 3700);
-    this.spawnMonsterOnPlatform('red', 3950);
-    this.spawnMonsterOnGround('obsidian', 4240);
-    this.spawnFlyingMonster('grape', 4510, 220);
-    this.spawnMonsterOnGround('blue', 4800);
-    this.spawnMonsterOnPlatform('yellow', 5060);
-    this.spawnMonsterOnGround('pink', 5360);
-    this.spawnMonsterOnPlatform('ice', 5620);
-    this.spawnMonsterOnGround('obsidian', 5920);
-    this.spawnMonsterOnPlatform('red', 6180);
-    this.spawnMonsterOnGround('blue', 6480);
-    this.spawnFlyingMonster('grape', 6760, 230);
+    this.spawnMonsterOnPlatform('red', 4100);
+    this.spawnMonsterOnGround('obsidian', 4400);
+    this.spawnFlyingMonster('grape', 4650, 220);
+    this.spawnMonsterOnGround('blue', 5250);
+    this.spawnMonsterOnPlatform('yellow', 5550);
+    this.spawnMonsterOnGround('pink', 5850);
+    this.spawnMonsterOnGround('obsidian', 6650);
+    this.spawnFlyingMonster('grape', 6850, 230);
 
     // =========================================================================
     // --- SCENE 3: 虎林公園綠帶雨景段 (7000 ~ 10500) ---
+    // Platforms reduced by 41.7% (from 12 to 7). Ground Reset Zone: 9100 ~ 9650
     // =========================================================================
-    // 公園木棧高台、涼亭階梯
-    this.pm.addPlatform(7180, 440, 180, 24, 'brick');
-    this.pm.addPlatform(7460, 360, 180, 24, 'brick');
-    this.pm.addPlatform(7740, 430, 180, 24, 'brick');
-    this.pm.addPlatform(8020, 340, 190, 24, 'brick');
-    this.pm.addPlatform(8300, 420, 180, 24, 'brick');
-    this.pm.addPlatform(8580, 350, 180, 24, 'brick');
-    this.pm.addPlatform(8860, 430, 180, 24, 'brick');
-    this.pm.addPlatform(9140, 350, 180, 24, 'brick');
-    this.pm.addPlatform(9420, 420, 180, 24, 'brick');
-    this.pm.addPlatform(9700, 340, 190, 24, 'brick');
-    this.pm.addPlatform(9980, 420, 180, 24, 'brick');
-    this.pm.addPlatform(10260, 350, 180, 24, 'brick');
+    this.pm.addPlatform(7250, 430, 180, 24, 'brick');
+    this.pm.addPlatform(7550, 360, 180, 24, 'brick');
+    this.pm.addPlatform(7850, 430, 180, 24, 'brick');
+    this.pm.addPlatform(8550, 440, 180, 24, 'brick');
+    this.pm.addPlatform(8850, 360, 180, 24, 'brick');
+    this.pm.addPlatform(9980, 440, 170, 24, 'brick');
+    this.pm.addPlatform(10220, 370, 170, 24, 'brick');
 
-    // Collectibles: 20 Coins (Milestone 45 Hero Form 2) + 5 Coffee
-    [7120, 7350, 7580, 7810, 8040, 8270, 8500, 8730, 8960, 9190, 9420, 9650, 9880, 10110, 10340].forEach((cx, idx) => {
-      const cy = (idx % 2 === 0) ? groundY - 35 : 350;
-      this.pm.addItem('coin', cx, cy);
+    // S3 Collectibles: 20 Coins + 5 Coffee (None in Gaps: 8200~8385, 9750~9945)
+    [7120, 7350, 7580, 7810, 8100, 8420, 8650, 8880, 9150, 9350, 9550, 9700, 9980, 10180, 10380].forEach(cx => {
+      this.pm.addItem('coin', cx, groundY - 35);
     });
-    // 5 extra coins in the rain
-    this.pm.addItem('coin', 7460, 320);
-    this.pm.addItem('coin', 8020, 300);
-    this.pm.addItem('coin', 8860, 390);
-    this.pm.addItem('coin', 9700, 300);
-    this.pm.addItem('coin', 10260, 310);
-    // 5 coffee total (雨中補給！)
-    this.pm.addItem('coffee', 7750, 380);
-    this.pm.addItem('coffee', 8880, groundY - 35);
-    this.pm.addItem('coffee', 10000, 370);
-    this.pm.addItem('coffee', 7460, 320);
-    this.pm.addItem('coffee', 9140, 310);
+    this.pm.addItem('coin', 7250, 390);
+    this.pm.addItem('coin', 7850, 390);
+    this.pm.addItem('coin', 8550, 400);
+    this.pm.addItem('coin', 9980, 400);
+    this.pm.addItem('coin', 10220, 330);
 
-    // Monsters: Rain terrain
-    this.spawnMonsterOnPlatform('blue', 7180);
-    this.spawnMonsterOnGround('ice', 7480);
-    this.spawnMonsterOnGround('pink', 7760);
-    this.spawnMonsterOnPlatform('red', 8020);
-    this.spawnMonsterOnPlatform('yellow', 8300);
-    this.spawnMonsterOnGround('obsidian', 8600);
-    this.spawnFlyingMonster('grape', 8880, 220);
-    this.spawnMonsterOnPlatform('ice', 9140);
-    this.spawnMonsterOnGround('blue', 9440);
-    this.spawnFlyingMonster('pink', 9700, 210);
-    this.spawnMonsterOnGround('obsidian', 10000);
-    this.spawnMonsterOnPlatform('yellow', 10260);
+    this.pm.addItem('coffee', 7550, 320);
+    this.pm.addItem('coffee', 8850, 320);
+    this.pm.addItem('coffee', 7750, groundY - 35);
+    this.pm.addItem('coffee', 8700, groundY - 35);
+    this.pm.addItem('coffee', 9400, groundY - 35);
+
+    // S3 Monsters
+    this.spawnMonsterOnGround('ice', 7350);
+    this.spawnMonsterOnPlatform('blue', 7550);
+    this.spawnMonsterOnGround('pink', 7850);
+    this.spawnFlyingMonster('grape', 8100, 220);
+    this.spawnMonsterOnGround('obsidian', 8550);
+    this.spawnMonsterOnPlatform('yellow', 8850);
+    this.spawnMonsterOnGround('blue', 9300);
+    this.spawnFlyingMonster('pink', 9600, 210);
+    this.spawnMonsterOnPlatform('yellow', 9980);
+    this.spawnMonsterOnGround('obsidian', 10100);
 
     // =========================================================================
     // --- SCENE 4: 前往松德的坡道段 (10500 ~ 14000) ---
+    // Platforms reduced by 41.7% (from 12 to 7). Ground Reset Zone: 13300 ~ 14000
     // =========================================================================
-    // 爬坡階梯露台（重現信義至松德爬升坡道地景）
-    this.pm.addPlatform(10680, 460, 180, 24, 'brick');
-    this.pm.addPlatform(10960, 390, 180, 24, 'brick');
-    this.pm.addPlatform(11240, 450, 180, 24, 'brick');
-    this.pm.addPlatform(11520, 370, 190, 24, 'brick');
-    this.pm.addPlatform(11800, 440, 180, 24, 'brick');
-    this.pm.addPlatform(12080, 350, 180, 24, 'brick');
-    this.pm.addPlatform(12360, 430, 180, 24, 'brick');
-    this.pm.addPlatform(12640, 340, 190, 24, 'brick');
-    this.pm.addPlatform(12920, 420, 180, 24, 'brick');
-    this.pm.addPlatform(13200, 330, 190, 24, 'brick');
-    this.pm.addPlatform(13480, 410, 180, 24, 'brick');
-    this.pm.addPlatform(13760, 330, 180, 24, 'brick');
+    this.pm.addPlatform(10750, 450, 180, 24, 'brick');
+    this.pm.addPlatform(11050, 380, 180, 24, 'brick');
+    this.pm.addPlatform(11350, 440, 180, 24, 'brick');
+    this.pm.addPlatform(11650, 360, 180, 24, 'brick');
+    this.pm.addPlatform(12350, 430, 180, 24, 'brick');
+    this.pm.addPlatform(12680, 360, 180, 24, 'brick');
+    this.pm.addPlatform(13000, 430, 180, 24, 'brick');
 
-    // Collectibles: 20 Coins (Milestone 60 Boss Rage) + 5 Coffee
-    [10620, 10850, 11080, 11310, 11540, 11770, 12000, 12230, 12460, 12690, 12920, 13150, 13380, 13610, 13840].forEach((cx, idx) => {
-      const cy = (idx % 2 === 0) ? groundY - 35 : 340;
-      this.pm.addItem('coin', cx, cy);
+    // S4 Collectibles: 20 Coins + 5 Coffee (None in Gap 6: 11950~12160)
+    [10620, 10850, 11080, 11310, 11540, 11770, 11900, 12200, 12450, 12700, 12950, 13200, 13450, 13680, 13900].forEach(cx => {
+      this.pm.addItem('coin', cx, groundY - 35);
     });
-    // 5 extra coins on slope terraces
-    this.pm.addItem('coin', 10960, 350);
-    this.pm.addItem('coin', 11520, 330);
-    this.pm.addItem('coin', 12080, 310);
-    this.pm.addItem('coin', 12640, 300);
-    this.pm.addItem('coin', 13200, 290);
-    // 5 coffee total (爬坡補給！)
-    this.pm.addItem('coffee', 11250, 400);
-    this.pm.addItem('coffee', 12380, groundY - 35);
-    this.pm.addItem('coffee', 13500, 360);
-    this.pm.addItem('coffee', 10960, 350);
-    this.pm.addItem('coffee', 13760, 290);
+    this.pm.addItem('coin', 10750, 410);
+    this.pm.addItem('coin', 11350, 400);
+    this.pm.addItem('coin', 11650, 320);
+    this.pm.addItem('coin', 12350, 390);
+    this.pm.addItem('coin', 13000, 390);
 
-    // Monsters: Slope terraces (transit 悠遊卡怪物已移除)
-    this.spawnMonsterOnGround('obsidian', 10700);
-    this.spawnMonsterOnSlope('red', 10960, 390);
-    this.spawnMonsterOnGround('obsidian', 11260);
-    this.spawnFlyingMonster('grape', 11540, 240);
-    this.spawnMonsterOnSlope('yellow', 11800, 440);
-    this.spawnMonsterOnGround('ice', 12100);
-    this.spawnMonsterOnSlope('grape', 12360, 430);
-    this.spawnMonsterOnPlatform('red', 12640);
-    this.spawnMonsterOnGround('blue', 12940);
-    this.spawnFlyingMonster('pink', 13220, 220);
+    this.pm.addItem('coffee', 11050, 340);
+    this.pm.addItem('coffee', 12680, 320);
+    this.pm.addItem('coffee', 11250, groundY - 35);
+    this.pm.addItem('coffee', 12400, groundY - 35);
+    this.pm.addItem('coffee', 13600, groundY - 35);
+
+    // S4 Monsters
+    this.spawnMonsterOnGround('obsidian', 10800);
+    this.spawnMonsterOnPlatform('red', 11050);
+    this.spawnMonsterOnGround('obsidian', 11350);
+    this.spawnFlyingMonster('grape', 11500, 240);
+    this.spawnMonsterOnPlatform('yellow', 11650);
+    this.spawnMonsterOnGround('ice', 12350);
+    this.spawnMonsterOnPlatform('red', 12680);
+    this.spawnMonsterOnGround('blue', 12950);
+    this.spawnFlyingMonster('pink', 13200, 220);
     this.spawnMonsterOnGround('obsidian', 13500);
-    this.spawnMonsterOnGround('yellow', 13780);
+    this.spawnMonsterOnGround('yellow', 13800);
 
     // =========================================================================
     // --- SCENE 5: 松德院區 (14000 ~ 18000) ---
@@ -373,7 +370,7 @@ export class Level {
     this.spawnMonsterOnGround('blue', 14740);
 
     // 5.2 ★ 夢影巨花王 Boss Arena (14800 ~ 16500) ★
-    // 嚴格 1700px 連續平整石板地板，無任何坑洞
+    // 嚴格 1700px 連續平整石板地板，0 坑洞
     this.pm.addPlatform(15150, 410, 180, 24, 'brick');
     this.pm.addPlatform(15650, 340, 180, 24, 'brick');
     this.pm.addPlatform(16150, 410, 180, 24, 'brick');
@@ -420,7 +417,7 @@ export class Level {
     // Update active monsters
     for (let m of this.monsters) {
       if (Math.abs(m.x - player.x) < 750) {
-        m.update(dt, player);
+        m.update(dt, player, this.pm.platforms);
       }
     }
   }

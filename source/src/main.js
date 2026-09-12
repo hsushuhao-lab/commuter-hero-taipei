@@ -42,6 +42,11 @@ class Game {
     this.victorySubState = '';
     this.victoryPunchTimer = 0;
 
+    // Commuter Resonance Milestone announcements
+    this.milestoneBanner = null;
+    this.milestoneBannerTimer = 0;
+    this.announcedMilestones = {};
+
     // Joystick touch tracking
     this.joystickPointerId = null;
 
@@ -110,6 +115,7 @@ class Game {
       input.touchJump = false;
       input.touchSkill = false;
       input.touchUlt = false;
+      input.touchDash = false;
     };
 
     this.canvas.addEventListener('pointerup', endPointer);
@@ -139,16 +145,31 @@ class Game {
     // If Style Bible is open
     if (styleBibleUI.isOpen) {
       // Check tab clicks or close click
-      const pad = 40;
+      const pad = 36;
       const modalW = this.vw - pad * 2;
-      const tabW = modalW / 4;
-      if (my >= pad + 46 && my <= pad + 82) {
+      const modalH = this.vh - pad * 2;
+      const tabW = modalW / 5;
+      if (my >= pad + 44 && my <= pad + 80) {
         const tabIdx = Math.floor((mx - pad) / tabW);
-        if (tabIdx >= 0 && tabIdx < 4) styleBibleUI.setTab(tabIdx);
+        if (tabIdx >= 0 && tabIdx < 5) styleBibleUI.setTab(tabIdx);
       }
       // Close button
       if (mx >= pad + modalW - 40 && mx <= pad + modalW && my >= pad && my <= pad + 40) {
         styleBibleUI.toggle();
+      }
+      // If activeTab is 3 (Art Sheets), check thumbnail click or main preview click
+      if (styleBibleUI.activeTab === 3 && my > pad + 85) {
+        const previewW = modalW - 220;
+        const thumbX = pad + 20 + previewW + 15;
+        if (mx >= thumbX && mx <= pad + modalW - 20) {
+          const thumbH = 34;
+          const clickedIdx = Math.floor((my - (pad + 115)) / (thumbH + 6));
+          if (clickedIdx >= 0 && clickedIdx < 8) {
+            styleBibleUI.selectedArtSheet = clickedIdx;
+          }
+        } else if (mx >= pad + 20 && mx <= pad + 20 + previewW) {
+          styleBibleUI.nextSheet();
+        }
       }
       return;
     }
@@ -228,6 +249,7 @@ class Game {
       }
       if (hitCircle(hud.btnSkill, mx, my)) input.touchSkill = true;
       if (hitCircle(hud.btnUlt, mx, my)) input.touchUlt = true;
+      if (hitCircle(hud.btnDash, mx, my)) input.touchDash = true;
 
       // Check Game Over retry click
       if (hud.isGameOver) {
@@ -262,6 +284,9 @@ class Game {
     this.victoryTimer = 0;
     this.victorySubState = '';
     this.victoryPunchTimer = 0;
+    this.milestoneBanner = null;
+    this.milestoneBannerTimer = 0;
+    this.announcedMilestones = {};
     this.joystickPointerId = null;
 
     audio.playBgm('city_pop');
@@ -295,21 +320,44 @@ class Game {
       this.level.update(dt, this.player, this.camera);
       this.pm.update(dt, this.player);
 
-      // Check Boss Arena trigger
-      if (this.player.x >= 5700 && !this.boss.isDead) {
+      // Check Boss Arena trigger (Arena is at 10600 ~ 12000)
+      if (this.player.x >= 10500 && !this.boss.isDead) {
         this.boss.update(dt, this.player, this.camera);
         if (this.boss.phase === 1 && audio.currentBgmType !== 'boss_p1') {
           audio.playBgm('boss_p1');
         }
-      } else if (this.player.x >= 2400 && this.player.x < 3600) {
+      } else if (this.player.x >= 4800 && this.player.x < 7200) {
         // Stage 3 rainy park
         if (audio.currentBgmType !== 'rainy_park') audio.playBgm('rainy_park');
-      } else if (this.player.x < 2400) {
+      } else if (this.player.x < 4800) {
         if (audio.currentBgmType !== 'city_pop') audio.playBgm('city_pop');
       }
 
+      // Commuter Resonance Milestone Announcement checks
+      const c = this.player.coins;
+      if (c >= 15 && !this.announcedMilestones[15]) {
+        this.announcedMilestones[15] = true;
+        this.milestoneBanner = '⚔️ 通勤共振 15 幣：大招已永久解鎖！[F / K]';
+        this.milestoneBannerTimer = 3.2;
+      } else if (c >= 30 && !this.announcedMilestones[30]) {
+        this.announcedMilestones[30] = true;
+        this.milestoneBanner = '👹 通勤共振 30 幣：全場怪獸進化至 PHASE 2！';
+        this.milestoneBannerTimer = 3.2;
+      } else if (c >= 45 && !this.announcedMilestones[45]) {
+        this.announcedMilestones[45] = true;
+        this.milestoneBanner = '🌟 通勤共振 45 幣：主角覺醒第二型態！捷運幽靈現身！';
+        this.milestoneBannerTimer = 3.2;
+      } else if (c >= 60 && !this.announcedMilestones[60]) {
+        this.announcedMilestones[60] = true;
+        this.milestoneBanner = '🔥 通勤共振 60 幣：夢影巨花王狂暴盛開！稀有掉落率翻倍！';
+        this.milestoneBannerTimer = 3.2;
+      }
+      if (this.milestoneBannerTimer > 0) {
+        this.milestoneBannerTimer -= dt;
+      }
+
       // Check Projectile Collisions
-      this.handleCollisions();
+      this.handleCollisions(dt);
 
       projectiles.update(dt);
       particles.update(dt);
@@ -345,25 +393,25 @@ class Game {
       }
     } 
     else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
-      // Hero auto-sprints towards the punch clock machine at x = 7050
+      // Hero auto-sprints through hospital entrance into modern lobby towards punch clock at x = 13800
       this.player.facing = 1;
       this.player.animState = 'run';
-      this.player.vx = 420;
+      this.player.vx = 800; // Rapid celebratory sprint
       this.player.x += this.player.vx * dt;
       this.player.updateAnimation(dt);
 
       // Emit high-speed dust trails
-      if (Math.random() < 0.7) {
-        particles.emitDust(this.player.x - 20, this.player.y, 5, '#00E5FF');
+      if (Math.random() < 0.8) {
+        particles.emitDust(this.player.x - 20, this.player.y, 6, '#00E5FF');
       }
 
       // Camera smoothly tracks player
       this.camera.targetX = this.player.x - this.camera.viewportWidth * 0.4;
 
-      // Reached punch clock at x = 7025
-      if (this.player.x >= 7025) {
-        this.player.x = 7030;
-        this.player.vy = -260;
+      // Reached punch clock at x = 13780
+      if (this.player.x >= 13780) {
+        this.player.x = 13785;
+        this.player.vy = -280;
         this.player.animState = 'attack';
         this.victorySubState = 'PUNCH_CLOCK';
         this.victoryPunchTimer = 0;
@@ -373,20 +421,20 @@ class Game {
           this.pm.clockInMachine.punched = true;
         }
         audio.playStamp();
-        this.camera.shake(8, 0.4);
+        this.camera.shake(10, 0.45);
 
-        // Huge celebratory bursts
-        particles.emitHitSparks(7050, this.player.y - 50, '#00E676', 50);
-        particles.emitCoinSparkle(7050, this.player.y - 80);
-        for (let i = 0; i < 60; i++) {
+        // Huge celebratory bursts at 13800
+        particles.emitHitSparks(13800, this.player.y - 50, '#00E676', 60);
+        particles.emitCoinSparkle(13800, this.player.y - 80);
+        for (let i = 0; i < 80; i++) {
           particles.emit({
-            x: 7050,
+            x: 13800,
             y: this.player.y - 60,
-            vx: (Math.random() - 0.5) * 380,
-            vy: -Math.random() * 340 - 60,
-            size: Math.random() * 8 + 4,
-            color: ['#00E676', '#FFD700', '#00E5FF', '#FF4081', '#76FF03'][Math.floor(Math.random() * 5)],
-            life: 2.8,
+            vx: (Math.random() - 0.5) * 450,
+            vy: -Math.random() * 380 - 80,
+            size: Math.random() * 9 + 4,
+            color: ['#00E676', '#FFD700', '#00E5FF', '#FF4081', '#76FF03', '#FFFFFF'][Math.floor(Math.random() * 6)],
+            life: 3.0,
             shape: 'star'
           });
         }
@@ -409,28 +457,28 @@ class Game {
       this.player.updateAnimation(dt);
 
       // Continuous sparkles
-      if (Math.random() < 0.35) {
+      if (Math.random() < 0.4) {
         particles.emit({
-          x: this.player.x + (Math.random() * 80 - 40),
-          y: this.player.y - Math.random() * 80,
-          vx: (Math.random() - 0.5) * 60,
-          vy: -Math.random() * 80 - 20,
+          x: this.player.x + (Math.random() * 100 - 50),
+          y: this.player.y - Math.random() * 90,
+          vx: (Math.random() - 0.5) * 80,
+          vy: -Math.random() * 90 - 20,
           size: 6,
           color: '#FFD700',
-          life: 1.2,
+          life: 1.4,
           shape: 'star'
         });
       }
 
       // Transition to final victory score screen
-      if (this.victoryTimer >= 6.2) {
+      if (this.victoryTimer >= 6.5) {
         this.state = 'VICTORY';
         hud.triggerVictory(this.player);
       }
     }
   }
 
-  handleCollisions() {
+  handleCollisions(dt = 0.016) {
     const p = this.player;
 
     // 1. Player Projectiles vs Monsters & Boss
@@ -447,7 +495,7 @@ class Game {
       }
 
       // vs Boss
-      if (this.player.x >= 5700 && !this.boss.isDead) {
+      if (this.player.x >= 10500 && !this.boss.isDead) {
         if (Math.hypot(proj.x - this.boss.x, proj.y - (this.boss.y - 120)) < proj.width + 90) {
           this.boss.takeDamage(proj.damage);
           if (!proj.penetrating) proj.life = 0;
@@ -464,7 +512,27 @@ class Game {
       }
     }
 
-    // 3. Monster Contact vs Player
+    // 3. Shakira Form 2 Mayo Orbs Collision
+    if (p.form2Active && p.mayoOrbs && p.mayoOrbs.length > 0) {
+      const orbs = p.getMayoOrbsWorld();
+      for (let orb of orbs) {
+        // Absorb enemy bullets
+        for (let proj of projectiles.projectiles) {
+          if (!proj.isPlayer && Math.hypot(proj.x - orb.x, proj.y - orb.y) < orb.radius + proj.width) {
+            proj.life = 0;
+            particles.emitHitSparks(orb.x, orb.y, '#FFD54F', 6);
+          }
+        }
+        // Damage monsters touching orbs
+        for (let m of this.level.monsters) {
+          if (!m.isDead && Math.hypot(m.x - orb.x, (m.y - 25) - orb.y) < orb.radius + 25) {
+            m.takeDamage(15 * dt * 30);
+          }
+        }
+      }
+    }
+
+    // 4. Monster Contact vs Player
     for (let m of this.level.monsters) {
       if (m.isDead) continue;
       if (Math.hypot(m.x - p.x, (m.y - 25) - (p.y - 35)) < 36) {
@@ -495,7 +563,7 @@ class Game {
 
       this.pm.render(this.ctx, this.camera);
       this.level.renderMonsters(this.ctx, this.camera);
-      if (this.player.x >= 5600 || this.state === 'VICTORY_RUN' || this.state === 'VICTORY') {
+      if (this.player.x >= 10400 || this.state === 'VICTORY_RUN' || this.state === 'VICTORY') {
         this.boss.render(this.ctx);
       }
       this.player.render(this.ctx);
@@ -507,12 +575,17 @@ class Game {
       // 3. Screen-Space HUD & UI
       hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
 
+      // Commuter Resonance Floating Milestone Banner
+      if (this.milestoneBannerTimer > 0 && this.milestoneBanner) {
+        this.renderMilestoneBanner(this.milestoneBanner);
+      }
+
       // 4. Cinematic Victory Run Banner Overlay
       if (this.state === 'VICTORY_RUN') {
         if (this.victorySubState === 'BOSS_BURST') {
-          this.renderVictoryBanner('⚡ 魔王崩解！晨霧散去！快奔向松德院區打卡！');
+          this.renderVictoryBanner('⚡ 魔王崩解！晨霧散去！快奔向松德院區大廳打卡！');
         } else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
-          this.renderVictoryBanner('🏃 晨衝倒數！全力衝刺松德院區打卡機！');
+          this.renderVictoryBanner('🏃 晨衝倒數！全力衝入松德醫院大廳打卡機！');
         } else if (this.victorySubState === 'PUNCH_CLOCK' || this.victorySubState === 'VICTORY_CELEBRATE') {
           this.renderVictoryBanner('🎉 07:58:24 打卡成功！ON TIME！準時上班大成功！');
         }
@@ -521,6 +594,25 @@ class Game {
 
     // 5. Style Bible Modal Overlay
     styleBibleUI.render(this.ctx, this.vw, this.vh);
+  }
+
+  renderMilestoneBanner(text) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(25, 15, 45, 0.88)';
+    ctx.fillRect(80, 80, this.vw - 160, 42);
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(80, 80, this.vw - 160, 42);
+
+    ctx.fillStyle = '#FFE082';
+    ctx.font = 'bold 16px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#FFD700';
+    ctx.shadowBlur = 10;
+    ctx.fillText(text, this.vw / 2, 101);
+    ctx.restore();
   }
 
   renderVictoryBanner(text) {

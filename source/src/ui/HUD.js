@@ -41,7 +41,38 @@ export class HUD {
     this.btnJump = { x: 860, y: 430, w: 70, h: 70 };
     this.btnSkill = { x: 770, y: 430, w: 65, h: 65 };
     this.btnUlt = { x: 860, y: 340, w: 70, h: 70 };
+    this.btnDash = { x: 770, y: 340, w: 65, h: 65 };
     this.btnBible = { x: 890, y: 20, w: 50, h: 32 };
+  }
+
+  updateJoystick(touchX, touchY, active) {
+    const j = this.joystick;
+    j.active = active;
+    if (!active) {
+      this.resetJoystick();
+      return;
+    }
+    const dx = touchX - j.baseX;
+    const dy = touchY - j.baseY;
+    const dist = Math.hypot(dx, dy);
+    const maxR = j.radius;
+    const clampedDist = Math.min(dist, maxR);
+    const angle = Math.atan2(dy, dx);
+
+    j.knobX = j.baseX + Math.cos(angle) * clampedDist;
+    j.knobY = j.baseY + Math.sin(angle) * clampedDist;
+
+    j.normX = (clampedDist / maxR) * Math.cos(angle);
+    j.normY = (clampedDist / maxR) * Math.sin(angle);
+  }
+
+  resetJoystick() {
+    const j = this.joystick;
+    j.active = false;
+    j.knobX = j.baseX;
+    j.knobY = j.baseY;
+    j.normX = 0;
+    j.normY = 0;
   }
 
   reset() {
@@ -125,8 +156,8 @@ export class HUD {
     // --- 1. Top HUD Bar ---
     this.renderTopBar(ctx, player, level, vw);
 
-    // --- 2. Boss Health Bar (When in Arena) ---
-    if (player.x >= 5700 && !boss.isDead) {
+    // --- 2. Boss Health Bar (When in Arena 10600 ~ 12000) ---
+    if (player.x >= 10400 && !boss.isDead) {
       this.renderBossBar(ctx, boss, vw);
     }
 
@@ -150,38 +181,38 @@ export class HUD {
     ctx.save();
 
     // Top translucent bar
-    ctx.fillStyle = 'rgba(18, 24, 38, 0.82)';
-    ctx.fillRect(16, 12, vw - 32, 60);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillStyle = 'rgba(18, 24, 38, 0.86)';
+    ctx.fillRect(16, 10, vw - 32, 64);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(16, 12, vw - 32, 60);
+    ctx.strokeRect(16, 10, vw - 32, 64);
 
     // 1. Hero Avatar & Info
     const avatarX = 26;
-    const avatarY = 18;
+    const avatarY = 16;
     ctx.fillStyle = player.charConfig.colors.primary;
-    ctx.fillRect(avatarX, avatarY, 48, 48);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(avatarX, avatarY, 48, 48);
+    ctx.fillRect(avatarX, avatarY, 50, 50);
+    ctx.strokeStyle = player.form2Active ? '#FFD54F' : '#fff';
+    ctx.lineWidth = player.form2Active ? 2.5 : 1.5;
+    ctx.strokeRect(avatarX, avatarY, 50, 50);
 
     if (player.spriteSheet && player.spriteSheet.complete) {
       // Idle frame 0
-      ctx.drawImage(player.spriteSheet, 0, 0, 256, 256, avatarX, avatarY, 48, 48);
+      ctx.drawImage(player.spriteSheet, 0, 0, 256, 256, avatarX, avatarY, 50, 50);
     }
 
     // Name & Title
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.fillText(player.name, avatarX + 56, avatarY + 16);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText(player.name + (player.form2Active ? ' ★覺醒II' : ''), avatarX + 58, avatarY + 16);
+    ctx.fillStyle = player.form2Active ? '#FFD54F' : 'rgba(255,255,255,0.7)';
     ctx.font = '11px sans-serif';
-    ctx.fillText(player.charConfig.title, avatarX + 56, avatarY + 30);
+    ctx.fillText(player.form2Active ? player.charConfig.form2.title : player.charConfig.title, avatarX + 58, avatarY + 30);
 
     // HP Bar
-    const hpX = avatarX + 56;
+    const hpX = avatarX + 58;
     const hpY = avatarY + 36;
-    const hpW = 140;
+    const hpW = 135;
     const hpH = 10;
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(hpX, hpY, hpW, hpH);
@@ -190,33 +221,51 @@ export class HUD {
     ctx.fillRect(hpX, hpY, hpW * hpRatio, hpH);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 9px monospace';
-    ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, hpX + 45, hpY + 8);
+    ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, hpX + 42, hpY + 8);
 
-    // 2. Commute Coins (🪙 x / 6)
-    const coinX = 280;
+    // 2. Commute Resonance & Coins (🪙 x / 15 / 30 / 45 / 60)
+    const coinX = 275;
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText(`🪙 ${player.coins} / 6`, coinX, 36);
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText(`🪙 金幣: ${player.coins}`, coinX, 32);
 
-    // Ultimate status indicator
-    if (player.coins < 6) {
-      ctx.fillStyle = '#B0BEC5';
-      ctx.font = '11px sans-serif';
-      ctx.fillText(`🔒 大招需 6 枚 (尚差 ${6 - player.coins} 枚)`, coinX, 54);
-    } else if (player.ultCooldown > 0) {
-      ctx.fillStyle = '#FFB74D';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(`⏳ 大招冷卻: ${player.ultCooldown.toFixed(1)}s`, coinX, 54);
-    } else {
-      ctx.fillStyle = '#00E5FF';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(`✨ 大招 READY! [F / K]`, coinX, 54);
+    // Milestone text
+    let milestoneText = '🔒 15幣 大招解鎖';
+    if (player.coins >= 60) milestoneText = '🔥 魔王狂暴 (雙倍掉落)';
+    else if (player.coins >= 45) milestoneText = '🌟 英雄覺醒II (捷運幽靈)';
+    else if (player.coins >= 30) milestoneText = '👹 怪獸二階段 (烈焰紅苗等)';
+    else if (player.coins >= 15) milestoneText = '⚔️ 大招已永久解鎖！';
+
+    ctx.fillStyle = '#81D4FA';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(`共振: ${milestoneText}`, coinX, 48);
+
+    // Active Buffs Row
+    let buffX = coinX;
+    ctx.font = 'bold 10px sans-serif';
+    if (player.coffeeSpeedTimer > 0) {
+      ctx.fillStyle = '#D7CCC8';
+      ctx.fillText(`☕加速${player.coffeeSpeedTimer.toFixed(0)}s `, buffX, 64);
+      buffX += 58;
+    }
+    if (player.waterShieldTimer > 0) {
+      ctx.fillStyle = '#80D8FF';
+      ctx.fillText(`💧水盾 `, buffX, 64);
+      buffX += 45;
+    }
+    if (player.cookingSparkTimer > 0) {
+      ctx.fillStyle = '#FFAB91';
+      ctx.fillText(`🔥爆炒+50% `, buffX, 64);
+      buffX += 65;
+    }
+    if (player.dashCooldown <= 0) {
+      ctx.fillStyle = '#69F0AE';
+      ctx.fillText(`⚡衝刺可 `, buffX, 64);
     }
 
     // 3. Commute Clock Countdown (120s)
     const clockX = 490;
     const timeFormatted = Math.ceil(this.timeRemaining);
-    // Simulating 07:58:00 ~ 08:00:00
     const secPassed = 120 - timeFormatted;
     const displayMin = 58 + Math.floor(secPassed / 60);
     const displaySec = secPassed % 60;
@@ -224,10 +273,10 @@ export class HUD {
 
     ctx.fillStyle = this.timeRemaining < 25 ? '#FF5252' : '#FFF';
     ctx.font = 'bold 16px monospace';
-    ctx.fillText(`⏱️ ${clockStr}`, clockX, 36);
+    ctx.fillText(`⏱️ ${clockStr}`, clockX, 34);
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = '11px sans-serif';
-    ctx.fillText(`上班打卡倒數: ${timeFormatted} 秒`, clockX, 54);
+    ctx.fillText(`上班打卡倒數: ${timeFormatted} 秒`, clockX, 50);
 
     // 4. Stage Title & Progress
     const curStage = level.getCurrentStage(player.x);
@@ -394,11 +443,13 @@ export class HUD {
 
     drawBtn(this.btnJump, '跳躍', false);
     drawBtn(this.btnSkill, '小招', player.skillCooldown > 0);
+    drawBtn(this.btnDash, player.dashCooldown > 0 ? '冷卻' : '衝刺', player.dashCooldown > 0 || player.dashTimer > 0);
 
-    // Ult Button with Lock / Ready / Cooldown Sweep
+    // Ult Button with Lock / Ready / Cooldown Sweep (15 coins)
     const ub = this.btnUlt;
-    ctx.fillStyle = player.coins >= 6 ? 'rgba(2, 136, 209, 0.6)' : 'rgba(60, 60, 60, 0.6)';
-    ctx.strokeStyle = player.coins >= 6 ? '#00E5FF' : '#9E9E9E';
+    const isUltUnlocked = player.hasUnlockedUlt || player.coins >= 15;
+    ctx.fillStyle = isUltUnlocked ? 'rgba(2, 136, 209, 0.6)' : 'rgba(60, 60, 60, 0.6)';
+    ctx.strokeStyle = isUltUnlocked ? '#00E5FF' : '#9E9E9E';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(ub.x + ub.w / 2, ub.y + ub.h / 2, ub.w / 2, 0, Math.PI * 2);
@@ -409,7 +460,7 @@ export class HUD {
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(player.coins >= 6 ? '大招' : '🔒', ub.x + ub.w / 2, ub.y + ub.h / 2);
+    ctx.fillText(isUltUnlocked ? '大招' : '🔒', ub.x + ub.w / 2, ub.y + ub.h / 2);
 
     ctx.restore();
   }
@@ -452,15 +503,15 @@ export class HUD {
     ctx.fillStyle = '#fff';
     ctx.font = '16px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`英雄：${player.name}`, cx - 200, cy - 70);
-    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒`, cx - 200, cy - 40);
-    ctx.fillText(`收集金幣：${player.coins} 枚`, cx - 200, cy - 10);
-    ctx.fillText(`剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, cx - 200, cy + 20);
+    ctx.fillText(`英雄：${player.name}${player.form2Active ? ' (第二型態覺醒)' : ''}`, cx - 200, cy - 70);
+    ctx.fillText(`起點與終點：象山捷運站 ➔ 松德醫院大廳 (14,400px 全程抵達)`, cx - 200, cy - 44);
+    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, cx - 200, cy - 18);
+    ctx.fillText(`收集金幣：${player.coins} 枚 (通勤共振雙向進化達成！)`, cx - 200, cy + 8);
 
     // Rank
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 36px sans-serif';
-    ctx.fillText(`評價：${this.resultRank}`, cx - 200, cy + 80);
+    ctx.fillText(`評價：${this.resultRank}`, cx - 200, cy + 68);
 
     // Restart instruction
     ctx.fillStyle = 'rgba(255,255,255,0.85)';

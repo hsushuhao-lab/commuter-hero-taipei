@@ -25,6 +25,12 @@ export class Monster {
 
     this.hp = this.config.hp;
     this.maxHp = this.config.hp;
+    this.speed = this.config.speed;
+    this.attackDamage = this.config.attackDamage;
+    this.attackCooldown = this.config.attackCooldown;
+    this.isPhase2 = false;
+    this.name = this.config.name;
+
     this.width = 54;
     this.height = 54;
     this.facing = -1;
@@ -45,6 +51,26 @@ export class Monster {
     this.image.src = this.config.asset;
   }
 
+  evolveToPhase2() {
+    if (this.isPhase2 || this.isDead) return;
+    this.isPhase2 = true;
+    if (this.config.phase2) {
+      const p2 = this.config.phase2;
+      this.name = p2.name;
+      const hpDiff = p2.hp - this.config.hp;
+      this.hp = Math.min(p2.hp, this.hp + hpDiff);
+      this.maxHp = p2.hp;
+      if (p2.asset) {
+        this.image.src = p2.asset;
+      }
+      this.speed = p2.speed;
+      this.attackDamage = p2.attackDamage;
+      this.attackCooldown = p2.attackCooldown;
+    }
+    particles.emitHitSparks(this.x, this.y - 20, '#FFD700', 16);
+    particles.emitHitSparks(this.x, this.y - 20, this.config.color, 12);
+  }
+
   takeDamage(amount) {
     if (this.isDead) return;
     this.hp -= amount;
@@ -62,6 +88,11 @@ export class Monster {
 
   update(dt, player) {
     if (this.isDead) return;
+
+    // 30 金幣觸發怪獸二階段全體進化 (Commuter Resonance)
+    if (player.coins >= 30 && !this.isPhase2) {
+      this.evolveToPhase2();
+    }
 
     this.bobTimer += dt * 3.5;
     if (this.hitTimer > 0) this.hitTimer -= dt;
@@ -83,19 +114,33 @@ export class Monster {
     }
 
     // Patrol / Float behavior
-    if (this.config.type === 'flying') {
+    if (this.typeKey === 'transit') {
+      // 捷運幽靈懸浮與瞬移
+      const targetBaseY = this.isSkyDrop && this.y < this.originY ? this.y : this.originY;
+      this.y = targetBaseY + Math.sin(this.bobTimer * 2) * 22;
+      if (distToPlayer < 750 && !this.isTelegraphing) {
+        this.vx = this.facing * this.speed;
+      } else {
+        this.vx = 0;
+      }
+      // Phase 2 悠遊卡寄靈隨機瞬移
+      if (this.isPhase2 && Math.random() < 0.008 && distToPlayer < 450) {
+        this.x += (Math.random() > 0.5 ? 1 : -1) * 120;
+        particles.emitHitSparks(this.x, this.y - 20, '#00E676', 12);
+      }
+    } else if (this.config.type === 'flying') {
       // Sinusoidal floating
       const targetBaseY = this.isSkyDrop && this.y < this.originY ? this.y : this.originY;
       this.y = targetBaseY + Math.sin(this.bobTimer) * 22;
       if (distToPlayer < 700 && !this.isTelegraphing) {
-        this.vx = this.facing * this.config.speed * 0.75;
+        this.vx = this.facing * this.speed * 0.75;
       } else {
         this.vx = 0;
       }
     } else {
       // Ground patrol
       if (distToPlayer < 650 && !this.isTelegraphing) {
-        this.vx = this.facing * this.config.speed;
+        this.vx = this.facing * this.speed;
       } else {
         this.vx = 0;
       }
@@ -111,7 +156,7 @@ export class Monster {
           this.executeAttack(player);
           this.isTelegraphing = false;
           this.telegraphTimer = 0;
-          this.attackCooldownTimer = this.config.attackCooldown;
+          this.attackCooldownTimer = this.attackCooldown;
         }
       } else {
         this.attackCooldownTimer -= dt;
@@ -141,7 +186,7 @@ export class Monster {
         width: 32,
         height: 14,
         color: '#FF5252',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.8
       });
     } 
@@ -157,7 +202,7 @@ export class Monster {
         width: 42,
         height: 28,
         color: '#40C4FF',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.4
       });
       projectiles.spawn({
@@ -170,7 +215,7 @@ export class Monster {
         width: 42,
         height: 28,
         color: '#40C4FF',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.4
       });
     }
@@ -192,7 +237,7 @@ export class Monster {
           width: 22,
           height: 22,
           color: '#BA68C8',
-          damage: this.config.attackDamage,
+          damage: this.attackDamage,
           life: 2.2,
           rotates: true,
           vRot: 4
@@ -211,7 +256,7 @@ export class Monster {
         width: 32,
         height: 22,
         color: '#00E5FF',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.5
       });
       projectiles.spawn({
@@ -224,7 +269,7 @@ export class Monster {
         width: 32,
         height: 22,
         color: '#00E5FF',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.5
       });
     }
@@ -241,7 +286,7 @@ export class Monster {
           width: 24,
           height: 16,
           color: '#FFD700',
-          damage: this.config.attackDamage,
+          damage: this.attackDamage,
           life: 2.0,
           rotates: true,
           vRot: 3
@@ -260,7 +305,7 @@ export class Monster {
         width: 56,
         height: 44,
         color: '#3949AB',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.8
       });
       setTimeout(() => {
@@ -274,10 +319,43 @@ export class Monster {
           width: 34,
           height: 70,
           color: '#3949AB',
-          damage: this.config.attackDamage,
+          damage: this.attackDamage,
           life: 0.38
         });
       }, 150);
+    }
+    else if (this.typeKey === 'transit') {
+      // 捷運幽靈 / 悠遊卡寄靈 瞬移雷射
+      projectiles.spawn({
+        isPlayer: false,
+        type: 'transit_beam',
+        x: spawnX,
+        y: spawnY,
+        vx: dir * (this.isPhase2 ? 660 : 540),
+        vy: 0,
+        width: 40,
+        height: 18,
+        color: '#00E676',
+        damage: this.attackDamage,
+        life: 1.6
+      });
+      if (this.isPhase2) {
+        setTimeout(() => {
+          projectiles.spawn({
+            isPlayer: false,
+            type: 'transit_beam',
+            x: spawnX,
+            y: spawnY - 14,
+            vx: dir * 660,
+            vy: 0,
+            width: 40,
+            height: 18,
+            color: '#00E676',
+            damage: this.attackDamage,
+            life: 1.6
+          });
+        }, 120);
+      }
     }
     else {
       // Pink aerial dive swoop + dual flower bomb drop
@@ -291,7 +369,7 @@ export class Monster {
         width: 24,
         height: 18,
         color: '#FF80AB',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.6,
         rotates: true,
         vRot: 5
@@ -306,7 +384,7 @@ export class Monster {
         width: 22,
         height: 18,
         color: '#FF80AB',
-        damage: this.config.attackDamage,
+        damage: this.attackDamage,
         life: 1.6,
         rotates: true,
         vRot: 4
@@ -337,9 +415,21 @@ export class Monster {
     ctx.ellipse(0, 0, 22, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Phase 2 Evolution Aura
+    if (this.isPhase2) {
+      ctx.save();
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(0, -28, 38, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Monster Sprite
     if (this.image.complete && this.image.naturalWidth > 0) {
-      const drawSize = 64;
+      const drawSize = this.isPhase2 ? 72 : 64;
       ctx.drawImage(this.image, -drawSize / 2, -drawSize, drawSize, drawSize);
     } else {
       // Fallback
@@ -423,6 +513,15 @@ export class Monster {
       ctx.lineWidth = 3;
       const zoneW = 340;
       ctx.strokeRect(dir > 0 ? this.x : this.x - zoneW, this.y - 12, zoneW, 24);
+    }
+    else if (this.typeKey === 'transit') {
+      // Transit beam direct laser line
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 6]);
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(startX + dir * 680, startY);
+      ctx.stroke();
     }
     else {
       // Pink dive swoop line + bomb area

@@ -1,31 +1,34 @@
 /**
  * 08點上班大作戰：通勤英雄篇 - 六大關卡與無縫 Parallax 卷軸 (Level.js)
- * 規格遵循：
- * 1. 象山站 2 號出口 (0 ~ 1200)
- * 2. 信義路 150 巷永和豆漿 (1200 ~ 2400)
- * 3. 雨中虎林公園 (2400 ~ 3600) - 降雨粒子與冷色溫
- * 4. 通往松德山城坡道 (3600 ~ 4800) - 石牆坡道
- * 5. 松德院區廣場 (4800 ~ 5800) - 開闊院區與打卡點
- * 6. 夢境巨花王 Arena (5800 ~ 7200) - 嚴格 1400px 平整決戰場
- * - 350px 漸變無縫 Transition Zones (色溫、雨量、Alpha 混合)
+ * 起點：象山捷運站 2 號出口 (x = 200)
+ * 終點：松德醫院院內打卡機 (x = 13800)
+ * 總長度：14,400px
+ * 
+ * 6 大場景：
+ * 1. 象山捷運站 2 號出口 (0 ~ 2400)
+ * 2. 信義路 150 巷永和豆漿晨光街區 (2400 ~ 4800)
+ * 3. 雨中虎林公園青綠步道 (4800 ~ 7200) - 降雨與水滴
+ * 4. 通往松德山城微雨石壁坡道 (7200 ~ 9600) - 捷運幽靈登場
+ * 5. 松德院區正門廣場・決戰巨花王 (9600 ~ 12400) - 10600~12000 平整決戰場
+ * 6. 松德醫院院內挑高明亮大廳・準時打卡機 (12400 ~ 14400)
  */
 
 import { particles } from '../entities/Particles.js';
 import { Monster } from '../entities/Monster.js';
 
 export const STAGES = [
-  { id: 0, name: '第一關：象山站 2 號出口', startX: 0, endX: 1250, bg: 'assets/bg_station.jpg', rain: 0, tint: 'rgba(255, 236, 179, 0.08)' },
-  { id: 1, name: '第二關：信義路 150 巷永和豆漿', startX: 1200, endX: 2450, bg: 'assets/bg_lane.jpg', rain: 0, tint: 'rgba(255, 224, 178, 0.05)' },
-  { id: 2, name: '第三關：雨中虎林公園', startX: 2400, endX: 3650, bg: 'assets/bg_hulin_park.jpg', rain: 1.0, tint: 'rgba(129, 212, 250, 0.12)' },
-  { id: 3, name: '第四關：通往松德山城坡道', startX: 3600, endX: 4850, bg: 'assets/bg_slope.jpg', rain: 0.1, tint: 'rgba(176, 190, 197, 0.08)' },
-  { id: 4, name: '第五關：松德院區林蔭步道', startX: 4800, endX: 5850, bg: 'assets/bg_hospital.jpg', rain: 0, tint: 'rgba(255, 249, 196, 0.06)' },
-  { id: 5, name: '最終關：松德院區大門前・決戰巨花王', startX: 5800, endX: 7200, bg: 'assets/bg_hospital.jpg', rain: 0, tint: 'rgba(233, 30, 99, 0.10)' }
+  { id: 0, name: '第一關：象山捷運站 2 號出口', startX: 0, endX: 2450, bg: 'assets/bg_station.jpg', rain: 0, tint: 'rgba(255, 236, 179, 0.08)' },
+  { id: 1, name: '第二關：信義路 150 巷晨光街區', startX: 2400, endX: 4850, bg: 'assets/bg_lane.jpg', rain: 0, tint: 'rgba(255, 224, 178, 0.05)' },
+  { id: 2, name: '第三關：雨中虎林公園步道', startX: 4800, endX: 7250, bg: 'assets/bg_hulin_park.jpg', rain: 1.0, tint: 'rgba(129, 212, 250, 0.12)' },
+  { id: 3, name: '第四關：通往松德山城微雨坡道', startX: 7200, endX: 9650, bg: 'assets/bg_slope.jpg', rain: 0.15, tint: 'rgba(176, 190, 197, 0.08)' },
+  { id: 4, name: '第五關：松德院區正門廣場・決戰巨花王', startX: 9600, endX: 12450, bg: 'assets/bg_hospital.jpg', rain: 0, tint: 'rgba(233, 30, 99, 0.10)' },
+  { id: 5, name: '第六關：松德醫院院內大廳・準時打卡處', startX: 12400, endX: 14400, bg: 'assets/bg_hospital_interior.jpg', rain: 0, tint: 'rgba(255, 249, 196, 0.05)' }
 ];
 
 export class Level {
   constructor(platformManager) {
     this.pm = platformManager;
-    this.totalLength = 7200;
+    this.totalLength = 14400;
     this.monsters = [];
     this.bgImages = {};
 
@@ -47,150 +50,217 @@ export class Level {
 
     const groundY = 560;
 
-    // ==========================================
-    // --- STAGE 1: 象山站 2 號出口 (0 ~ 1200) ---
-    // ==========================================
-    this.pm.addPlatform(0, groundY, 1300, 40, 'stone');
+    // ========================================================
+    // --- STAGE 1: 象山捷運站 2 號出口 (0 ~ 2400) ---
+    // ========================================================
+    this.pm.addPlatform(0, groundY, 2500, 40, 'stone');
 
     // 階梯磚頭平台 (Stair bricks)
-    this.pm.addPlatform(320, 460, 140, 24, 'brick');
-    this.pm.addPlatform(480, 390, 150, 24, 'brick');
-    this.pm.addPlatform(660, 320, 160, 24, 'brick');
-    this.pm.addPlatform(880, 410, 170, 24, 'brick');
-    this.pm.addPlatform(1070, 340, 150, 24, 'brick');
+    this.pm.addPlatform(350, 460, 160, 24, 'brick');
+    this.pm.addPlatform(560, 390, 160, 24, 'brick');
+    this.pm.addPlatform(780, 320, 180, 24, 'brick');
+    this.pm.addPlatform(1000, 410, 170, 24, 'brick');
+    this.pm.addPlatform(1220, 340, 170, 24, 'brick');
+    this.pm.addPlatform(1440, 420, 160, 24, 'brick');
+    this.pm.addPlatform(1660, 350, 180, 24, 'brick');
+    this.pm.addPlatform(1890, 430, 170, 24, 'brick');
+    this.pm.addPlatform(2120, 360, 180, 24, 'brick');
 
-    // 豐厚金幣與道具（迅速滿足 6 枚大招門檻）
+    // 收集品分布（迅速累積金幣滿足 15 枚永久解鎖大招）
     this.pm.addItem('coin', 220, groundY - 30);
-    this.pm.addItem('coin', 390, 420);
-    this.pm.addItem('easycard', 550, 350); // +3 coins!
-    this.pm.addItem('coffee', 740, 280);   // speed boost!
-    this.pm.addItem('coin', 950, 370);
-    this.pm.addItem('coin', 1140, 300);
+    this.pm.addItem('coin', 410, 420);
+    this.pm.addItem('easycard', 620, 350); // +3
+    this.pm.addItem('coffee', 840, 280);
+    this.pm.addItem('raindrop', 1060, 370);
+    this.pm.addItem('coin', 1280, 300);
+    this.pm.addItem('cookingspark', 1500, 380);
+    this.pm.addItem('easycard', 1720, 310); // +3
+    this.pm.addItem('heart', 1950, 390);
+    this.pm.addItem('coin', 2180, 320);
 
-    // 怪物隨機分布：地面、階梯磚頭、天上降落
-    this.monsters.push(new Monster('red', 420, groundY));
-    this.monsters.push(new Monster('blue', 550, 390)); // 階梯上
-    this.monsters.push(new Monster('pink', 740, 320, true)); // 天上降落
-    this.monsters.push(new Monster('yellow', 960, 410)); // 階梯上
-    this.monsters.push(new Monster('ice', 1150, groundY));
+    // 怪物分布：地面、階梯、天空降落
+    this.monsters.push(new Monster('red', 450, groundY));
+    this.monsters.push(new Monster('blue', 620, 390)); // 階梯上
+    this.monsters.push(new Monster('pink', 850, 320, true)); // 天降
+    this.monsters.push(new Monster('yellow', 1060, 410));
+    this.monsters.push(new Monster('ice', 1300, groundY));
+    this.monsters.push(new Monster('blue', 1510, 420));
+    this.monsters.push(new Monster('red', 1730, groundY));
+    this.monsters.push(new Monster('pink', 1960, 350, true));
+    this.monsters.push(new Monster('yellow', 2190, 360));
 
-    // ==========================================
-    // --- STAGE 2: 信義路 150 巷永和豆漿 (1200 ~ 2400) ---
-    // ==========================================
-    this.pm.addPlatform(1280, groundY, 1200, 40, 'stone');
+    // ========================================================
+    // --- STAGE 2: 信義路 150 巷永和豆漿晨光街區 (2400 ~ 4800) ---
+    // ========================================================
+    this.pm.addPlatform(2450, groundY, 2450, 40, 'stone');
 
-    // 連續雙層階梯磚頭
-    this.pm.addPlatform(1400, 450, 150, 24, 'brick');
-    this.pm.addPlatform(1580, 370, 160, 24, 'brick');
-    this.pm.addPlatform(1760, 430, 150, 24, 'brick');
-    this.pm.addPlatform(1940, 340, 170, 24, 'brick');
-    this.pm.addPlatform(2140, 410, 160, 24, 'brick');
-    this.pm.addPlatform(2320, 330, 150, 24, 'brick');
+    this.pm.addPlatform(2560, 450, 160, 24, 'brick');
+    this.pm.addPlatform(2780, 370, 170, 24, 'brick');
+    this.pm.addPlatform(3000, 430, 160, 24, 'brick');
+    this.pm.addPlatform(3220, 340, 180, 24, 'brick');
+    this.pm.addPlatform(3440, 420, 170, 24, 'brick');
+    this.pm.addPlatform(3660, 350, 170, 24, 'brick');
+    this.pm.addPlatform(3880, 430, 160, 24, 'brick');
+    this.pm.addPlatform(4100, 360, 180, 24, 'brick');
+    this.pm.addPlatform(4320, 440, 160, 24, 'brick');
+    this.pm.addPlatform(4540, 370, 170, 24, 'brick');
 
-    this.pm.addItem('coin', 1470, 410);
-    this.pm.addItem('easycard', 1660, 330); // +3 coins!
-    this.pm.addItem('heart', 1830, 390);
-    this.pm.addItem('coin', 2020, 300);
-    this.pm.addItem('coffee', 2220, 370);
-    this.pm.addItem('coin', 2390, 290);
+    this.pm.addItem('coin', 2620, 410);
+    this.pm.addItem('easycard', 2840, 330); // +3 (達到 15+ 解鎖大招！)
+    this.pm.addItem('heart', 3060, 390);
+    this.pm.addItem('raindrop', 3280, 300);
+    this.pm.addItem('coffee', 3500, 380);
+    this.pm.addItem('coin', 3720, 310);
+    this.pm.addItem('cookingspark', 3940, 390);
+    this.pm.addItem('easycard', 4160, 320); // +3
+    this.pm.addItem('coin', 4380, 400);
+    this.pm.addItem('heart', 4600, 330);
 
-    this.monsters.push(new Monster('grape', 1500, groundY - 30));
-    this.monsters.push(new Monster('red', 1660, 370)); // 磚頭上
-    this.monsters.push(new Monster('blue', 1850, groundY));
-    this.monsters.push(new Monster('grape', 2020, 340, true)); // 天空降落
-    this.monsters.push(new Monster('obsidian', 2240, groundY)); // 重怪
-    this.monsters.push(new Monster('yellow', 2390, 330)); // 高台
+    this.monsters.push(new Monster('grape', 2640, groundY - 30));
+    this.monsters.push(new Monster('red', 2850, 370));
+    this.monsters.push(new Monster('blue', 3070, groundY));
+    this.monsters.push(new Monster('grape', 3290, 340, true));
+    this.monsters.push(new Monster('obsidian', 3520, groundY)); // 重怪
+    this.monsters.push(new Monster('yellow', 3730, 350));
+    this.monsters.push(new Monster('pink', 3950, 430, true));
+    this.monsters.push(new Monster('ice', 4170, 360));
+    this.monsters.push(new Monster('blue', 4390, groundY));
+    this.monsters.push(new Monster('obsidian', 4620, groundY));
 
-    // ==========================================
-    // --- STAGE 3: 雨中虎林公園 (2400 ~ 3600) ---
-    // ==========================================
-    this.pm.addPlatform(2450, groundY, 1200, 40, 'stone');
+    // ========================================================
+    // --- STAGE 3: 雨中虎林公園青綠步道 (4800 ~ 7200) ---
+    // ========================================================
+    this.pm.addPlatform(4850, groundY, 2450, 40, 'stone');
 
-    // 公園高低木質磚塊階梯
-    this.pm.addPlatform(2580, 440, 160, 24, 'brick');
-    this.pm.addPlatform(2760, 360, 170, 24, 'brick');
-    this.pm.addPlatform(2950, 420, 160, 24, 'brick');
-    this.pm.addPlatform(3140, 330, 180, 24, 'brick');
-    this.pm.addPlatform(3340, 410, 160, 24, 'brick');
-    this.pm.addPlatform(3520, 340, 160, 24, 'brick');
-
-    this.pm.addItem('coin', 2660, 400);
-    this.pm.addItem('easycard', 2840, 320);
-    this.pm.addItem('coffee', 3030, 380);
-    this.pm.addItem('coin', 3220, 290);
-    this.pm.addItem('heart', 3420, 370);
-
-    this.monsters.push(new Monster('blue', 2660, 440)); // 階梯上
-    this.monsters.push(new Monster('pink', 2840, groundY, true)); // 天空空降
-    this.monsters.push(new Monster('ice', 3000, groundY));
-    this.monsters.push(new Monster('red', 3220, 330)); // 高台射擊手
-    this.monsters.push(new Monster('yellow', 3420, 410));
-    this.monsters.push(new Monster('obsidian', 3550, groundY));
-
-    // ==========================================
-    // --- STAGE 4: 松德山城坡道 (3600 ~ 4800) ---
-    // ==========================================
-    this.pm.addPlatform(3620, groundY, 1250, 40, 'stone');
-
-    // 山城坡道多段石階
-    this.pm.addPlatform(3750, 450, 150, 24, 'brick');
-    this.pm.addPlatform(3930, 380, 160, 24, 'brick');
-    this.pm.addPlatform(4120, 440, 150, 24, 'brick');
-    this.pm.addPlatform(4300, 350, 170, 24, 'brick');
-    this.pm.addPlatform(4490, 420, 160, 24, 'brick');
-    this.pm.addPlatform(4680, 340, 170, 24, 'brick');
-
-    this.pm.addItem('coin', 3820, 410);
-    this.pm.addItem('easycard', 4010, 340);
-    this.pm.addItem('heart', 4200, 400);
-    this.pm.addItem('coin', 4380, 310);
-    this.pm.addItem('coffee', 4570, 380);
-    this.pm.addItem('coin', 4760, 300);
-
-    this.monsters.push(new Monster('red', 3820, 450)); // 階梯上
-    this.monsters.push(new Monster('blue', 4010, groundY));
-    this.monsters.push(new Monster('pink', 4200, 380, true)); // 空降俯衝
-    this.monsters.push(new Monster('grape', 4380, 350)); // 懸空射手
-    this.monsters.push(new Monster('obsidian', 4550, groundY));
-    this.monsters.push(new Monster('ice', 4740, 340));
-
-    // ==========================================
-    // --- STAGE 5: 松德院區林蔭步道 (4800 ~ 5800) ---
-    // ==========================================
-    this.pm.addPlatform(4820, groundY, 1050, 40, 'stone');
-
-    this.pm.addPlatform(4980, 440, 160, 24, 'brick');
-    this.pm.addPlatform(5180, 370, 180, 24, 'brick');
+    this.pm.addPlatform(4960, 440, 170, 24, 'brick');
+    this.pm.addPlatform(5180, 360, 180, 24, 'brick');
     this.pm.addPlatform(5400, 430, 170, 24, 'brick');
-    this.pm.addPlatform(5600, 350, 180, 24, 'brick');
+    this.pm.addPlatform(5620, 340, 190, 24, 'brick');
+    this.pm.addPlatform(5840, 420, 170, 24, 'brick');
+    this.pm.addPlatform(6060, 350, 180, 24, 'brick');
+    this.pm.addPlatform(6280, 430, 170, 24, 'brick');
+    this.pm.addPlatform(6500, 350, 180, 24, 'brick');
+    this.pm.addPlatform(6720, 420, 170, 24, 'brick');
+    this.pm.addPlatform(6940, 360, 180, 24, 'brick');
 
-    this.pm.addItem('coin', 5060, 400);
-    this.pm.addItem('easycard', 5260, 330);
-    this.pm.addItem('coffee', 5480, 390);
-    this.pm.addItem('heart', 5680, 310);
+    this.pm.addItem('raindrop', 5020, 400);
+    this.pm.addItem('easycard', 5240, 320); // +3
+    this.pm.addItem('coffee', 5460, 390);
+    this.pm.addItem('coin', 5680, 300);
+    this.pm.addItem('raindrop', 5900, 380);
+    this.pm.addItem('cookingspark', 6120, 310);
+    this.pm.addItem('easycard', 6340, 390); // +3 (達到 30+ 觸發怪獸二階段全體進化！)
+    this.pm.addItem('heart', 6560, 310);
+    this.pm.addItem('coin', 6780, 380);
+    this.pm.addItem('raindrop', 7000, 320); // 3 滴雨滴獲取水盾！
 
-    this.monsters.push(new Monster('yellow', 5060, 440));
-    this.monsters.push(new Monster('pink', 5260, 370, true)); // 天降
-    this.monsters.push(new Monster('grape', 5450, groundY - 30));
-    this.monsters.push(new Monster('obsidian', 5620, groundY));
+    this.monsters.push(new Monster('blue', 5030, 440));
+    this.monsters.push(new Monster('pink', 5250, groundY, true));
+    this.monsters.push(new Monster('ice', 5470, groundY));
+    this.monsters.push(new Monster('red', 5690, 340));
+    this.monsters.push(new Monster('yellow', 5910, 420));
+    this.monsters.push(new Monster('grape', 6130, 350, true));
+    this.monsters.push(new Monster('obsidian', 6350, groundY));
+    this.monsters.push(new Monster('ice', 6570, 350));
+    this.monsters.push(new Monster('red', 6790, groundY));
+    this.monsters.push(new Monster('pink', 7010, 360, true));
 
-    // ==========================================
-    // --- STAGE 6: 決戰松德院區大門前 (5800 ~ 7200) ---
-    // ==========================================
-    // 嚴格規範：1400px 連續、100% 平整、無洞地板！
-    this.pm.addPlatform(5800, groundY, 1400, 60, 'stone');
+    // ========================================================
+    // --- STAGE 4: 松德山城微雨坡道 (7200 ~ 9600) ---
+    // ========================================================
+    this.pm.addPlatform(7250, groundY, 2450, 40, 'stone');
 
-    // 戰術浮動階梯平台
-    this.pm.addPlatform(6080, 410, 180, 24, 'brick');
-    this.pm.addPlatform(6350, 340, 180, 24, 'brick');
-    this.pm.addPlatform(6620, 410, 180, 24, 'brick');
+    this.pm.addPlatform(7360, 450, 170, 24, 'brick');
+    this.pm.addPlatform(7580, 370, 180, 24, 'brick');
+    this.pm.addPlatform(7800, 430, 170, 24, 'brick');
+    this.pm.addPlatform(8020, 340, 190, 24, 'brick');
+    this.pm.addPlatform(8240, 420, 170, 24, 'brick');
+    this.pm.addPlatform(8460, 350, 180, 24, 'brick');
+    this.pm.addPlatform(8680, 430, 170, 24, 'brick');
+    this.pm.addPlatform(8900, 360, 180, 24, 'brick');
+    this.pm.addPlatform(9120, 430, 170, 24, 'brick');
+    this.pm.addPlatform(9340, 360, 180, 24, 'brick');
 
-    this.pm.addItem('heart', 6160, 370);
-    this.pm.addItem('coin', 6430, 300);
-    this.pm.addItem('heart', 6700, 370);
+    this.pm.addItem('easycard', 7420, 410); // +3
+    this.pm.addItem('coin', 7640, 330);
+    this.pm.addItem('cookingspark', 7860, 390);
+    this.pm.addItem('easycard', 8080, 300); // +3
+    this.pm.addItem('heart', 8300, 380);
+    this.pm.addItem('coffee', 8520, 310);
+    this.pm.addItem('easycard', 8740, 390); // +3
+    this.pm.addItem('raindrop', 8960, 320);
+    this.pm.addItem('coin', 9180, 390);
+    this.pm.addItem('easycard', 9400, 320); // +3 (達到 45+ 覺醒主角第二型態！)
 
-    // ★ 松德院區打卡機（圖片自行生成，設立於決戰地點松德院區大門右側）★
-    this.pm.setClockInMachine(7050, groundY);
+    // 第八怪獸「車票幽靈 / 悠遊卡寄靈」在此高頻出現
+    this.monsters.push(new Monster('transit', 7430, groundY - 30));
+    this.monsters.push(new Monster('red', 7650, 370));
+    this.monsters.push(new Monster('blue', 7870, groundY));
+    this.monsters.push(new Monster('obsidian', 8100, groundY));
+    this.monsters.push(new Monster('transit', 8320, 340, true));
+    this.monsters.push(new Monster('yellow', 8530, 350));
+    this.monsters.push(new Monster('grape', 8750, 430));
+    this.monsters.push(new Monster('ice', 8970, groundY));
+    this.monsters.push(new Monster('pink', 9190, 360, true));
+    this.monsters.push(new Monster('transit', 9410, groundY - 30));
+
+    // ========================================================
+    // --- STAGE 5: 松德院區正門廣場・決戰巨花王 (9600 ~ 12400) ---
+    // ========================================================
+    // 前導引道 (9600 ~ 10600)
+    this.pm.addPlatform(9600, groundY, 1050, 40, 'stone');
+    this.pm.addPlatform(9750, 440, 170, 24, 'brick');
+    this.pm.addPlatform(9980, 360, 180, 24, 'brick');
+    this.pm.addPlatform(10210, 420, 170, 24, 'brick');
+    this.pm.addPlatform(10430, 350, 180, 24, 'brick');
+
+    this.pm.addItem('easycard', 9800, 400); // +3
+    this.pm.addItem('coffee', 10030, 320);
+    this.pm.addItem('cookingspark', 10260, 380);
+    this.pm.addItem('easycard', 10480, 310); // +3 (達到 60+ 觸發 Boss 提早狂暴 Phase 2)
+
+    this.monsters.push(new Monster('obsidian', 9830, groundY));
+    this.monsters.push(new Monster('transit', 10050, 360));
+    this.monsters.push(new Monster('grape', 10270, 420));
+    this.monsters.push(new Monster('blue', 10490, groundY));
+
+    // ★ 決戰巨花王 Arena (10600 ~ 12000)：嚴格 1400px 平整無坑洞石板地板 ★
+    this.pm.addPlatform(10600, groundY, 1450, 60, 'stone');
+
+    // 戰術浮動高台（閃避 Boss 地刺與地面衝擊）
+    this.pm.addPlatform(10880, 410, 180, 24, 'brick');
+    this.pm.addPlatform(11200, 340, 180, 24, 'brick');
+    this.pm.addPlatform(11520, 410, 180, 24, 'brick');
+
+    this.pm.addItem('heart', 10920, 370);
+    this.pm.addItem('easycard', 11240, 300);
+    this.pm.addItem('cookingspark', 11560, 370);
+
+    // 後廊通往醫院大門 (12000 ~ 12450)
+    this.pm.addPlatform(12000, groundY, 500, 40, 'stone');
+
+    // ========================================================
+    // --- STAGE 6: 松德醫院院內挑高明亮大廳・最終打卡點 (12400 ~ 14400) ---
+    // ========================================================
+    // 醫院挑高大理石光潔地面
+    this.pm.addPlatform(12400, groundY, 2050, 60, 'stone');
+
+    // 迎賓花台與景觀台
+    this.pm.addPlatform(12650, 450, 180, 24, 'brick');
+    this.pm.addPlatform(12920, 380, 180, 24, 'brick');
+    this.pm.addPlatform(13200, 450, 180, 24, 'brick');
+    this.pm.addPlatform(13480, 380, 180, 24, 'brick');
+
+    // 勝利凱旋步道金幣與能量補給
+    this.pm.addItem('coin', 12700, 410);
+    this.pm.addItem('easycard', 12970, 340);
+    this.pm.addItem('coffee', 13150, groundY - 30);
+    this.pm.addItem('coin', 13250, 410);
+    this.pm.addItem('easycard', 13530, 340);
+    this.pm.addItem('heart', 13680, groundY - 30);
+
+    // ★ 松德醫院院內打卡機（終點：x = 13800，打敗 Boss 後奔入大廳打卡！）★
+    this.pm.setClockInMachine(13800, groundY);
   }
 
   getCurrentStage(x) {
@@ -209,15 +279,15 @@ export class Level {
     if (curStage.rain > 0) {
       particles.emitRain(camera.x, camera.viewportWidth, camera.viewportHeight, curStage.rain);
     }
-    // Ambient floating petals in stage 1, 5, 6
+    // Ambient floating petals in stage 0, 4, 5
     if ([0, 4, 5].includes(curStage.id) && Math.random() < 0.25) {
       particles.emitPetals(camera.x, camera.viewportWidth, 1);
     }
 
     // Update active monsters
     for (let m of this.monsters) {
-      // Update when within 600px of camera
-      if (Math.abs(m.x - player.x) < 700) {
+      // Update when within 750px of camera
+      if (Math.abs(m.x - player.x) < 750) {
         m.update(dt, player);
       }
     }
@@ -227,7 +297,7 @@ export class Level {
     const vw = camera.viewportWidth;
     const vh = camera.viewportHeight;
 
-    // 3-Layer Parallax Scrolling
+    // 3-Layer Parallax Scrolling across 14400px
     for (let stg of STAGES) {
       // Stage visibility range including 350px seamless transition overlap
       const stageStart = stg.startX - 350;

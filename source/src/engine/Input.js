@@ -14,6 +14,7 @@ export class InputManager {
     this.touchJump = false;
     this.touchSkill = false;
     this.touchUlt = false;
+    this.touchDash = false;
 
     // Virtual Joystick (-1.0 to 1.0)
     this.joystickX = 0;
@@ -76,10 +77,23 @@ export class InputManager {
     this.touchJump = false;
     this.touchSkill = false;
     this.touchUlt = false;
+    this.touchDash = false;
     this.joystickX = 0;
     this.joystickY = 0;
     this.joystickActive = false;
     this.jumpBufferTime = 0;
+  }
+
+  setJoystick(x, y) {
+    this.joystickX = x;
+    this.joystickY = y;
+    this.joystickActive = (Math.abs(x) > 0.05 || Math.abs(y) > 0.05);
+  }
+
+  resetJoystick() {
+    this.joystickX = 0;
+    this.joystickY = 0;
+    this.joystickActive = false;
   }
 
   // Polled in update loop to clear one-frame triggers
@@ -121,6 +135,12 @@ export class InputManager {
   isUltTriggered() {
     const res = this.justPressedKeys['KeyF'] || this.justPressedKeys['KeyK'] || this.touchUlt;
     this.touchUlt = false;
+    return res;
+  }
+
+  isDashTriggered() {
+    const res = this.justPressedKeys['ShiftLeft'] || this.justPressedKeys['ShiftRight'] || this.justPressedKeys['KeyE'] || this.justPressedKeys['KeyL'] || this.touchDash;
+    this.touchDash = false;
     return res;
   }
 }

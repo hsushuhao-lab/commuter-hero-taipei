@@ -46,6 +46,15 @@ export const CHARACTERS = {
       damage: 180,
       duration: 1.8,
       desc: '展開抗風折傘高速貫穿突進，釋放 7 道大型風刃與金色雷光，清空全屏彈幕並賦予 1.8 秒無敵。'
+    },
+    form2: {
+      name: '通勤戰術型態',
+      title: '機能守護・風刃貫穿',
+      asset: 'assets/hero_yu_form2.png',
+      desc: '黑藍機能型外套護片、強化傘骨、淡藍能量線。風壓斬面積提升 100%，反制飛行彈幕，無敵突進貫穿全場！',
+      speedBuff: 45,
+      hpBuff: 35,
+      skillBuffDesc: '雨傘風壓斬範圍 +100%，可反彈敵方投射物！'
     }
   },
 
@@ -92,6 +101,15 @@ export const CHARACTERS = {
       heal: 30,
       duration: 2.2,
       desc: '張開巨大星環，漫天傾瀉金色流星蛋雨與蛋白光環，全屏轟炸、回復 30 HP 並獲 3 秒元氣護盾。'
+    },
+    form2: {
+      name: '晨光蛋浪型態',
+      title: '美味療癒・流心環繞',
+      asset: 'assets/hero_shakira_form2.png',
+      desc: '白金晨光能量護裝。召喚 3~5 枚流心 Mayo Orbs 環繞防禦，自動反擊並吸收子彈！',
+      speedBuff: 35,
+      hpBuff: 45,
+      skillBuffDesc: '流心 Mayo Orbs 永久環繞護體，自動吸收敵彈！'
     }
   },
 
@@ -138,6 +156,15 @@ export const CHARACTERS = {
       damage: 210,
       duration: 2.0,
       desc: '雙手握鍋旋轉掀起料理龍捲，向四周釋放 14 道火炎旋轉鍋氣，將敵群吸向中心後劇烈震退擊破！'
+    },
+    form2: {
+      name: '滿漢戰鬥主廚型態',
+      title: '料理怒火・爆炒龍捲',
+      asset: 'assets/hero_sandra_form2.png',
+      desc: '主廚頭巾、料理護具、強化鑄鐵鍋。平底鍋常駐金橙烈焰光環，爆炒引發巨型火炎龍捲！',
+      speedBuff: 30,
+      hpBuff: 60,
+      skillBuffDesc: '平底鍋常駐金橙烈焰，爆炒攻擊範圍翻倍！'
     }
   }
 };

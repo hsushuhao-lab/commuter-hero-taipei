@@ -142,6 +142,15 @@ export class ProjectileManager {
         ctx.fill();
         ctx.stroke();
       }
+      else if (p.type === 'transit_beam') {
+        // Glowing cyan/green transit card laser beam
+        ctx.fillStyle = p.color || '#00E676';
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur = 12;
+        ctx.fillRect(-p.width * 0.5, -p.height * 0.5, p.width, p.height);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(-p.width * 0.4, -p.height * 0.2, p.width * 0.8, p.height * 0.4);
+      }
       else {
         // Generic glowing orb bullet
         ctx.fillStyle = p.color;

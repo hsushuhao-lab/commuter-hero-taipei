@@ -24,6 +24,10 @@ export class PlatformManager {
     this.imgEasyCard.src = 'assets/item_easycard.png';
     this.imgHeart = new Image();
     this.imgHeart.src = 'assets/item_heart.png';
+    this.imgRaindrop = new Image();
+    this.imgRaindrop.src = 'assets/item_raindrop.png';
+    this.imgCookingSpark = new Image();
+    this.imgCookingSpark.src = 'assets/item_cookingspark.png';
     this.imgBrick = new Image();
     this.imgBrick.src = 'assets/tile_brick.png';
     this.imgGround = new Image();
@@ -91,6 +95,10 @@ export class PlatformManager {
         } else if (item.type === 'heart') {
           player.addHp(25);
           audio.playPowerup();
+        } else if (item.type === 'raindrop') {
+          player.addRaindrop();
+        } else if (item.type === 'cookingspark') {
+          player.addCookingSpark();
         }
       }
     }
@@ -158,6 +166,8 @@ export class PlatformManager {
       if (item.type === 'coffee') img = this.imgCoffee;
       else if (item.type === 'easycard') img = this.imgEasyCard;
       else if (item.type === 'heart') img = this.imgHeart;
+      else if (item.type === 'raindrop') img = this.imgRaindrop;
+      else if (item.type === 'cookingspark') img = this.imgCookingSpark;
 
       if (img.complete && img.naturalWidth > 0) {
         const size = item.width;

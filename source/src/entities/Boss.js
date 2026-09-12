@@ -17,7 +17,7 @@ import { Monster } from './Monster.js';
 export class Boss {
   constructor() {
     this.config = BOSS_CONFIG;
-    this.x = 6700; // Arena right side
+    this.x = 11450; // Arena right side (10600 ~ 12000)
     this.y = this.config.arena.groundY;
     this.width = this.config.width;
     this.height = this.config.height;
@@ -63,7 +63,7 @@ export class Boss {
     audio.playHit();
     particles.emitHitSparks(this.x, this.y - 120, '#E91E63', 8);
 
-    // Check Phase 2 Trigger (<= 500 HP)
+    // Check Phase 2 Trigger (<= 900 HP)
     if (this.hp <= this.config.phase2Threshold && !this.phase2Triggered) {
       this.triggerPhase2();
     }
@@ -132,6 +132,11 @@ export class Boss {
       return;
     }
 
+    // 60 金幣提早觸發 Boss Phase 2 狂暴盛開態！(Commuter Resonance)
+    if (player && player.coins >= (this.config.coinsEnrageThreshold || 60) && !this.phase2Triggered) {
+      this.triggerPhase2();
+    }
+
     this.bobTimer += dt * (this.phase === 2 ? 3.5 : 2.0);
     if (this.hitTimer > 0) this.hitTimer -= dt;
     if (this.roarTimer > 0) {
@@ -153,7 +158,7 @@ export class Boss {
     this.x = Math.max(minX, Math.min(maxX, this.x));
 
     // Slow repositioning towards player
-    const desiredX = player.x + (player.x < 6500 ? 380 : -380);
+    const desiredX = player.x + (player.x < 11300 ? 380 : -380);
     this.x += (desiredX - this.x) * dt * (this.phase === 2 ? 0.8 : 0.4);
 
     // AI Attack Loop

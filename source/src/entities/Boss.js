@@ -1,11 +1,10 @@
 /**
- * 08點上班大作戰：通勤英雄篇 - 魔王：夢影巨花王 (Boss.js)
- * 規格要求：
- * - 專屬獨立魔王美術 (Phase 1 & Phase 2)
- * - 嚴格 1400px 連續平整戰場，絕對不可掉出地圖
- * - Phase 1 (1000 -> 501 HP) 扇形與旋轉彈幕、藤蔓刺
- * - Phase 2 (<= 500 HP) 狂暴盛開態：吼叫震動、Banner 提示、即時切換高 BPM BGM、360度螺旋彈幕、雙怪召喚
- * - 擊敗後觸發夢光碎裂與 Victory 結算
+ * 08點上班大作戰：通勤英雄篇 - 魔王：夢影巨花王 (Boss.js) - v9.3.0
+ * v9.3 核心升級：
+ * - HP 2,600 (Phase 1: 2600~1300 | Phase 2: <1300 or 60幣觸發)
+ * - Anti-Facetank 防站樁：玩家距離 <120px 連續 1.2 秒 → 藤蔓橫掃擊退 (18dmg / 250px)
+ * - Phase 1: 9 向交錯螺旋花瓣 (320 px/s)、突刺地刺藤蔓 (3~4 道連續)、瞌睡孢子霧 (慢速漂浮)
+ * - Phase 2: 16 向深紅花瓣暴風雨 (0.35s 預警)、狂暴雙重召喚、捕蠅草巨顎夾擊
  */
 
 import { BOSS_CONFIG } from '../data/Monsters.js';
@@ -35,11 +34,27 @@ export class Boss {
     this.attackTimer = 1.5;
     this.summonTimer = 7.0;
     this.vineTimer = 3.0;
+    this.sporeTimer = 5.0;    // Sleep spore clouds
+    this.chomperTimer = 8.0;  // Phase 2 Venus Flytrap chomp
+
+    // Anti-Facetank tracking
+    this.facetankTimer = 0;   // How long player has been in close range
+    this.vineCleaveCooldown = 0; // Cooldown after cleave so it doesn't spam
+
+    // Vine Cleave state
+    this.isVineCleaving = false;
+    this.vineCleaveTimer = 0;
+
+    // Spore projectiles in world (tracked separately for slow effect)
+    this.spores = [];
 
     // Telegraph
     this.isTelegraphing = false;
     this.telegraphTimer = 0;
     this.telegraphType = 'none';
+
+    // Ground spike telegraph markers
+    this.groundSpikeWarnings = [];
 
     // State
     this.isDead = false;
@@ -63,7 +78,7 @@ export class Boss {
     audio.playHit();
     particles.emitHitSparks(this.x, this.y - 120, '#E91E63', 8);
 
-    // Check Phase 2 Trigger (<= 900 HP)
+    // Check Phase 2 Trigger (< 1300 HP = 50%)
     if (this.hp <= this.config.phase2Threshold && !this.phase2Triggered) {
       this.triggerPhase2();
     }
@@ -145,6 +160,17 @@ export class Boss {
       return; // Roar freeze
     }
 
+    // Vine Cleave state (forcefully pushes player back after triggering)
+    if (this.isVineCleaving) {
+      this.vineCleaveTimer -= dt;
+      if (this.vineCleaveTimer <= 0) {
+        this.isVineCleaving = false;
+      }
+      return; // Frozen during cleave animation
+    }
+
+    if (this.vineCleaveCooldown > 0) this.vineCleaveCooldown -= dt;
+
     // Facing player
     this.facing = player.x < this.x ? -1 : 1;
 
@@ -162,21 +188,41 @@ export class Boss {
     const desiredX = player.x + (player.x < arenaMid ? 360 : -360);
     this.x += (desiredX - this.x) * dt * (this.phase === 2 ? 0.8 : 0.4);
 
+    // ═══════════════════════════════════════════════════════
+    // Anti-Facetank: Vine Cleave detection
+    // ═══════════════════════════════════════════════════════
+    const distToPlayer = Math.abs(player.x - this.x);
+    const af = this.config.antiFacetank;
+    if (distToPlayer < af.distThreshold && this.vineCleaveCooldown <= 0) {
+      this.facetankTimer += dt;
+      if (this.facetankTimer >= af.standingDuration) {
+        // Trigger Vine Cleave!
+        this._triggerVineCleave(player, af);
+        this.facetankTimer = 0;
+        this.vineCleaveCooldown = 3.0; // 3 second cooldown before next potential cleave
+      }
+    } else {
+      // Player moved away — reset timer
+      this.facetankTimer = Math.max(0, this.facetankTimer - dt * 1.5);
+    }
+
     // AI Attack Loop
     const currentConfig = this.phase === 2 ? this.config.phase2 : this.config.phase1;
     this.attackTimer -= dt;
     this.vineTimer -= dt;
     this.summonTimer -= dt;
+    this.sporeTimer -= dt;
+    if (this.phase === 2) this.chomperTimer -= dt;
 
-    // Standard Petal Attack
+    // Standard Petal Attack (9-way Phase 1 / 16-way Phase 2)
     if (this.attackTimer <= 0) {
       this.attackTimer = currentConfig.attackCooldown;
       this.firePetalBarrage(player);
     }
 
-    // Vine Ground Thrust
+    // Vine Ground Thrust (with consecutive spikes Phase 1, triple Phase 2)
     if (this.vineTimer <= 0) {
-      this.vineTimer = this.phase === 2 ? 3.2 : 4.8;
+      this.vineTimer = this.phase === 2 ? 3.0 : 4.5;
       this.triggerVineThrust(player);
     }
 
@@ -185,41 +231,105 @@ export class Boss {
       this.summonTimer = currentConfig.summonCooldown;
       this.summonMinions();
     }
+
+    // Sleep Spore Clouds (Phase 1 & 2)
+    if (this.sporeTimer <= 0) {
+      this.sporeTimer = this.phase === 2 ? 4.0 : 6.5;
+      this.launchSpores(player);
+    }
+
+    // Phase 2: Venus Flytrap Chomp
+    if (this.phase === 2 && this.chomperTimer <= 0) {
+      this.chomperTimer = 5.5;
+      this.triggerVenusChomper(player);
+    }
+
+    // Update spore cloud projectiles
+    this._updateSpores(dt, player);
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // Anti-Facetank: Vine Cleave – instant burst, knockback 250px
+  // ══════════════════════════════════════════════════════════════════
+  _triggerVineCleave(player, af) {
+    this.isVineCleaving = true;
+    this.vineCleaveTimer = 0.35;
+
+    // Visual: dramatic vine whip burst
+    for (let i = 0; i < 20; i++) {
+      particles.emit({
+        x: this.x + (this.facing * Math.random() * 100),
+        y: this.y - 80 - Math.random() * 60,
+        vx: this.facing * (Math.random() * 300 + 150),
+        vy: (Math.random() - 0.5) * 120,
+        size: Math.random() * 5 + 3,
+        color: Math.random() < 0.5 ? '#388E3C' : '#81C784',
+        life: 0.5,
+        shape: 'slash'
+      });
+    }
+
+    audio.playHit();
+
+    // Deal damage and knockback via projectile with very large radius
+    projectiles.spawn({
+      isPlayer: false,
+      type: 'vine',
+      x: this.x + this.facing * 70,
+      y: this.y - 100,
+      vx: 0,
+      vy: 0,
+      width: 130,
+      height: 180,
+      damage: af.vineCleaveDamage,
+      life: 0.25,
+      isCleave: true,
+      cleaveKnockback: af.vineCleaveKnockback,
+      cleaveFacing: this.facing
+    });
+
+    particles.emitFloatingText(this.x, this.y - 180, '💥 藤蔓橫掃！', '#FF5722');
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // 9-Way Interlaced Spiral Petals (Phase 1) / 16-Way Crimson Storm (Phase 2)
+  // ══════════════════════════════════════════════════════════════════
   firePetalBarrage(player) {
     const pX = this.x;
     const pY = this.y - 120;
-    const color = this.phase === 2 ? '#AD1457' : '#E91E63';
-    const speed = this.phase === 2 ? 330 : 270;
-    const dmg = this.phase === 2 ? this.config.phase2.petalDamage : this.config.phase1.petalDamage;
     const arenaB = { minX: this.config.arena.startX - 50, maxX: this.config.arena.endX + 50 };
 
     if (this.phase === 1) {
-      // 7-way wide fan spread
+      // 9-way interlaced spiral petals at 320 px/s
       const baseAngle = Math.atan2(player.y - pY, player.x - pX);
-      for (let i = -3; i <= 3; i++) {
-        const ang = baseAngle + i * 0.20;
+      const count = this.config.phase1.petalCount || 9; // 9 directions
+      const spread = (Math.PI * 2) / count; // Even distribution for spiral feel
+      // Spiral offset using bob timer
+      const spiralOffset = this.bobTimer * 0.5;
+
+      for (let i = 0; i < count; i++) {
+        const ang = baseAngle + (i - Math.floor(count / 2)) * 0.22 + spiralOffset * (i % 2 === 0 ? 1 : -1) * 0.08;
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
           x: pX,
           y: pY,
-          vx: Math.cos(ang) * speed,
-          vy: Math.sin(ang) * speed,
-          maxDistance: 650,
+          vx: Math.cos(ang) * 320,
+          vy: Math.sin(ang) * 320,
+          maxDistance: 680,
           arenaBounds: arenaB,
           width: 24,
           height: 16,
-          color: color,
-          damage: dmg,
+          color: '#E91E63',
+          damage: this.config.phase1.petalDamage,
           life: 2.2,
           rotates: true,
-          vRot: 3
+          vRot: 3 + i * 0.3
         });
       }
     } else {
-      // Phase 2: 16-way Spiral Bullet Hell Ring + Target Needle
+      // Phase 2: 16-way 360° crimson petal storm with 0.35s warning flash
+      // The warning is handled visually by a brief camera shake and glow
       for (let i = 0; i < 16; i++) {
         const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / 16);
         projectiles.spawn({
@@ -227,20 +337,20 @@ export class Boss {
           type: 'petal',
           x: pX,
           y: pY,
-          vx: Math.cos(ang) * speed,
-          vy: Math.sin(ang) * speed,
-          maxDistance: 650,
+          vx: Math.cos(ang) * 360,
+          vy: Math.sin(ang) * 360,
+          maxDistance: 680,
           arenaBounds: arenaB,
           width: 26,
           height: 18,
-          color: color,
-          damage: dmg,
+          color: '#AD1457',
+          damage: this.config.phase2.petalDamage,
           life: 2.4,
           rotates: true,
           vRot: 4
         });
       }
-      // Targeted burst needle directly at player
+      // Targeted burst needle directly at player (3-way)
       const directAngle = Math.atan2(player.y - pY, player.x - pX);
       for (let j = -1; j <= 1; j++) {
         projectiles.spawn({
@@ -248,47 +358,89 @@ export class Boss {
           type: 'petal',
           x: pX,
           y: pY,
-          vx: Math.cos(directAngle + j * 0.15) * (speed + 60),
-          vy: Math.sin(directAngle + j * 0.15) * (speed + 60),
-          maxDistance: 650,
+          vx: Math.cos(directAngle + j * 0.15) * 420,
+          vy: Math.sin(directAngle + j * 0.15) * 420,
+          maxDistance: 680,
           arenaBounds: arenaB,
           width: 22,
           height: 14,
           color: '#FF1744',
-          damage: dmg,
+          damage: this.config.phase2.targetedDamage,
           life: 2.0
+        });
+      }
+
+      // Phase 2 warning glow burst (visual only)
+      for (let i = 0; i < 8; i++) {
+        particles.emit({
+          x: pX + (Math.random() - 0.5) * 60,
+          y: pY + (Math.random() - 0.5) * 40,
+          vx: (Math.random() - 0.5) * 80,
+          vy: (Math.random() - 0.5) * 80,
+          size: 5 + Math.random() * 4,
+          color: '#FF1744',
+          life: 0.35,
+          shape: 'circle'
         });
       }
     }
     audio.playTelegraph();
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // Ground Spike Vine Thrust (Phase 1: 3-4 consecutive / Phase 2: triple)
+  // ══════════════════════════════════════════════════════════════════
   triggerVineThrust(player) {
     const targetX = Math.max(this.config.arena.startX + 50, Math.min(this.config.arena.endX - 50, player.x));
     const groundY = this.config.arena.groundY;
 
-    // Telegraph dust
-    particles.emitDust(targetX, groundY, 8, '#4CAF50');
-
     if (this.phase === 1) {
-      setTimeout(() => {
-        projectiles.spawn({
-          isPlayer: false,
-          type: 'vine',
-          x: targetX,
-          y: groundY,
-          vx: 0,
-          vy: -440,
-          width: 36,
-          height: 80,
-          damage: 10,
-          life: 0.38
-        });
-        audio.playHit();
-        particles.emitDust(targetX, groundY, 12, '#2E7D32');
-      }, 380);
+      // 0.45s red line warning, then 3-4 consecutive spikes
+      const spikeCount = 3 + (Math.random() < 0.4 ? 1 : 0); // 3 or 4 spikes
+
+      // Emit warning red lines for all spikes first
+      for (let k = 0; k < spikeCount; k++) {
+        const spikeX = targetX + k * 80 * (player.x < this.x ? -1 : 1);
+        const clampedX = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, spikeX));
+
+        // Red warning line particles at ground level
+        for (let j = 0; j < 6; j++) {
+          particles.emit({
+            x: clampedX,
+            y: groundY - 5 - j * 8,
+            vx: (Math.random() - 0.5) * 20,
+            vy: -15,
+            size: 3,
+            color: '#FF1744',
+            life: 0.45,
+            shape: 'rect'
+          });
+        }
+
+        // After 0.45s warning, fire the spike
+        setTimeout(() => {
+          const cx = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, spikeX));
+          particles.emitDust(cx, groundY, 6, '#2E7D32');
+          setTimeout(() => {
+            projectiles.spawn({
+              isPlayer: false,
+              type: 'vine',
+              x: cx,
+              y: groundY,
+              vx: 0,
+              vy: -460,
+              width: 36,
+              height: 80,
+              damage: this.config.phase1.vineDamage,
+              life: 0.38
+            });
+            audio.playHit();
+            particles.emitDust(cx, groundY, 10, '#388E3C');
+          }, 450);
+        }, k * 150); // Stagger each spike by 150ms
+      }
     } else {
-      // Phase 2: Triple consecutive ground vines tracking player's stride!
+      // Phase 2: triple consecutive vines tracking player's stride
       [-80, 0, 80].forEach((offset, idx) => {
         setTimeout(() => {
           const vx = Math.max(this.config.arena.startX + 40, Math.min(this.config.arena.endX - 40, targetX + offset));
@@ -300,10 +452,10 @@ export class Boss {
               x: vx,
               y: groundY,
               vx: 0,
-              vy: -480,
+              vy: -500,
               width: 38,
               height: 85,
-              damage: 15,
+              damage: this.config.phase2.vineDamage,
               life: 0.40
             });
             audio.playHit();
@@ -312,6 +464,155 @@ export class Boss {
         }, idx * 120);
       });
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Sleep Spore Clouds – Slow purple drift spores (both phases)
+  // ══════════════════════════════════════════════════════════════════
+  launchSpores(player) {
+    const sporeCount = this.phase === 2 ? 3 : 2;
+    const arenaB = { minX: this.config.arena.startX, maxX: this.config.arena.endX };
+
+    for (let i = 0; i < sporeCount; i++) {
+      // Spore starts from boss body and drifts slowly across arena
+      const startX = this.x + (Math.random() * 80 - 40);
+      const startY = this.y - 140 - Math.random() * 40;
+      const targetX = player.x + (Math.random() * 120 - 60);
+      const angle = Math.atan2((player.y - 80) - startY, targetX - startX);
+      const speed = 90 + Math.random() * 40; // slow drift
+
+      // Spore is tracked by Boss for collision, not by projectiles system
+      this.spores.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: 22,
+        life: 3.5,
+        maxLife: 3.5,
+        damage: this.config.phase1.sporeDamage,
+        slowDuration: this.config.phase1.sporeSlowDuration,
+        hasHit: false,
+        pulseTimer: 0
+      });
+
+      // Visual spore particle cloud
+      particles.emit({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 18,
+        color: 'rgba(179, 136, 255, 0.7)',
+        life: 3.5,
+        shape: 'circle',
+        gravity: -5,
+        fade: true
+      });
+    }
+    audio.playTelegraph();
+  }
+
+  _updateSpores(dt, player) {
+    for (let i = this.spores.length - 1; i >= 0; i--) {
+      const s = this.spores[i];
+      s.life -= dt;
+      s.pulseTimer += dt;
+
+      if (s.life <= 0) {
+        this.spores.splice(i, 1);
+        continue;
+      }
+
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.vy -= 15 * dt; // Gentle float upward over time
+      s.vx *= 0.98;    // Slight drag
+
+      // Clamp inside arena
+      s.x = Math.max(this.config.arena.startX + 10, Math.min(this.config.arena.endX - 10, s.x));
+
+      // Collision with player
+      if (!s.hasHit && player && !player.isDead) {
+        const dist = Math.hypot(s.x - player.x, s.y - (player.y - 35));
+        if (dist < s.radius + 20) {
+          s.hasHit = true;
+          player.takeDamage(s.damage);
+          // Apply slow effect
+          if (player.speed > 0) {
+            player._sporeSlowTimer = s.slowDuration;
+            player._sporeSlowFactor = 0.45; // 45% speed
+          }
+          particles.emitHitSparks(s.x, s.y, '#CE93D8', 10);
+          particles.emitFloatingText(s.x, s.y - 30, '💤 孢子遲緩！', '#CE93D8');
+          this.spores.splice(i, 1);
+          continue;
+        }
+      }
+
+      // Emit trailing purple wisps
+      if (Math.random() < 0.3) {
+        particles.emit({
+          x: s.x + (Math.random() * 12 - 6),
+          y: s.y + (Math.random() * 12 - 6),
+          vx: (Math.random() - 0.5) * 20,
+          vy: (Math.random() - 0.5) * 20,
+          size: 4 + Math.random() * 4,
+          color: `rgba(${180 + Math.floor(Math.random()*60)}, ${100 + Math.floor(Math.random()*50)}, 255, 0.6)`,
+          life: 0.4,
+          shape: 'circle',
+          fade: true
+        });
+      }
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2: Venus Flytrap Chomp – lunge forward, bite
+  // ══════════════════════════════════════════════════════════════════
+  triggerVenusChomper(player) {
+    // Telegraph: crimson flash + 0.4s warning
+    audio.playBossRoar();
+    for (let i = 0; i < 15; i++) {
+      particles.emit({
+        x: this.x + this.facing * (40 + i * 8),
+        y: this.y - 100,
+        vx: this.facing * 60,
+        vy: (Math.random() - 0.5) * 80,
+        size: 6 + Math.random() * 5,
+        color: Math.random() < 0.5 ? '#880E4F' : '#FF1744',
+        life: 0.5,
+        shape: 'petal',
+        rotates: true,
+        vRot: 5
+      });
+    }
+
+    setTimeout(() => {
+      if (this.isDead) return;
+      // Lunge: move rapidly toward player position
+      const lungeTargetX = player.x;
+      const lerpFactor = 0.7;
+      const lungeX = this.x + (lungeTargetX - this.x) * lerpFactor;
+      this.x = Math.max(this.config.arena.startX + 200, Math.min(this.config.arena.endX - 150, lungeX));
+
+      // Chomp projectile: wide, short-lived
+      projectiles.spawn({
+        isPlayer: false,
+        type: 'vine',
+        x: this.x + this.facing * 80,
+        y: this.y - 80,
+        vx: this.facing * 200,
+        vy: 0,
+        width: 70,
+        height: 100,
+        damage: this.config.phase2.chomperDamage,
+        life: 0.3
+      });
+
+      particles.emitHitSparks(this.x + this.facing * 80, this.y - 80, '#FF1744', 20);
+      audio.playHit();
+    }, 400);
   }
 
   summonMinions() {
@@ -328,18 +629,37 @@ export class Boss {
       this.minions.push(m);
       particles.emitDust(this.x - 140, spawnY, 10, '#AB47BC');
     } else {
-      // Phase 2: Spawn 2~3 distinct monsters simultaneously!
+      // Phase 2: Berserk dual summon – Amethyst monster + Flying monster!
       const types = ['ice', 'yellow', 'obsidian', 'pink', 'grape'];
       const t1 = types[Math.floor(Math.random() * types.length)];
-      const t2 = 'grape';
+      const t2 = 'grape'; // Berserk ranged attacker
       const m1 = new Monster(t1, this.x - 180, spawnY);
       const m2 = new Monster(t2, this.x - 90, spawnY - 50, true);
       this.minions.push(m1, m2);
       particles.emitDust(this.x - 180, spawnY, 14, '#880E4F');
+      // Extra burst particles for berserk feel
+      for (let i = 0; i < 12; i++) {
+        particles.emit({
+          x: this.x - 140,
+          y: spawnY - 40,
+          vx: (Math.random() - 0.5) * 200,
+          vy: -Math.random() * 150 - 40,
+          size: 5 + Math.random() * 4,
+          color: Math.random() < 0.5 ? '#8E24AA' : '#E91E63',
+          life: 0.8,
+          shape: 'star'
+        });
+      }
     }
   }
 
   render(ctx) {
+    // Render spore clouds
+    this._renderSpores(ctx);
+
+    // Render ground spike warnings
+    this._renderGroundSpikeWarnings(ctx);
+
     if (this.isDead && (!this.deathSequenceTimer || this.deathSequenceTimer <= 0)) return;
 
     ctx.save();
@@ -351,6 +671,8 @@ export class Boss {
       ctx.filter = 'brightness(2.2) drop-shadow(0 0 24px #FFD700)';
     } else if (this.hitTimer > 0) {
       ctx.filter = 'brightness(1.9) drop-shadow(0 0 16px #E91E63)';
+    } else if (this.isVineCleaving) {
+      ctx.filter = 'brightness(1.5) drop-shadow(0 0 20px #4CAF50)';
     }
 
     // Arena shadow
@@ -384,6 +706,49 @@ export class Boss {
       ctx.fill();
     }
 
+    // Anti-facetank warning indicator: pulse red aura when player is in danger zone
+    if (this.facetankTimer > 0.5 && this.vineCleaveCooldown <= 0) {
+      const warnAlpha = Math.min(0.7, (this.facetankTimer / 1.2) * 0.7);
+      ctx.fillStyle = `rgba(255, 23, 68, ${warnAlpha})`;
+      ctx.beginPath();
+      ctx.arc(0, -110, 100 + Math.sin(this.bobTimer * 8) * 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
+  }
+
+  _renderSpores(ctx) {
+    for (const s of this.spores) {
+      const alpha = (s.life / s.maxLife) * 0.75;
+      const pulse = 1 + Math.sin(s.pulseTimer * 4) * 0.15;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = 'rgba(149, 96, 255, 0.6)';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(200, 150, 255, 0.9)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // Inner glow
+      ctx.fillStyle = 'rgba(220, 180, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius * pulse * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  _renderGroundSpikeWarnings(ctx) {
+    for (const w of this.groundSpikeWarnings) {
+      const flash = Math.sin(w.timer * 40) > 0;
+      if (flash) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 23, 68, 0.5)';
+        ctx.fillRect(w.x - 10, w.y - 40, 20, 40);
+        ctx.restore();
+      }
+    }
   }
 }

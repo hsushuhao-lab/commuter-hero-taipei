@@ -45,6 +45,12 @@ class Game {
     this.bossDeadTimer = 0;
     this.watchdogTriggerCount = 0;
 
+    // v9.3: Companion state for Victory Run (the other two heroes rush in!)
+    this.companions = [];         // [{id, x, y, vx, facing, animPhase, dialogueTimer, dialogueText, dialogueColor}]
+    this.dialogueBubbles = [];    // active speech bubbles
+    this.celebrationTimer = 0;
+    this.confettiTimer = 0;
+
     // Commuter Resonance Milestone announcements
     this.milestoneBanner = null;
     this.milestoneBannerTimer = 0;
@@ -294,6 +300,11 @@ class Game {
     this.milestoneBannerTimer = 0;
     this.announcedMilestones = {};
     this.joystickPointerId = null;
+    // v9.3: Reset companions & celebration state
+    this.companions = [];
+    this.dialogueBubbles = [];
+    this.celebrationTimer = 0;
+    this.confettiTimer = 0;
 
     audio.playBgm('city_pop');
   }
@@ -413,10 +424,10 @@ class Game {
     this.victoryTimer += dt;
     this.bossDeadTimer += dt;
 
-    // 10-Second Watchdog Protection (Guaranteed recovery if ever obstructed)
-    if (this.bossDeadTimer > 10.0 && this.state !== 'VICTORY') {
+    // 20-Second Watchdog Protection (accommodates full companion ceremony sequence)
+    if (this.bossDeadTimer > 20.0 && this.state !== 'VICTORY') {
       this.watchdogTriggerCount++;
-      console.error('WATCHDOG TRIGGERED: Victory Run exceeded 10s! Auto-completing to clock machine.');
+      console.error('WATCHDOG TRIGGERED: Victory Run exceeded 20s! Auto-completing to clock machine.');
       this.player.x = 17650;
       if (this.pm.clockInMachine) {
         this.pm.clockInMachine.punched = true;
@@ -432,60 +443,234 @@ class Game {
     this.pm.update(dt, this.player);
     this.camera.update(dt);
 
-    // Seven to Nine Beat Victory Flow
+    // Update dialogue bubble lifetimes
+    for (let i = this.dialogueBubbles.length - 1; i >= 0; i--) {
+      this.dialogueBubbles[i].life -= dt;
+      if (this.dialogueBubbles[i].life <= 0) {
+        this.dialogueBubbles.splice(i, 1);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 1: BOSS_BURST (0.0 ~ 0.8s) – Boss floral burst, clear projectiles
+    // ═══════════════════════════════════════════════════════════════
     if (this.victorySubState === 'BOSS_BURST') {
-      // Beat 1 & 2 (0.0 ~ 0.8s): Boss floral burst, clearance of all enemy projectiles
       projectiles.projectiles = projectiles.projectiles.filter(p => p.isPlayer);
+
       if (this.victoryTimer >= 0.8) {
-        // Beat 3: Hospital entrance barrier unlocks
+        // Open hospital gate
         this.pm.arenaGateActive = false;
-        this.victorySubState = 'SPRINT_TO_CLOCK';
-        this.player.facing = 1;
-        this.player.animState = 'run';
-        this.milestoneBanner = '🎉 擊破巨花王！火速衝入松德大廳打卡！';
+        this.victorySubState = 'COMPANION_RUSH';
+        this.victoryTimer = 0;
+
+        // Determine which companions should appear (the two NOT selected)
+        const allIds = ['yu', 'shakira', 'sandra'];
+        const companionIds = allIds.filter(id => id !== this.player.id);
+        this.companions = companionIds.map((id, idx) => ({
+          id,
+          x: this.player.x - 320 - idx * 80, // Spawn 300-400px behind player for dramatic run-up
+          y: 520,
+          vx: 1400 + idx * 80, // Fast rush speed
+          facing: 1,
+          animPhase: 'run',
+          dialogueSent: false
+        }));
+
+        this.milestoneBanner = '🎉 擊破巨花王！夥伴們趕來會合！衝入松德大廳打卡！';
+        this.milestoneBannerTimer = 4.0;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 2: COMPANION_RUSH (0.0 ~ 2.0s) – Companions sprint from left
+    // ═══════════════════════════════════════════════════════════════
+    else if (this.victorySubState === 'COMPANION_RUSH') {
+      // Player waits in place (triumphant idle)
+      this.player.facing = -1; // Looking back towards companions
+      this.player.animState = 'idle';
+      this.player.updateAnimation(dt);
+
+      // Move companions toward player
+      let allArrived = true;
+      for (const comp of this.companions) {
+        const targetX = this.player.x - 90 - (this.companions.indexOf(comp)) * 70;
+        if (comp.x < targetX - 10) {
+          comp.x += comp.vx * dt;
+          comp.x = Math.min(comp.x, targetX);
+          allArrived = false;
+
+          // Companion run trail particles
+          const colors = { yu: '#29B6F6', shakira: '#CE93D8', sandra: '#FF7043' };
+          if (Math.random() < 0.6) {
+            particles.emitDust(comp.x - 15, comp.y, 4, colors[comp.id] || '#FFD700');
+          }
+        } else {
+          comp.x = targetX;
+          comp.vx = 0;
+          comp.animPhase = 'arrive';
+        }
+      }
+
+      // Arrival celebration particles
+      if (Math.random() < 0.3) {
+        particles.emit({
+          x: this.player.x + (Math.random() * 200 - 100),
+          y: this.player.y - Math.random() * 80,
+          vx: (Math.random() - 0.5) * 80,
+          vy: -Math.random() * 60 - 20,
+          size: 5 + Math.random() * 4,
+          color: ['#00E5FF', '#FFD700', '#FF80AB', '#76FF03'][Math.floor(Math.random() * 4)],
+          life: 0.8,
+          shape: 'star'
+        });
+      }
+
+      if (allArrived && this.victoryTimer >= 1.2) {
+        this.victorySubState = 'DIALOGUE';
+        this.victoryTimer = 0;
+        this.player.facing = 1; // Face right again
+
+        // Trigger dialogue bubbles – character-specific lines!
+        const dialogues = [
+          { id: 'yu',     text: '呼……眼鏡差點歪掉，但路通了！', color: '#29B6F6', delay: 0.1 },
+          { id: 'shakira', text: '太棒了！大家快跟上，還差最後幾十秒！', color: '#CE93D8', delay: 0.9 },
+          { id: 'sandra', text: '平底鍋都快炒焦啦，最後衝刺衝啊——！', color: '#FF7043', delay: 1.7 }
+        ];
+        this._scheduledDialogues = dialogues;
+        this._dialogueElapsed = 0;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 3: DIALOGUE (0.0 ~ 3.5s) – Speech bubbles
+    // ═══════════════════════════════════════════════════════════════
+    else if (this.victorySubState === 'DIALOGUE') {
+      this._dialogueElapsed = (this._dialogueElapsed || 0) + dt;
+
+      // Spawn dialogue bubbles at scheduled times
+      if (this._scheduledDialogues) {
+        for (let i = this._scheduledDialogues.length - 1; i >= 0; i--) {
+          const d = this._scheduledDialogues[i];
+          if (this._dialogueElapsed >= d.delay) {
+            // Find speaker position
+            let speakerX = this.player.x;
+            let speakerY = this.player.y;
+            if (d.id !== this.player.id) {
+              const comp = this.companions.find(c => c.id === d.id);
+              if (comp) { speakerX = comp.x; speakerY = comp.y; }
+            }
+
+            this.dialogueBubbles.push({
+              x: speakerX,
+              y: speakerY,
+              text: d.text,
+              color: d.color,
+              life: 2.8,
+              maxLife: 2.8,
+              speakerId: d.id
+            });
+            audio.playCoin(); // Short chime for each line
+            this._scheduledDialogues.splice(i, 1);
+          }
+        }
+      }
+
+      // After all dialogues played + brief pause, transition to group sprint
+      if (this._dialogueElapsed >= 3.5) {
+        this.victorySubState = 'GROUP_SPRINT';
+        this.victoryTimer = 0;
+        this._scheduledDialogues = [];
+        this.dialogueBubbles = [];
+
+        // Set companions into sprint mode
+        for (const comp of this.companions) {
+          comp.vx = 1100;
+          comp.animPhase = 'run';
+        }
+        this.milestoneBanner = '🏃‍♂️🏃‍♀️🏃 三人並肩衝刺！衝入松德醫院大廳打卡機！';
         this.milestoneBannerTimer = 3.0;
       }
-    } 
-    else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
-      // Beat 4 & 5 (0.8s ~): Auto-sprints past 16500 into interior hospital lobby towards clock at x = 17650
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 4: GROUP_SPRINT (0.0 ~ reach x=17630) – All three sprint together
+    // ═══════════════════════════════════════════════════════════════
+    else if (this.victorySubState === 'GROUP_SPRINT') {
+      // Player sprints
       this.player.facing = 1;
       this.player.animState = 'run';
-      this.player.vx = 1100; // Rapid celebratory sprint
+      this.player.vx = 1100;
       this.player.x += this.player.vx * dt;
       this.player.updateAnimation(dt);
 
-      // Emit high-speed particle trail
-      if (Math.random() < 0.8) {
-        particles.emitDust(this.player.x - 20, this.player.y, 6, '#00E5FF');
+      // Companions sprint in formation
+      const colors = { yu: '#29B6F6', shakira: '#AB47BC', sandra: '#FF5722' };
+      for (const comp of this.companions) {
+        comp.x += comp.vx * dt;
+        comp.facing = 1;
+
+        // Three-color sprint trails
+        if (Math.random() < 0.8) {
+          particles.emit({
+            x: comp.x - 20,
+            y: comp.y - 20 - Math.random() * 20,
+            vx: -200 - Math.random() * 80,
+            vy: (Math.random() - 0.5) * 40,
+            size: 6 + Math.random() * 4,
+            color: colors[comp.id] || '#FFD700',
+            life: 0.4,
+            shape: 'star',
+            fade: true
+          });
+        }
       }
 
-      // Reached punch clock interaction zone at x = 17630 ~ 17650
+      // Player sprint trail
+      if (Math.random() < 0.7) {
+        const playerColor = colors[this.player.id] || '#00E5FF';
+        particles.emitDust(this.player.x - 20, this.player.y, 5, playerColor);
+        particles.emit({
+          x: this.player.x - 15,
+          y: this.player.y - 30,
+          vx: -180 - Math.random() * 60,
+          vy: (Math.random() - 0.5) * 30,
+          size: 7,
+          color: playerColor,
+          life: 0.35,
+          shape: 'slash'
+        });
+      }
+
+      // Reached clock machine zone
       if (this.player.x >= 17630) {
         this.player.x = 17630;
         this.player.vx = 0;
-        this.player.vy = -250;
+
+        // Snap companions into position around clock
+        const compSlots = [17580, 17690];
+        this.companions.forEach((comp, idx) => {
+          comp.x = compSlots[idx] || 17630 + (idx + 1) * 60;
+          comp.vx = 0;
+          comp.animPhase = 'idle';
+        });
+
         this.victorySubState = 'PUNCH_CLOCK';
         this.victoryPunchTimer = 0;
 
-        // Beat 6: Character-specific signature punch actions
+        // Character-specific punch animation & particles
+        this.player.animState = 'attack';
         if (this.player.id === 'yu') {
-          // Yu: folds umbrella, pushes glasses, right-hand punch, sighs with relief
-          this.player.animState = 'attack';
           particles.emitHitSparks(this.player.x, this.player.y - 45, '#4FC3F7', 16);
           particles.emitFloatingText(this.player.x, this.player.y - 75, '準時打卡！', '#4FC3F7');
         } else if (this.player.id === 'shakira') {
-          // Shakira: Mayo magic sparkles disperse, joyful double-arm cheer, jump-punch
-          this.player.animState = 'attack';
           particles.emitHitSparks(this.player.x, this.player.y - 35, '#FFD54F', 18);
           particles.emitFloatingText(this.player.x, this.player.y - 75, '元氣抵達！', '#FFD54F');
         } else {
-          // Sandra: fire extinguishes, stores skillet, wipes brow, hearty slam punch
-          this.player.animState = 'attack';
           particles.emitHitSparks(this.player.x, this.player.y - 40, '#FF7043', 18);
           particles.emitFloatingText(this.player.x, this.player.y - 75, '搶秒成功！', '#FF7043');
         }
 
-        // Beat 7: Stamp clock machine with dynamic real clock time!
+        // Clock machine green light flash + stamp
         const clockTime = hud.getFormattedClockTime();
         if (this.pm.clockInMachine) {
           this.pm.clockInMachine.punched = true;
@@ -493,25 +678,41 @@ class Game {
         }
         hud.punchedTimeText = clockTime;
         audio.playStamp();
-        this.camera.shake(10, 0.45);
+        this.camera.shake(12, 0.55);
 
-        // Huge celebratory fireworks & beacon burst at 17650
-        particles.emitHitSparks(17650, this.player.y - 50, '#00E676', 60);
+        // Huge celebratory fireworks beacon at 17650
+        particles.emitHitSparks(17650, this.player.y - 50, '#00E676', 70);
         particles.emitCoinSparkle(17650, this.player.y - 80);
-        for (let i = 0; i < 90; i++) {
+        for (let i = 0; i < 100; i++) {
           particles.emit({
             x: 17650,
             y: this.player.y - 60,
-            vx: (Math.random() - 0.5) * 500,
-            vy: -Math.random() * 400 - 90,
-            size: Math.random() * 9 + 4,
-            color: ['#00E676', '#FFD700', '#00E5FF', '#FF4081', '#76FF03', '#FFFFFF'][Math.floor(Math.random() * 6)],
-            life: 3.2,
+            vx: (Math.random() - 0.5) * 600,
+            vy: -Math.random() * 480 - 100,
+            size: Math.random() * 10 + 4,
+            color: ['#00E676', '#FFD700', '#00E5FF', '#FF4081', '#76FF03', '#FFFFFF', '#FF80AB'][Math.floor(Math.random() * 7)],
+            life: 3.5,
             shape: 'star'
           });
         }
+
+        // Companions also cheer!
+        for (const comp of this.companions) {
+          const compColor = colors[comp.id] || '#FFD700';
+          particles.emitHitSparks(comp.x, comp.y - 40, compColor, 12);
+          const compLines = {
+            yu: '眼鏡沒歪！',
+            shakira: '耶～V！',
+            sandra: '熱鍋不焦！'
+          };
+          particles.emitFloatingText(comp.x, comp.y - 65, compLines[comp.id] || '耶！', compColor);
+        }
       }
-    } 
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 5: PUNCH_CLOCK (0.0 ~ 1.5s) – Player jumps & lands, poses
+    // ═══════════════════════════════════════════════════════════════
     else if (this.victorySubState === 'PUNCH_CLOCK') {
       this.victoryPunchTimer = (this.victoryPunchTimer || 0) + dt;
       this.player.vy += 820 * dt;
@@ -521,32 +722,182 @@ class Game {
         this.player.vy = 0;
         this.player.animState = 'victory';
         this.victorySubState = 'VICTORY_CELEBRATE';
+        this.celebrationTimer = 0;
+        this.confettiTimer = 0;
+
+        // Golden achievement text: 08:00 PUNCHED!
+        const clockText = hud.punchedTimeText || '08:00:00';
+        particles.emitFloatingText(17630, 440, `✅ ${clockText} ON TIME PUNCHED!`, '#FFD700');
+
+        // Companion celebration poses triggered
+        this.companions.forEach(comp => {
+          comp.animPhase = 'celebrate';
+        });
+
+        // Camera second shake for maximum impact
+        this.camera.shake(15, 0.6);
       }
       this.player.updateAnimation(dt);
-    } 
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PHASE 6: VICTORY_CELEBRATE (0.0 ~ 5.5s) – All three pose + confetti rain
+    // ═══════════════════════════════════════════════════════════════
     else if (this.victorySubState === 'VICTORY_CELEBRATE') {
-      // Beat 8: Continuous hospital lobby celebration confetti & victory pose
+      this.celebrationTimer += dt;
+      this.confettiTimer += dt;
+
+      // Player victory pose
       this.player.animState = 'victory';
       this.player.updateAnimation(dt);
 
-      if (Math.random() < 0.6) {
+      // Five-color confetti rain from ceiling (高掛大廳天花板)
+      if (Math.random() < 0.75) {
         particles.emit({
-          x: 17450 + Math.random() * 350,
-          y: 40 + Math.random() * 60,
-          vx: (Math.random() - 0.5) * 60,
-          vy: Math.random() * 80 + 60,
-          size: Math.random() * 7 + 3,
-          color: ['#FFD700', '#00E676', '#00E5FF', '#FF4081', '#FFFFFF'][Math.floor(Math.random() * 5)],
-          life: 2.2,
-          shape: 'star'
+          x: 17200 + Math.random() * 600,
+          y: 0 + Math.random() * 30,
+          vx: (Math.random() - 0.5) * 80,
+          vy: Math.random() * 100 + 80,
+          size: Math.random() * 8 + 4,
+          color: ['#FFD700', '#00E676', '#00E5FF', '#FF4081', '#FFFFFF', '#FF80AB', '#FF6D00', '#AEEA00'][Math.floor(Math.random() * 8)],
+          life: 3.0,
+          shape: Math.random() < 0.5 ? 'star' : 'petal',
+          rotation: Math.random() * Math.PI,
+          vRot: (Math.random() - 0.5) * 4,
+          gravity: 30,
+          fade: true
         });
       }
 
-      // Beat 9 (5.2s+): Transition to final victory score screen
-      if (this.victoryTimer >= 5.2) {
+      // Morning golden light rays (晨光金芒)
+      if (this.celebrationTimer < 3.0 && Math.random() < 0.4) {
+        particles.emit({
+          x: 17630,
+          y: 30,
+          vx: (Math.random() - 0.5) * 150,
+          vy: Math.random() * 120 + 60,
+          size: 12 + Math.random() * 8,
+          color: `rgba(255, ${180 + Math.floor(Math.random() * 75)}, 0, 0.6)`,
+          life: 2.5,
+          shape: 'star',
+          gravity: 20
+        });
+      }
+
+      // Companion character poses – emit unique celebration particles
+      if (this.celebrationTimer < 2.0) {
+        for (const comp of this.companions) {
+          if (Math.random() < 0.25) {
+            const compColors = { yu: '#29B6F6', shakira: '#FFD54F', sandra: '#FF7043' };
+            particles.emit({
+              x: comp.x + (Math.random() * 30 - 15),
+              y: comp.y - 40 - Math.random() * 30,
+              vx: (Math.random() - 0.5) * 120,
+              vy: -Math.random() * 80 - 40,
+              size: 8,
+              color: compColors[comp.id] || '#FFD700',
+              life: 1.2,
+              shape: comp.id === 'sandra' ? 'star' : 'petal'
+            });
+          }
+        }
+      }
+
+      // Floating golden victory text heading
+      if (this.celebrationTimer > 0.5 && this.celebrationTimer < 0.6) {
+        particles.emitFloatingText(17630, 380, '🎊 08:00 準時壓線！打卡成功！！', '#FFD700');
+      }
+
+      // Transition to final victory score screen at 5.5s
+      if (this.celebrationTimer >= 5.5) {
         this.state = 'VICTORY';
         hud.triggerVictory(this.player);
       }
+    }
+  }
+
+  // ─── Companion Chibi render helper (called from render()) ─────────────
+  renderCompanions(ctx) {
+    if (this.companions.length === 0) return;
+    const CHIBI_W = 48;
+    const CHIBI_H = 64;
+    const CHARS = {
+      yu:      { color: '#29B6F6', label: '禹', accent: '#4FC3F7' },
+      shakira: { color: '#AB47BC', label: '夏', accent: '#FFD54F' },
+      sandra:  { color: '#FF5722', label: '珊', accent: '#FFA726' }
+    };
+
+    for (const comp of this.companions) {
+      const sx = comp.x - this.camera.x;
+      const sy = comp.y - CHIBI_H;
+      const cfg = CHARS[comp.id] || CHARS.yu;
+
+      ctx.save();
+      // Simple Chibi silhouette if sprite not available
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath();
+      ctx.arc(sx, sy + CHIBI_H * 0.3, CHIBI_W * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = cfg.accent;
+      ctx.fillRect(sx - CHIBI_W * 0.28, sy + CHIBI_H * 0.6, CHIBI_W * 0.56, CHIBI_H * 0.4);
+
+      // Label
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cfg.label, sx, sy + CHIBI_H * 0.3);
+      ctx.restore();
+    }
+  }
+
+  // ─── Speech bubble render ────────────────────────────────────────────
+  renderDialogueBubbles(ctx) {
+    for (const bub of this.dialogueBubbles) {
+      const sx = bub.x - this.camera.x;
+      const sy = bub.y - this.camera.y;
+      const alpha = Math.min(1.0, bub.life / bub.maxLife);
+      const bubY = sy - 110;
+      const textWidth = Math.max(160, bub.text.length * 12);
+      const bubW = textWidth + 24;
+      const bubH = 36;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // Bubble body
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.92)';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(sx - bubW / 2, bubY, bubW, bubH, 8) : ctx.rect(sx - bubW / 2, bubY, bubW, bubH);
+      ctx.fill();
+
+      // Bubble border
+      ctx.strokeStyle = bub.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Tail triangle
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.92)';
+      ctx.beginPath();
+      ctx.moveTo(sx - 8, bubY + bubH);
+      ctx.lineTo(sx + 8, bubY + bubH);
+      ctx.lineTo(sx, bubY + bubH + 10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = bub.color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Text
+      ctx.fillStyle = bub.color;
+      ctx.font = 'bold 13px "PingFang SC", "Microsoft JhengHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = bub.color;
+      ctx.shadowBlur = 4;
+      ctx.fillText(bub.text, sx, bubY + bubH / 2);
+
+      ctx.restore();
     }
   }
 
@@ -652,14 +1003,28 @@ class Game {
         this.renderMilestoneBanner(this.milestoneBanner);
       }
 
-      // 4. Cinematic Victory Run Banner Overlay
+      // 4. Cinematic Victory Run Rendering (companions + speech bubbles)
       if (this.state === 'VICTORY_RUN') {
+        // Render companion Chibi characters (screen-space coords)
+        this.renderCompanions(this.ctx);
+
+        // Render speech dialogue bubbles (screen-space coords)
+        if (this.dialogueBubbles.length > 0) {
+          this.renderDialogueBubbles(this.ctx);
+        }
+
+        // Victory banner text per sub-state
         if (this.victorySubState === 'BOSS_BURST') {
-          this.renderVictoryBanner('⚡ 魔王崩解！晨霧散去！快奔向松德院區大廳打卡！');
-        } else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
-          this.renderVictoryBanner('🏃 晨衝倒數！全力衝入松德醫院大廳打卡機！');
+          this.renderVictoryBanner('⚡ 魔王崩解！晨霧散去！夥伴們趕來集合！');
+        } else if (this.victorySubState === 'COMPANION_RUSH') {
+          this.renderVictoryBanner('🏃 夥伴驚喜登場！一同奔向松德院區！');
+        } else if (this.victorySubState === 'DIALOGUE') {
+          this.renderVictoryBanner('💬 夥伴互動中……最後衝刺倒數！');
+        } else if (this.victorySubState === 'GROUP_SPRINT') {
+          this.renderVictoryBanner('🏃‍♂️🏃‍♀️🏃 三人並肩晨衝！全力奔向打卡機！');
         } else if (this.victorySubState === 'PUNCH_CLOCK' || this.victorySubState === 'VICTORY_CELEBRATE') {
-          this.renderVictoryBanner('🎉 07:58:24 打卡成功！ON TIME！準時上班大成功！');
+          const clockText = hud.punchedTimeText || '08:00:00';
+          this.renderVictoryBanner(`🎉 ${clockText} 打卡成功！ON TIME！準時上班大成功！`);
         }
       }
     }

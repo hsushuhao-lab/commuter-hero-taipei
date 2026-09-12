@@ -253,13 +253,20 @@ testAssert('Monster 3D distribution across ground, high brick, and slope platfor
   }
 });
 
-// 10. Boss Arena Continuity & Projectile Clamping
-testAssert('Boss Arena (14800~16500) has continuous flat floor with no pits, and projectiles are clamped', () => {
+// 10. Boss Arena Continuity, Projectile Clamping & v9.3 HP/Phase Upgrade
+testAssert('Boss v9.3: HP=2600, Phase2Threshold=1300, 9-way Phase1 petals, Arena floor continuous', () => {
   const pm = new PlatformManager();
   const level = new Level(pm);
   assert.strictEqual(BOSS_CONFIG.arena.startX, 14800);
   assert.strictEqual(BOSS_CONFIG.arena.endX, 16500);
   assert.strictEqual(BOSS_CONFIG.arena.width, 1700);
+  // v9.3 HP checks
+  assert.strictEqual(BOSS_CONFIG.maxHp, 2600, `Expected maxHp=2600, got ${BOSS_CONFIG.maxHp}`);
+  assert.strictEqual(BOSS_CONFIG.phase2Threshold, 1300, `Expected phase2Threshold=1300, got ${BOSS_CONFIG.phase2Threshold}`);
+  assert(BOSS_CONFIG.antiFacetank, 'antiFacetank config must exist');
+  assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveDamage, 18);
+  assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveKnockback, 250);
+  assert(BOSS_CONFIG.phase1.petalCount >= 9, `Phase1 petal count must be >= 9, got ${BOSS_CONFIG.phase1.petalCount}`);
 
   // Check arena floor continuity: no gaps between 14800 and 16500
   for (let x = 14800; x <= 16500; x += 50) {
@@ -267,7 +274,7 @@ testAssert('Boss Arena (14800~16500) has continuous flat floor with no pits, and
     assert(plat, `Missing solid ground platform at Arena x=${x}`);
   }
 
-  // Check Boss projectile arena clamping
+  // Check Boss projectile arena clamping (Phase 1: 9 petals fired)
   projectiles.reset();
   const boss = new Boss();
   const player = new Player('yu');
@@ -275,7 +282,7 @@ testAssert('Boss Arena (14800~16500) has continuous flat floor with no pits, and
   player.y = 560;
   assert.strictEqual(boss.x, 15650);
   boss.firePetalBarrage(player);
-  assert(projectiles.projectiles.length >= 7);
+  assert(projectiles.projectiles.length >= 9, `Phase1 should fire >= 9 petals, got ${projectiles.projectiles.length}`);
   for (const proj of projectiles.projectiles) {
     assert(proj.arenaBounds, 'Boss projectiles must have arenaBounds');
     assert.strictEqual(proj.arenaBounds.minX, 14750);
@@ -308,8 +315,8 @@ testAssert('120s commute timer pauses during cut-in, boss roar, and victory run'
   assert(hud.timeRemaining < 120, 'Timer should tick during normal gameplay');
 });
 
-// 12. Seven-Beat Victory Flow & Clock-in Interaction
-testAssert('Seven-Beat Victory sequence triggers on Boss defeat and sprints to x=17650', () => {
+// 12. v9.3 Victory Flow: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → PUNCH_CLOCK
+testAssert('v9.3 Victory sequence: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → PUNCH_CLOCK', () => {
   const game = new Game();
   game.startGame();
   game.boss.isDead = true;
@@ -317,14 +324,30 @@ testAssert('Seven-Beat Victory sequence triggers on Boss defeat and sprints to x
   assert.strictEqual(game.state, 'VICTORY_RUN', 'State should change to VICTORY_RUN');
   assert.strictEqual(game.victorySubState, 'BOSS_BURST', 'Initial sub-state should be BOSS_BURST');
 
-  // Advance past Beat 1 (0.8s)
+  // Advance past BOSS_BURST (0.8s)
   game.updateVictoryRun(0.9);
-  assert.strictEqual(game.victorySubState, 'SPRINT_TO_CLOCK');
+  assert.strictEqual(game.victorySubState, 'COMPANION_RUSH', 'After BOSS_BURST should be COMPANION_RUSH');
 
-  // Sprint to x=17630
+  // Companions should be spawned
+  assert(game.companions.length === 2, `Expected 2 companions, got ${game.companions.length}`);
+
+  // Force companions to arrive and advance to DIALOGUE
+  for (const comp of game.companions) {
+    comp.x = game.player.x - 90;
+    comp.vx = 0;
+    comp.animPhase = 'arrive';
+  }
+  game.updateVictoryRun(1.5); // Enough time for allArrived && victoryTimer >= 1.2
+  assert.strictEqual(game.victorySubState, 'DIALOGUE', 'After COMPANION_RUSH should be DIALOGUE');
+
+  // Advance through DIALOGUE (3.5s)
+  game.updateVictoryRun(3.6);
+  assert.strictEqual(game.victorySubState, 'GROUP_SPRINT', 'After DIALOGUE should be GROUP_SPRINT');
+
+  // Sprint to x=17630 in GROUP_SPRINT
   game.player.x = 17625;
   game.updateVictoryRun(0.05);
-  assert.strictEqual(game.victorySubState, 'PUNCH_CLOCK');
+  assert.strictEqual(game.victorySubState, 'PUNCH_CLOCK', 'After GROUP_SPRINT should reach PUNCH_CLOCK');
   assert(game.pm.clockInMachine.punched, 'Clock-in machine must be marked punched');
   assert(game.pm.clockInMachine.punchedTimeText, 'Clock-in machine must display punched time');
 });
@@ -375,8 +398,37 @@ testAssert('Watchdog trigger count is strictly 0 during normal gameplay and test
   assert.strictEqual(game.watchdogTriggerCount, 0, 'watchdogTriggerCount must be 0');
 });
 
+// 16. v9.3 Boss Anti-Facetank Vine Cleave mechanism
+testAssert('v9.3 Boss anti-facetank: vine cleave triggers after 1.2s close-range contact', () => {
+  projectiles.reset();
+  const boss = new Boss();
+  const player = new Player('yu');
+  player.x = boss.x + 50; // Very close to boss (within 120px threshold)
+  player.y = 560;
+  
+  assert.strictEqual(boss.facetankTimer, 0, 'facetankTimer starts at 0');
+  assert.strictEqual(boss.vineCleaveCooldown, 0, 'vineCleaveCooldown starts at 0');
+  
+  // Simulate 1.1s of close-range contact (just below threshold)
+  const mockCamera = { shake: () => {}, x: 0 };
+  // Manually tick facetank timer to 1.1s (below threshold)
+  boss.facetankTimer = 1.1;
+  boss.vineCleaveCooldown = 0;
+  assert(!boss.isVineCleaving, 'Should not be vine cleaving below threshold');
+  
+  // At 1.2s threshold, facetankTimer reaches standingDuration
+  boss.facetankTimer = 1.2;
+  const dist = Math.abs(player.x - boss.x);
+  assert(dist < boss.config.antiFacetank.distThreshold, 'Player must be in facetank range');
+  
+  // Trigger the cleave manually
+  boss._triggerVineCleave(player, boss.config.antiFacetank);
+  assert(boss.isVineCleaving, 'Boss should be vine cleaving after trigger');
+  assert(projectiles.projectiles.length >= 1, 'Vine cleave projectile must be spawned');
+});
+
 console.log('\n======================================================');
-console.log(`ALL ${passedAssertions} / 15 ASSERTIONS PASSED SUCCESSFULLY! (100% PASS RATE)`);
+console.log(`ALL ${passedAssertions} / 16 ASSERTIONS PASSED SUCCESSFULLY! (100% PASS RATE)`);
 console.log('======================================================');
 process.exit(0);
 

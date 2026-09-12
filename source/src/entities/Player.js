@@ -546,6 +546,29 @@ export class Player {
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.shieldTimer > 0) this.shieldTimer -= dt;
 
+    // v9.3: Boss Spore Slow effect timer
+    if (this._sporeSlowTimer > 0) {
+      this._sporeSlowTimer -= dt;
+      if (this._sporeSlowTimer <= 0) {
+        this._sporeSlowTimer = 0;
+        this._sporeSlowFactor = 1.0;
+      }
+      // Visual: occasional purple wisps while slowed
+      if (Math.random() < 0.15) {
+        particles.emit({
+          x: this.x + (Math.random() * 20 - 10),
+          y: this.y - 50 - Math.random() * 30,
+          vx: (Math.random() - 0.5) * 20,
+          vy: -15,
+          size: 4,
+          color: '#CE93D8',
+          life: 0.4,
+          shape: 'circle',
+          fade: true
+        });
+      }
+    }
+
     // Update Shakira Mayo Orbs rotation
     if (this.mayoOrbs && this.mayoOrbs.length > 0) {
       for (let orb of this.mayoOrbs) {
@@ -568,8 +591,10 @@ export class Player {
     }
 
     // Handle Movement Input (Coffee strictly provides NO speed buff)
+    // Apply spore slow effect if active
+    const sporeSlow = (this._sporeSlowTimer > 0 && this.dashTimer <= 0) ? (this._sporeSlowFactor || 1.0) : 1.0;
     const speedMult = this.dashTimer > 0 ? 2.2 : 1.0;
-    const curSpeed = this.speed * speedMult;
+    const curSpeed = this.speed * speedMult * sporeSlow;
 
     if (this.dashTimer <= 0) {
       if (input.isLeft()) {

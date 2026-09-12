@@ -1,0 +1,161 @@
+/**
+ * 08點上班大作戰：通勤英雄篇 - 投射物與彈幕系統 (Projectiles.js)
+ */
+
+import { particles } from './Particles.js';
+
+export class ProjectileManager {
+  constructor() {
+    this.projectiles = [];
+  }
+
+  reset() {
+    this.projectiles = [];
+  }
+
+  spawn(p) {
+    this.projectiles.push({
+      id: p.id || 'proj',
+      isPlayer: p.isPlayer || false,
+      x: p.x || 0,
+      y: p.y || 0,
+      vx: p.vx || 0,
+      vy: p.vy || 0,
+      width: p.width || 16,
+      height: p.height || 16,
+      damage: p.damage || 10,
+      life: p.life || 2.0,
+      maxLife: p.life || 2.0,
+      color: p.color || '#fff',
+      type: p.type || 'bullet', // wind_blade, egg, pan_wave, petal, vine, laser
+      penetrating: p.penetrating || false,
+      rotates: p.rotates || false,
+      rotation: p.rotation || 0,
+      vRot: p.vRot || 0,
+      canClearEnemyBullets: p.canClearEnemyBullets || false
+    });
+  }
+
+  update(dt) {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.rotates) p.rotation += p.vRot * dt;
+
+      // Particle trails
+      if (p.isPlayer && p.type === 'wind_blade' && Math.random() < 0.4) {
+        particles.emit({
+          x: p.x - p.vx * 0.03,
+          y: p.y,
+          vx: -p.vx * 0.1,
+          vy: (Math.random() - 0.5) * 20,
+          size: 3,
+          color: '#B3E5FC',
+          life: 0.2,
+          shape: 'circle'
+        });
+      }
+    }
+  }
+
+  clearEnemyProjectiles() {
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      if (!this.projectiles[i].isPlayer) {
+        const p = this.projectiles[i];
+        particles.emitHitSparks(p.x, p.y, '#FFD54F', 4);
+        this.projectiles.splice(i, 1);
+      }
+    }
+  }
+
+  render(ctx) {
+    ctx.save();
+    for (let p of this.projectiles) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+
+      if (p.type === 'wind_blade') {
+        // Cyan crescent wind blade
+        ctx.fillStyle = '#4FC3F7';
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        const dir = p.vx >= 0 ? 1 : -1;
+        ctx.scale(dir, 1);
+        ctx.arc(0, 0, p.width, -Math.PI * 0.4, Math.PI * 0.4);
+        ctx.lineTo(-p.width * 0.5, 0);
+        ctx.closePath();
+        ctx.fill();
+      } 
+      else if (p.type === 'egg') {
+        // Golden soft boiled egg bullet
+        ctx.fillStyle = '#FFFDE7';
+        ctx.strokeStyle = '#FFE082';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.width, p.height, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        // Golden yolk
+        ctx.fillStyle = '#FFA000';
+        ctx.beginPath();
+        ctx.arc(0, 0, p.width * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      else if (p.type === 'pan_wave') {
+        // Fiery cookware wave
+        ctx.fillStyle = '#FF5722';
+        ctx.shadowColor = '#FF9800';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.width, -Math.PI * 0.35, Math.PI * 0.35);
+        ctx.lineTo(-p.width * 0.4, 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      else if (p.type === 'petal') {
+        // Boss / Flower monster petal
+        ctx.rotate(p.rotation);
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.width, p.height * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      else if (p.type === 'vine') {
+        // Vine thorn thrust
+        ctx.fillStyle = '#2E7D32';
+        ctx.strokeStyle = '#1B5E20';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -p.height);
+        ctx.lineTo(p.width * 0.5, 0);
+        ctx.lineTo(-p.width * 0.5, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      else {
+        // Generic glowing orb bullet
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.width * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+
+export const projectiles = new ProjectileManager();

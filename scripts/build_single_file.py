@@ -77,7 +77,7 @@ html_content = f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>《08點上班大作戰：通勤英雄篇》象山晨衝・奔向松德 (v9.1.0 Route & Art Fidelity Edition)</title>
+  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德醫院 (v9.2.0 COMPLETE COMMUTE EDITION)</title>
   <style>
     * {{
       box-sizing: border-box;

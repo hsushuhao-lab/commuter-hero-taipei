@@ -237,9 +237,9 @@ export const BOSS_CONFIG = {
   id: 'boss_flower_king',
   name: '夢影巨花王',
   title: '晨霧夢境的支配者',
-  maxHp: 1800,
-  phase1Threshold: 1800,
-  phase2Threshold: 900,
+  maxHp: 1500,
+  phase1Threshold: 1500,
+  phase2Threshold: 750,
   coinsEnrageThreshold: 60, // 60 金幣強制提前進入 Phase 2 狂暴盛開態！
   width: 260,
   height: 280,

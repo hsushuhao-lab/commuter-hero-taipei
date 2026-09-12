@@ -118,6 +118,23 @@ export class ParticleSystem {
     }
   }
 
+  emitFloatingText(x, y, text, color = '#FFD54F') {
+    this.particles.push({
+      x: x,
+      y: y,
+      vx: 0,
+      vy: -45,
+      text: text,
+      color: color,
+      alpha: 1.0,
+      maxLife: 1.0,
+      life: 1.0,
+      gravity: -5,
+      shape: 'text',
+      fade: true
+    });
+  }
+
   update(dt) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -173,6 +190,14 @@ export class ParticleSystem {
         ctx.moveTo(p.x, p.y);
         ctx.lineTo(p.x - p.vx * 0.04, p.y - p.vy * 0.04);
         ctx.stroke();
+      } else if (p.shape === 'text') {
+        ctx.save();
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 6;
+        ctx.fillText(p.text, p.x, p.y);
+        ctx.restore();
       }
     }
     ctx.restore();

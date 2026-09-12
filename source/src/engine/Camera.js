@@ -10,7 +10,7 @@ export class Camera {
     this.viewportHeight = viewportHeight;
     this.target = null;
     this.minX = 0;
-    this.maxX = 7200 - viewportWidth;
+    this.maxX = 18000 - viewportWidth;
     this.minY = 0;
     this.maxY = 200;
 

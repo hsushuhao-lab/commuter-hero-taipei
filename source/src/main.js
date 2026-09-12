@@ -33,14 +33,17 @@ class Game {
     this.camera = new Camera(this.vw, this.vh);
     this.pm = new PlatformManager();
     this.level = new Level(this.pm);
+    this.camera.setBounds(0, this.level.totalLength, 0, 200);
     this.player = new Player(this.selectedCharId);
     this.boss = new Boss();
     this.boss.minions = this.level.monsters;
 
-    // Victory sequence tracking
+    // Victory sequence tracking & Watchdog
     this.victoryTimer = 0;
     this.victorySubState = '';
     this.victoryPunchTimer = 0;
+    this.bossDeadTimer = 0;
+    this.watchdogTriggerCount = 0;
 
     // Commuter Resonance Milestone announcements
     this.milestoneBanner = null;
@@ -272,9 +275,10 @@ class Game {
   startGame() {
     this.state = 'PLAYING';
     this.player = new Player(this.selectedCharId);
-    this.camera.setTarget(this.player);
     this.pm.reset();
     this.level.buildLevelGeometry();
+    this.camera.setBounds(0, this.level.totalLength, 0, 200);
+    this.camera.setTarget(this.player);
     this.boss = new Boss();
     this.boss.minions = this.level.monsters;
     projectiles.reset();
@@ -284,6 +288,8 @@ class Game {
     this.victoryTimer = 0;
     this.victorySubState = '';
     this.victoryPunchTimer = 0;
+    this.bossDeadTimer = 0;
+    this.watchdogTriggerCount = 0;
     this.milestoneBanner = null;
     this.milestoneBannerTimer = 0;
     this.announcedMilestones = {};
@@ -361,6 +367,30 @@ class Game {
       // Check Projectile Collisions
       this.handleCollisions(dt);
 
+      // Boss Arena Gate: x = 16500 blocks entrance while Boss is alive
+      if (!this.boss.isDead) {
+        this.pm.arenaGateActive = true;
+        if (this.player.x > 16500) {
+          this.player.x = 16500;
+          this.player.vx = 0;
+        }
+      } else {
+        this.pm.arenaGateActive = false;
+        this.bossDeadTimer += dt;
+        if (this.bossDeadTimer > 10.0 && this.state !== 'VICTORY') {
+          this.watchdogTriggerCount++;
+          console.error('WATCHDOG TRIGGERED: Boss dead for >10s without VICTORY! Auto-recovering player to clock machine.');
+          this.player.x = 17650;
+          if (this.pm.clockInMachine) {
+            this.pm.clockInMachine.punched = true;
+            this.pm.clockInMachine.punchedTimeText = hud.getFormattedClockTime();
+          }
+          this.state = 'VICTORY';
+          hud.triggerVictory(this.player);
+          return;
+        }
+      }
+
       projectiles.update(dt);
       particles.update(dt);
       hud.update(dt, this.player, this.boss);
@@ -381,62 +411,81 @@ class Game {
 
   updateVictoryRun(dt) {
     this.victoryTimer += dt;
+    this.bossDeadTimer += dt;
+
+    // 10-Second Watchdog Protection (Guaranteed recovery if ever obstructed)
+    if (this.bossDeadTimer > 10.0 && this.state !== 'VICTORY') {
+      this.watchdogTriggerCount++;
+      console.error('WATCHDOG TRIGGERED: Victory Run exceeded 10s! Auto-completing to clock machine.');
+      this.player.x = 17650;
+      if (this.pm.clockInMachine) {
+        this.pm.clockInMachine.punched = true;
+        this.pm.clockInMachine.punchedTimeText = hud.getFormattedClockTime();
+      }
+      this.state = 'VICTORY';
+      hud.triggerVictory(this.player);
+      return;
+    }
+
     this.boss.update(dt, this.player, this.camera);
     particles.update(dt);
     this.pm.update(dt, this.player);
     this.camera.update(dt);
 
-    // Seven-Beat Victory Flow
+    // Seven to Nine Beat Victory Flow
     if (this.victorySubState === 'BOSS_BURST') {
-      // Beat 1 (0.0 ~ 1.0s): Boss dissolves, relief message
-      if (this.victoryTimer >= 1.0) {
+      // Beat 1 & 2 (0.0 ~ 0.8s): Boss floral burst, clearance of all enemy projectiles
+      projectiles.projectiles = projectiles.projectiles.filter(p => p.isPlayer);
+      if (this.victoryTimer >= 0.8) {
+        // Beat 3: Hospital entrance barrier unlocks
+        this.pm.arenaGateActive = false;
         this.victorySubState = 'SPRINT_TO_CLOCK';
         this.player.facing = 1;
         this.player.animState = 'run';
-        this.milestoneBanner = '鬆了一口氣！火速前往松德大廳打卡！';
+        this.milestoneBanner = '🎉 擊破巨花王！火速衝入松德大廳打卡！';
         this.milestoneBannerTimer = 3.0;
       }
     } 
     else if (this.victorySubState === 'SPRINT_TO_CLOCK') {
-      // Beat 2 & 3 (1.0 ~ 4.0s): Hero auto-sprints towards punch clock at x = 17650
+      // Beat 4 & 5 (0.8s ~): Auto-sprints past 16500 into interior hospital lobby towards clock at x = 17650
       this.player.facing = 1;
       this.player.animState = 'run';
-      this.player.vx = 950; // Rapid celebratory sprint
+      this.player.vx = 1100; // Rapid celebratory sprint
       this.player.x += this.player.vx * dt;
       this.player.updateAnimation(dt);
 
-      // Emit high-speed dust trails
+      // Emit high-speed particle trail
       if (Math.random() < 0.8) {
         particles.emitDust(this.player.x - 20, this.player.y, 6, '#00E5FF');
       }
 
-      // Camera smoothly tracks player towards hospital lobby
-      this.camera.targetX = this.player.x - this.camera.viewportWidth * 0.4;
-
-      // Reached punch clock at x = 17630
+      // Reached punch clock interaction zone at x = 17630 ~ 17650
       if (this.player.x >= 17630) {
         this.player.x = 17630;
         this.player.vx = 0;
-        this.player.vy = -260;
+        this.player.vy = -250;
         this.victorySubState = 'PUNCH_CLOCK';
         this.victoryPunchTimer = 0;
 
-        // Beat 4: Character-specific action
+        // Beat 6: Character-specific signature punch actions
         if (this.player.id === 'yu') {
-          // Yu: folds umbrella, pushes glasses, elegant punch
+          // Yu: folds umbrella, pushes glasses, right-hand punch, sighs with relief
           this.player.animState = 'attack';
-          particles.emitHitSparks(this.player.x, this.player.y - 45, '#4FC3F7', 12);
+          particles.emitHitSparks(this.player.x, this.player.y - 45, '#4FC3F7', 16);
+          particles.emitFloatingText(this.player.x, this.player.y - 75, '準時打卡！', '#4FC3F7');
         } else if (this.player.id === 'shakira') {
-          // Shakira: dissipates egg sparks, joyful cheer punch
+          // Shakira: Mayo magic sparkles disperse, joyful double-arm cheer, jump-punch
           this.player.animState = 'attack';
-          particles.emitHitSparks(this.player.x, this.player.y - 35, '#FFD54F', 16);
+          particles.emitHitSparks(this.player.x, this.player.y - 35, '#FFD54F', 18);
+          particles.emitFloatingText(this.player.x, this.player.y - 75, '元氣抵達！', '#FFD54F');
         } else {
-          // Sandra: stores skillet, hearty punch
+          // Sandra: fire extinguishes, stores skillet, wipes brow, hearty slam punch
           this.player.animState = 'attack';
-          particles.emitHitSparks(this.player.x, this.player.y - 40, '#FF7043', 14);
+          particles.emitHitSparks(this.player.x, this.player.y - 40, '#FF7043', 18);
+          particles.emitFloatingText(this.player.x, this.player.y - 75, '搶秒成功！', '#FF7043');
         }
 
-        // Beat 5: Stamp clock machine!
+        // Beat 7: Stamp clock machine with dynamic real clock time!
         const clockTime = hud.getFormattedClockTime();
         if (this.pm.clockInMachine) {
           this.pm.clockInMachine.punched = true;
@@ -446,7 +495,7 @@ class Game {
         audio.playStamp();
         this.camera.shake(10, 0.45);
 
-        // Huge celebratory bursts at 17650
+        // Huge celebratory fireworks & beacon burst at 17650
         particles.emitHitSparks(17650, this.player.y - 50, '#00E676', 60);
         particles.emitCoinSparkle(17650, this.player.y - 80);
         for (let i = 0; i < 90; i++) {
@@ -476,14 +525,13 @@ class Game {
       this.player.updateAnimation(dt);
     } 
     else if (this.victorySubState === 'VICTORY_CELEBRATE') {
-      // Beat 6 (5.5 ~ 7.0s): Ceiling confetti rain & victory pose
+      // Beat 8: Continuous hospital lobby celebration confetti & victory pose
       this.player.animState = 'victory';
       this.player.updateAnimation(dt);
 
-      // Continuous confetti rain from hospital lobby ceiling
       if (Math.random() < 0.6) {
         particles.emit({
-          x: 17500 + Math.random() * 300,
+          x: 17450 + Math.random() * 350,
           y: 40 + Math.random() * 60,
           vx: (Math.random() - 0.5) * 60,
           vy: Math.random() * 80 + 60,
@@ -494,8 +542,8 @@ class Game {
         });
       }
 
-      // Beat 7 (7.0s+): Transition to final victory score screen
-      if (this.victoryTimer >= 7.0) {
+      // Beat 9 (5.2s+): Transition to final victory score screen
+      if (this.victoryTimer >= 5.2) {
         this.state = 'VICTORY';
         hud.triggerVictory(this.player);
       }
@@ -831,7 +879,9 @@ window.CommuterGame = {
   hud,
   PlatformManager,
   projectiles,
-  particles
+  particles,
+  input,
+  audio
 };
 
 window.addEventListener('DOMContentLoaded', () => {

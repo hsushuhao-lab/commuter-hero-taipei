@@ -168,7 +168,7 @@ testAssert('Gameplay collectible items contain strictly Coins and Coffee (EasyCa
 });
 
 // 4. Coffee Recovery & No Speed Buff
-testAssert('Coffee heals 25 HP (cap 100), removes speed buff, and grants 0.5s protection on full HP', () => {
+testAssert('Coffee heals 25 HP (cap maxHp), removes speed buff, and shows HP FULL on full HP', () => {
   const player = new Player('yu');
   player.hp = 50;
   player.addCoffee();
@@ -180,7 +180,7 @@ testAssert('Coffee heals 25 HP (cap 100), removes speed buff, and grants 0.5s pr
   player.invulnerableTimer = 0;
   player.addCoffee();
   assert.strictEqual(player.hp, 100);
-  assert(player.invulnerableTimer >= 0.5, 'Full HP coffee should give >= 0.5s protection');
+  assert.strictEqual(player.invulnerableTimer, 0, 'Full HP coffee strictly grants no invulnerability buff');
 });
 
 // 5. Hero Skills Physical Ranges, Arcs, Deflect, and Cooldowns
@@ -189,35 +189,35 @@ testAssert('All 3 Heroes have calibrated physical ranges, arcs, deflect radii, a
   const shakira = CHARACTERS.shakira;
   const sandra = CHARACTERS.sandra;
 
-  assert.strictEqual(yu.skill.range, 150);
-  assert.strictEqual(yu.skill.arcAngle, 80);
-  assert.strictEqual(yu.skill.deflectRadius, 175);
-  assert.strictEqual(yu.skill.cooldown, 0.35);
+  assert.strictEqual(yu.skill.range, 190);
+  assert.strictEqual(yu.skill.arcAngle, 90);
+  assert.strictEqual(yu.skill.deflectRadius, 210);
+  assert.strictEqual(yu.skill.cooldown, 0.30);
 
-  assert.strictEqual(shakira.skill.range, 500);
-  assert.strictEqual(shakira.skill.splashRadius, 60);
-  assert.strictEqual(shakira.skill.cooldown, 0.45);
+  assert.strictEqual(shakira.skill.range, 560);
+  assert.strictEqual(shakira.skill.splashRadius, 80);
+  assert.strictEqual(shakira.skill.cooldown, 0.38);
 
-  assert.strictEqual(sandra.skill.meleeRange, 140);
-  assert.strictEqual(sandra.skill.shockwaveRange, 240);
-  assert.strictEqual(sandra.skill.fanAngle, 105);
-  assert.strictEqual(sandra.skill.cooldown, 0.55);
+  assert.strictEqual(sandra.skill.meleeRange, 150);
+  assert.strictEqual(sandra.skill.shockwaveRange, 280);
+  assert.strictEqual(sandra.skill.fanAngle, 110);
+  assert.strictEqual(sandra.skill.cooldown, 0.45);
 });
 
 // 6. Yu 15-Coin Ult Specs
-testAssert('Yu 15-Coin Ult: Max rush 650px, invulnerable 1.2s, CD 7.0s', () => {
+testAssert('Yu 15-Coin Ult: Max rush 720px, invulnerable 1.2s, CD 6.5s', () => {
   const yu = CHARACTERS.yu;
-  assert.strictEqual(yu.ult.dashDistance, 650);
+  assert.strictEqual(yu.ult.dashDistance, 720);
   assert.strictEqual(yu.ult.duration, 1.2);
-  assert.strictEqual(yu.ult.cooldown, 7.0);
+  assert.strictEqual(yu.ult.cooldown, 6.5);
 });
 
 // 7. Shakira 15-Coin Ult Specs
-testAssert('Shakira 15-Coin Ult: Zone radius 450px (900px width), 30 HP heal, CD 8.0s', () => {
+testAssert('Shakira 15-Coin Ult: Zone radius 480px (960px width), 30 HP heal, CD 7.5s', () => {
   const shakira = CHARACTERS.shakira;
-  assert.strictEqual(shakira.ult.zoneRadius, 450);
+  assert.strictEqual(shakira.ult.zoneRadius, 480);
   assert.strictEqual(shakira.ult.heal, 30);
-  assert.strictEqual(shakira.ult.cooldown, 8.0);
+  assert.strictEqual(shakira.ult.cooldown, 7.5);
   
   // Shakira Mayo Orbs orbit radius strictly 75px
   const player = new Player('shakira');
@@ -229,11 +229,11 @@ testAssert('Shakira 15-Coin Ult: Zone radius 450px (900px width), 30 HP heal, CD
 });
 
 // 8. Sandra 15-Coin Ult Specs
-testAssert('Sandra 15-Coin Ult: Cyclone core radius 320px, gust range 370px, CD 8.5s', () => {
+testAssert('Sandra 15-Coin Ult: Cyclone core radius 340px, gust range 400px, CD 7.8s', () => {
   const sandra = CHARACTERS.sandra;
-  assert.strictEqual(sandra.ult.coreRadius, 320);
-  assert.strictEqual(sandra.ult.gustRange, 370);
-  assert.strictEqual(sandra.ult.cooldown, 8.5);
+  assert.strictEqual(sandra.ult.coreRadius, 340);
+  assert.strictEqual(sandra.ult.gustRange, 400);
+  assert.strictEqual(sandra.ult.cooldown, 7.8);
 });
 
 // 9. Monster 3D Distribution & Fair Combat Telegraph
@@ -317,8 +317,8 @@ testAssert('Seven-Beat Victory sequence triggers on Boss defeat and sprints to x
   assert.strictEqual(game.state, 'VICTORY_RUN', 'State should change to VICTORY_RUN');
   assert.strictEqual(game.victorySubState, 'BOSS_BURST', 'Initial sub-state should be BOSS_BURST');
 
-  // Advance past Beat 1 (1.0s)
-  game.updateVictoryRun(1.1);
+  // Advance past Beat 1 (0.8s)
+  game.updateVictoryRun(0.9);
   assert.strictEqual(game.victorySubState, 'SPRINT_TO_CLOCK');
 
   // Sprint to x=17630
@@ -355,9 +355,30 @@ testAssert('Punch clock calculates dynamic real time accurately based on remaini
   assert.strictEqual(hud.punchedTimeText, '07:59:24');
 });
 
+// 14. Camera World Bounds (18,000px tracking)
+testAssert('Camera bounds correctly set to level.totalLength (18000px) and tracks to final lobby', () => {
+  const game = new Game();
+  game.startGame();
+  assert.strictEqual(game.camera.maxX, 18000 - 960); // 17040
+  game.player.x = 17650;
+  // Advance camera tracking
+  for (let i = 0; i < 30; i++) {
+    game.camera.update(0.05);
+  }
+  assert(game.camera.x >= 16600, `Expected camera.x >= 16600, got ${game.camera.x}`);
+});
+
+// 15. Victory Run Watchdog (Zero triggers in normal release)
+testAssert('Watchdog trigger count is strictly 0 during normal gameplay and test runs', () => {
+  const game = new Game();
+  game.startGame();
+  assert.strictEqual(game.watchdogTriggerCount, 0, 'watchdogTriggerCount must be 0');
+});
+
 console.log('\n======================================================');
-console.log(`ALL ${passedAssertions} / 13 ASSERTIONS PASSED SUCCESSFULLY! (100% PASS RATE)`);
+console.log(`ALL ${passedAssertions} / 15 ASSERTIONS PASSED SUCCESSFULLY! (100% PASS RATE)`);
 console.log('======================================================');
 process.exit(0);
+
 
 

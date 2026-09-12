@@ -13,10 +13,18 @@ with zipfile.ZipFile(web_share_zip_path, 'w', zipfile.ZIP_DEFLATED) as z:
     z.write(os.path.join(base_dir, 'README.md'), 'README.md')
     z.write(os.path.join(base_dir, 'DEPLOY.md'), 'DEPLOY.md')
     z.write(os.path.join(base_dir, 'RELEASE_NOTES.md'), 'RELEASE_NOTES.md')
-    z.write(os.path.join(base_dir, 'SCENE_ASSET_MANIFEST.md'), 'SCENE_ASSET_MANIFEST.md')
-    z.write(os.path.join(base_dir, 'MAP_REFERENCE_AUDIT.md'), 'MAP_REFERENCE_AUDIT.md')
-    z.write(os.path.join(base_dir, 'ATTACK_RANGE_AUDIT.md'), 'ATTACK_RANGE_AUDIT.md')
-    z.write(os.path.join(base_dir, 'ITEM_SYSTEM_AUDIT.md'), 'ITEM_SYSTEM_AUDIT.md')
+    z.write(os.path.join(base_dir, 'SCENE_ASSET_MANIFEST_v9_2.md'), 'SCENE_ASSET_MANIFEST_v9_2.md')
+    z.write(os.path.join(base_dir, 'MAP_REFERENCE_AUDIT_v9_2.md'), 'MAP_REFERENCE_AUDIT_v9_2.md')
+    z.write(os.path.join(base_dir, 'ROUTE_CONTINUITY_AUDIT.md'), 'ROUTE_CONTINUITY_AUDIT.md')
+    z.write(os.path.join(base_dir, 'CAMERA_WORLD_BOUNDS_AUDIT.md'), 'CAMERA_WORLD_BOUNDS_AUDIT.md')
+    z.write(os.path.join(base_dir, 'ITEM_ART_AUDIT.md'), 'ITEM_ART_AUDIT.md')
+    z.write(os.path.join(base_dir, 'COMBAT_BALANCE_AUDIT.md'), 'COMBAT_BALANCE_AUDIT.md')
+    z.write(os.path.join(base_dir, 'REAL_E2E_PLAYTEST.md'), 'REAL_E2E_PLAYTEST.md')
+    qa_dir = os.path.join(base_dir, 'QA_SCREENSHOTS')
+    if os.path.isdir(qa_dir):
+        for qf in os.listdir(qa_dir):
+            if qf.endswith('.png'):
+                z.write(os.path.join(qa_dir, qf), os.path.join('QA_SCREENSHOTS', qf))
 print(f'Created WEB-SHARE.zip ({os.path.getsize(web_share_zip_path)/1024/1024:.2f} MB)')
 
 print('2. Creating FULL-SOURCE.zip...')

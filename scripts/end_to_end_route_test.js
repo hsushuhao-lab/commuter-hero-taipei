@@ -112,11 +112,11 @@ for (const charId of testMatrix) {
 
   input.reset();
 
-  // Character-specific combat tuning
-  const botSkillRange = { yu: 220, shakira: 450, sandra: 260 }[charId];
-  const bossCombatDist = { yu: 130, shakira: 260, sandra: 130 }[charId];
+  // Character-specific combat tuning (v9.7.1: calibrated to new ranges)
+  const botSkillRange = { yu: 450, shakira: 550, sandra: 220 }[charId];
+  const bossCombatDist = { yu: 180, shakira: 280, sandra: 130 }[charId];
 
-  let maxSteps = 7500; // max 150 seconds of simulated time (v9.3: extended for companion ceremony)
+  let maxSteps = 8500; // max 170 seconds of simulated time
   let step = 0;
 
   while (step < maxSteps && game.state !== 'VICTORY') {
@@ -162,18 +162,18 @@ for (const charId of testMatrix) {
           input.justPressedKeys['ShiftLeft'] = true;
         }
 
-        // Front combat & bullet deflect
-        const enemyAhead = game.level.monsters.find(m => !m.isDead && m.x > game.player.x && (m.x - game.player.x) < botSkillRange);
-        const bulletNearby = projectiles.projectiles.some(p => !p.isPlayer && (p.x - game.player.x) > 0 && (p.x - game.player.x) < 260);
-        if (enemyAhead || bulletNearby) {
+        // Front & surrounding combat & bullet deflect
+        const enemyNearby = game.level.monsters.find(m => !m.isDead && Math.abs(m.x - game.player.x) < botSkillRange);
+        const bulletNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.abs(p.x - game.player.x) < 280);
+        if (enemyNearby || bulletNearby) {
           input.keys['KeyS'] = true;
           // Jump-vault over grounded monster if within 140px
-          if (enemyAhead && (enemyAhead.x - game.player.x) > 0 && (enemyAhead.x - game.player.x) < 140 && enemyAhead.y >= 500 && game.player.onGround) {
+          if (enemyNearby && (enemyNearby.x - game.player.x) > 0 && (enemyNearby.x - game.player.x) < 140 && enemyNearby.y >= 500 && game.player.onGround) {
             input.justPressedKeys['Space'] = true;
             input.keys['Space'] = true;
           }
           // Emergency dash forward if low HP
-          if (game.player.hp < 30 && game.player.dashCooldown <= 0) {
+          if (game.player.hp < 40 && game.player.dashCooldown <= 0) {
             input.justPressedKeys['ShiftLeft'] = true;
           }
           // Unleash Ult if unlocked

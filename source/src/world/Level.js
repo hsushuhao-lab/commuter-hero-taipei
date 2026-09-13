@@ -89,6 +89,7 @@ export class Level {
     this.totalLength = 18000;
     this.monsters = [];
     this.bgImages = {};
+    this.phase2PredatorTriggered = false;
 
     this.loadBackgrounds();
     this.buildLevelGeometry();
@@ -214,10 +215,9 @@ export class Level {
     this.pm.addItem('coin', 2100, 400);
     this.pm.addItem('coin', 2700, 400);
 
-    this.pm.addItem('coffee', 1050, 390);
-    this.pm.addItem('coffee', 2400, 330);
-    this.pm.addItem('coffee', 2350, groundY - 35);
-    this.pm.addItem('coffee', 3200, groundY - 35);
+    // S1 Coffee (reduced to 2 cups)
+    this.pm.addItem('coffee', 1050, groundY - 35);
+    this.pm.addItem('coffee', 2400, groundY - 35);
 
     // S1 Monsters
     this.spawnMonsterOnGround('red', 500);
@@ -253,10 +253,9 @@ export class Level {
     this.pm.addItem('coin', 5900, 390);
     this.pm.addItem('coin', 6100, 320);
 
-    this.pm.addItem('coffee', 4100, 320);
-    this.pm.addItem('coffee', 5550, 320);
-    this.pm.addItem('coffee', 4600, groundY - 35);
-    this.pm.addItem('coffee', 5800, groundY - 35);
+    // S2 Coffee (reduced to 3 cups)
+    this.pm.addItem('coffee', 4100, groundY - 35);
+    this.pm.addItem('coffee', 5550, groundY - 35);
     this.pm.addItem('coffee', 6750, groundY - 35);
 
     // S2 Monsters
@@ -282,7 +281,7 @@ export class Level {
     this.pm.addPlatform(9980, 440, 170, 24, 'brick');
     this.pm.addPlatform(10220, 370, 170, 24, 'brick');
 
-    // S3 Collectibles: 20 Coins + 5 Coffee (None in Gaps: 8200~8385, 9750~9945)
+    // S3 Collectibles: 20 Coins + 3 Coffee (None in Gaps: 8200~8385, 9750~9945)
     [7120, 7350, 7580, 7810, 8100, 8420, 8650, 8880, 9150, 9350, 9550, 9700, 9980, 10180, 10380].forEach(cx => {
       this.pm.addItem('coin', cx, groundY - 35);
     });
@@ -292,9 +291,8 @@ export class Level {
     this.pm.addItem('coin', 9980, 400);
     this.pm.addItem('coin', 10220, 330);
 
-    this.pm.addItem('coffee', 7550, 320);
-    this.pm.addItem('coffee', 8850, 320);
-    this.pm.addItem('coffee', 7750, groundY - 35);
+    // S3 Coffee (reduced to 3 cups)
+    this.pm.addItem('coffee', 7550, groundY - 35);
     this.pm.addItem('coffee', 8700, groundY - 35);
     this.pm.addItem('coffee', 9400, groundY - 35);
 
@@ -322,7 +320,7 @@ export class Level {
     this.pm.addPlatform(12680, 360, 180, 24, 'brick');
     this.pm.addPlatform(13000, 430, 180, 24, 'brick');
 
-    // S4 Collectibles: 20 Coins + 5 Coffee (None in Gap 6: 11950~12160)
+    // S4 Collectibles: 20 Coins + 2 Coffee (None in Gap 6: 11950~12160)
     [10620, 10850, 11080, 11310, 11540, 11770, 11900, 12200, 12450, 12700, 12950, 13200, 13450, 13680, 13900].forEach(cx => {
       this.pm.addItem('coin', cx, groundY - 35);
     });
@@ -332,11 +330,9 @@ export class Level {
     this.pm.addItem('coin', 12350, 390);
     this.pm.addItem('coin', 13000, 390);
 
-    this.pm.addItem('coffee', 11050, 340);
-    this.pm.addItem('coffee', 12680, 320);
-    this.pm.addItem('coffee', 11250, groundY - 35);
-    this.pm.addItem('coffee', 12400, groundY - 35);
-    this.pm.addItem('coffee', 13600, groundY - 35);
+    // S4 Coffee (reduced to 2 cups)
+    this.pm.addItem('coffee', 11150, groundY - 35);
+    this.pm.addItem('coffee', 13900, groundY - 35);
 
     // S4 Monsters
     this.spawnMonsterOnGround('obsidian', 10800);
@@ -360,10 +356,9 @@ export class Level {
     this.pm.addPlatform(14700, 430, 170, 24, 'brick');
 
     this.pm.addItem('coin', 14200, 390);
-    this.pm.addItem('coffee', 14480, 310);
+    this.pm.addItem('coffee', 14480, groundY - 35);
     this.pm.addItem('coin', 14720, 380);
     this.pm.addItem('coin', 14180, 400);  // extra platform coin
-    this.pm.addItem('coffee', 14700, 390); // extra coffee before boss
 
     this.spawnMonsterOnGround('obsidian', 14220);
     this.spawnMonsterOnPlatform('grape', 14460);
@@ -375,7 +370,6 @@ export class Level {
     this.pm.addPlatform(15650, 340, 180, 24, 'brick');
     this.pm.addPlatform(16150, 410, 180, 24, 'brick');
     this.pm.addItem('coffee', 15650, 290);
-    this.pm.addItem('coffee', 15150, 370);  // extra coffee mid-arena
     this.pm.addItem('coin', 16150, 370);    // extra coin on far platform
 
     // 5.3 ★ 松德醫院挑高大廳・最終打卡點 (16500 ~ 18000) ★
@@ -387,7 +381,6 @@ export class Level {
     this.pm.addItem('coffee', 17080, groundY - 35);
     this.pm.addItem('coin', 17380, 390);
     this.pm.addItem('coin', 16600, groundY - 35);   // corridor coin
-    this.pm.addItem('coffee', 16750, 400);           // lobby coffee
 
     // ★ 松德醫院院內打卡機（設置於 x = 17650，打敗 Boss 後衝入大廳完成打卡！）★
     this.pm.setClockInMachine(17650, groundY);
@@ -414,11 +407,62 @@ export class Level {
       particles.emitPetals(camera.x, camera.viewportWidth, 1);
     }
 
+    // Check 30 coins trigger -> Predator Mode (Attack Phase II)
+    if (player && player.coins >= 30 && !this.phase2PredatorTriggered) {
+      this.triggerPhase2Predator(player);
+    }
+
     // Update active monsters
     for (let m of this.monsters) {
       if (Math.abs(m.x - player.x) < 750) {
         m.update(dt, player, this.pm.platforms);
       }
+    }
+  }
+
+  triggerPhase2Predator(player) {
+    this.phase2PredatorTriggered = true;
+
+    // Transition all currently spawned monsters to attackPhase = 2
+    for (let m of this.monsters) {
+      if (!m.isDead) {
+        m.attackPhase = 2;
+      }
+    }
+
+    // Spawn Phase 2 Predator Reinforcements (Flanking, Rear, Air, Snipers, Interceptors)
+    // Rear pursuers: spawn behind player to prevent easy continuous retreat
+    const rearX = Math.max(100, player.x - 420);
+    this.spawnMonsterOnGround('obsidian', rearX);
+    this.spawnFlyingMonster('grape', Math.max(100, player.x - 300), 220);
+
+    // Front aerial harassment
+    this.spawnFlyingMonster('pink', player.x + 450, 210);
+
+    // S3 Reinforcements (7000 ~ 10500)
+    this.spawnMonsterOnPlatform('red', 7850);
+    this.spawnMonsterOnGround('ice', 8900);
+    this.spawnFlyingMonster('grape', 9200, 210);
+    this.spawnMonsterOnPlatform('obsidian', 9980);
+    this.spawnMonsterOnGround('blue', 10300);
+
+    // S4 Reinforcements (10500 ~ 14000)
+    this.spawnMonsterOnPlatform('blue', 10750);
+    this.spawnMonsterOnPlatform('red', 11350);
+    this.spawnFlyingMonster('grape', 11800, 230);
+    this.spawnMonsterOnPlatform('yellow', 12350);
+    this.spawnMonsterOnGround('ice', 12700);
+    this.spawnMonsterOnPlatform('red', 13000);
+    this.spawnFlyingMonster('pink', 13600, 220);
+
+    // S5 Forecourt Reinforcements (14000 ~ 14800)
+    this.spawnMonsterOnPlatform('obsidian', 14180);
+    this.spawnMonsterOnGround('ice', 14500);
+    this.spawnFlyingMonster('grape', 14650, 210);
+
+    // Ensure all monsters are in attackPhase = 2
+    for (let m of this.monsters) {
+      m.attackPhase = 2;
     }
   }
 
@@ -478,6 +522,53 @@ export class Level {
 
         ctx.restore();
       }
+    }
+
+    // -------------------------------------------------------------
+    // 2.5 Continuous Transition Fog & Horizon Alignment (Zones 1~5)
+    // -------------------------------------------------------------
+    const TRANSITION_ZONES = [
+      { start: 3300, end: 3700, fogColor: 'rgba(255, 230, 190, 0.14)' },  // S1 -> S2
+      { start: 6800, end: 7200, fogColor: 'rgba(129, 212, 250, 0.16)' },  // S2 -> S3
+      { start: 10300, end: 10700, fogColor: 'rgba(176, 190, 197, 0.15)' }, // S3 -> S4
+      { start: 13800, end: 14200, fogColor: 'rgba(233, 30, 99, 0.12)' },   // S4 -> S5
+      { start: 16200, end: 16800, fogColor: 'rgba(255, 249, 196, 0.15)' }  // Arena -> Lobby
+    ];
+
+    for (const tz of TRANSITION_ZONES) {
+      if (camX + vw >= tz.start && camX <= tz.end) {
+        const tStartScreen = Math.max(0, tz.start - camX);
+        const tEndScreen = Math.min(vw, tz.end - camX);
+        const width = tEndScreen - tStartScreen;
+        if (width > 0) {
+          const fogGrad = ctx.createLinearGradient(tStartScreen, 0, tEndScreen, 0);
+          fogGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+          fogGrad.addColorStop(0.5, tz.fogColor);
+          fogGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          ctx.save();
+          ctx.fillStyle = fogGrad;
+          ctx.fillRect(tStartScreen, 0, width, vh);
+          ctx.restore();
+        }
+      }
+    }
+
+    // Boss Arena Atmospheric Enhancement (14800 ~ 16500)
+    if (camX + vw >= 14800 && camX <= 16500) {
+      ctx.save();
+      const arenaScreenLeft = Math.max(0, 14800 - camX);
+      const arenaScreenRight = Math.min(vw, 16500 - camX);
+      const arenaW = arenaScreenRight - arenaScreenLeft;
+      if (arenaW > 0) {
+        // Dark crimson ominous sky wash
+        ctx.fillStyle = 'rgba(40, 5, 20, 0.18)';
+        ctx.fillRect(arenaScreenLeft, 0, arenaW, vh);
+        // Ground crimson pulse
+        const pulse = 0.04 + 0.02 * Math.sin(Date.now() * 0.003);
+        ctx.fillStyle = `rgba(233, 30, 99, ${pulse})`;
+        ctx.fillRect(arenaScreenLeft, vh * 0.5, arenaW, vh * 0.5);
+      }
+      ctx.restore();
     }
 
     // -------------------------------------------------------------

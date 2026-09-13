@@ -13,26 +13,26 @@ export const MONSTER_TYPES = {
     name: '藍滴芽精',
     type: 'fast',
     role: '極速先遣突進兵',
-    hp: 55,
+    hp: 78,                // v9.7.1 P1: 55 * 1.42
     speed: 165,
-    contactDamage: 10,
-    attackDamage: 12,
+    contactDamage: 12,
+    attackDamage: 12,      // v9.7.1 P1: v9.6 baseline (rebalanced from 15 for survivability)
     attackCooldown: 1.2,
     telegraphDuration: 0.40,
     asset: 'assets/monster_blue.png',
-    assetP2: 'assets/monster_blue_p2.png',
+    assetP2: 'assets/monster_blue.png', // Strict: retain original image
     color: '#00E5FF',
-    desc: '水滴狀藍色流線身體。極速狂奔，瞬發超音速雙重水刃直貫全屏！',
+    desc: '水滴狀藍色流線身體。極速狂奔，瞬發雙重水刃！',
     telegraphType: 'water_slash',
     score: 140,
     phase2: {
-      name: '激流藍葉王',
-      hp: 95,
-      speed: 195,
-      attackDamage: 18,
-      attackCooldown: 0.95,
-      asset: 'assets/monster_blue_p2.png',
-      desc: '周圍大量水滴與水晶環繞，三連高速穿梭水刃！'
+      name: '藍滴芽精・捕食獵殺態',
+      hp: 120,
+      speed: 215,
+      attackDamage: 24,     // v9.7.1 P2: P1(12) * 2.0 = 24 (HARD RULE)
+      attackCooldown: 0.60, // v9.7.1 P2: density x2 (1.2 / 2 = 0.60)
+      asset: 'assets/monster_blue.png',
+      desc: '三連高速穿梭水刃與吸附漩渦！'
     }
   },
 
@@ -41,26 +41,26 @@ export const MONSTER_TYPES = {
     name: '尖鼻小紅苗',
     type: 'light',
     role: '長程重穿刺針手',
-    hp: 70,
+    hp: 98,                // v9.7.1 P1: 70 * 1.40
     speed: 115,
-    contactDamage: 12,
-    attackDamage: 15,
+    contactDamage: 15,
+    attackDamage: 15,      // v9.7.1 P1: v9.6 baseline (rebalanced from 18)
     attackCooldown: 1.4,
     telegraphDuration: 0.40,
     asset: 'assets/monster_red.png',
-    assetP2: 'assets/monster_red_p2.png',
+    assetP2: 'assets/monster_red.png',
     color: '#FF5252',
-    desc: '紅色流線身體、尖突長鼻。發射超遠射程貫穿赤紅重刺，橫掃直通路徑！',
+    desc: '紅色流線身體、尖突長鼻。發射超遠射程貫穿赤紅重刺！',
     telegraphType: 'line_laser',
     score: 130,
     phase2: {
-      name: '烈焰紅苗',
-      hp: 110,
-      speed: 155,
-      attackDamage: 22,
-      attackCooldown: 1.1,
-      asset: 'assets/monster_red_p2.png',
-      desc: '鮮紅葉片裝甲，連續二段火紅殘影突刺！'
+      name: '尖鼻小紅苗・捕食獵殺態',
+      hp: 145,
+      speed: 165,
+      attackDamage: 30,     // v9.7.1 P2: P1(15) * 2.0 = 30 (HARD RULE)
+      attackCooldown: 0.70, // v9.7.1 P2: density x2 (1.4 / 2 = 0.70)
+      asset: 'assets/monster_red.png',
+      desc: '高速三連赤紅重刺衝擊！'
     }
   },
 
@@ -69,26 +69,26 @@ export const MONSTER_TYPES = {
     name: '粉翼花靈',
     type: 'flying',
     role: '高空俯衝轟炸機',
-    hp: 65,
+    hp: 92,                // v9.7.1 P1: 65 * 1.42
     speed: 140,
-    contactDamage: 10,
-    attackDamage: 13,
+    contactDamage: 12,
+    attackDamage: 13,      // v9.7.1 P1: v9.6 baseline (rebalanced from 16)
     attackCooldown: 1.3,
     telegraphDuration: 0.40,
     asset: 'assets/monster_pink.png',
-    assetP2: 'assets/monster_pink_p2.png',
+    assetP2: 'assets/monster_pink.png',
     color: '#FF80AB',
-    desc: '粉嫩雙翼、精緻花冠。高空高速滑翔巡遊，俯衝連投雙枚花粉重爆彈！',
+    desc: '粉嫩雙翼、精緻花冠。高空高速巡遊，俯衝投擲花粉重爆彈！',
     telegraphType: 'pink_dive',
     score: 150,
     phase2: {
-      name: '粉翼魅花仙',
-      hp: 105,
-      speed: 175,
-      attackDamage: 18,
-      attackCooldown: 1.0,
-      asset: 'assets/monster_pink_p2.png',
-      desc: '透明花瓣大翼展開，閃光花粉致盲緩速干擾！'
+      name: '粉翼花靈・捕食獵殺態',
+      hp: 140,
+      speed: 185,
+      attackDamage: 26,     // v9.7.1 P2: P1(13) * 2.0 = 26 (HARD RULE)
+      attackCooldown: 0.65, // v9.7.1 P2: density x2 (1.3 / 2 = 0.65)
+      asset: 'assets/monster_pink.png',
+      desc: '四連俯衝轟炸與滯留致盲花粉！'
     }
   },
 
@@ -97,26 +97,26 @@ export const MONSTER_TYPES = {
     name: '稜角冰晶怪',
     type: 'medium',
     role: '重型冰霜震波坦',
-    hp: 130,
+    hp: 180,               // v9.7.1 P1: 130 * 1.38
     speed: 65,
-    contactDamage: 15,
-    attackDamage: 17,
+    contactDamage: 18,
+    attackDamage: 17,      // v9.7.1 P1: v9.6 baseline (rebalanced from 21)
     attackCooldown: 1.8,
     telegraphDuration: 0.40,
     asset: 'assets/monster_ice.png',
-    assetP2: 'assets/monster_ice_p2.png',
+    assetP2: 'assets/monster_ice.png',
     color: '#40C4FF',
-    desc: '淡藍菱形幾何厚重冰晶。重壓釋放雙向滾動大範圍冰霜地裂波，橫掃整個平台！',
+    desc: '淡藍菱形厚重冰晶。重壓釋放大範圍冰霜地裂波！',
     telegraphType: 'ice_circle',
     score: 190,
     phase2: {
-      name: '極凍冰花怪',
-      hp: 200,
-      speed: 85,
-      attackDamage: 24,
-      attackCooldown: 1.3,
-      asset: 'assets/monster_ice_p2.png',
-      desc: '晶體更大花朵展開，連續多枚雙向冰晶地裂衝擊！'
+      name: '稜角冰晶怪・捕食獵殺態',
+      hp: 260,
+      speed: 95,
+      attackDamage: 34,     // v9.7.1 P2: P1(17) * 2.0 = 34 (HARD RULE)
+      attackCooldown: 0.90, // v9.7.1 P2: density x2 (1.8 / 2 = 0.90)
+      asset: 'assets/monster_ice.png',
+      desc: '五向冰晶地裂暴風雪衝擊！'
     }
   },
 
@@ -125,26 +125,26 @@ export const MONSTER_TYPES = {
     name: '紫葡花結毒姬',
     type: 'ranged',
     role: '三連曲射毒霧法師',
-    hp: 90,
+    hp: 126,               // v9.7.1 P1: 90 * 1.40
     speed: 55,
-    contactDamage: 11,
-    attackDamage: 14,
+    contactDamage: 13,
+    attackDamage: 14,      // v9.7.1 P1: v9.6 baseline (rebalanced from 17)
     attackCooldown: 1.5,
     telegraphDuration: 0.40,
     asset: 'assets/monster_grape.png',
-    assetP2: 'assets/monster_grape_p2.png',
+    assetP2: 'assets/monster_grape.png',
     color: '#BA68C8',
-    desc: '白色小巧軀體、葡萄串髮球與粉色大蝴蝶結。三連發拋物線毒霧彈幕，覆蓋全空域！',
+    desc: '白色小巧軀體、葡萄串髮球。拋物線毒霧彈幕覆蓋全空域！',
     telegraphType: 'purple_lob',
     score: 170,
     phase2: {
-      name: '魅影葡後',
-      hp: 150,
-      speed: 75,
-      attackDamage: 20,
-      attackCooldown: 1.15,
-      asset: 'assets/monster_grape_p2.png',
-      desc: '葡萄王冠盛開披風招展，超大範圍濃郁劇毒迷霧！'
+      name: '紫葡花結毒姬・捕食獵殺態',
+      hp: 190,
+      speed: 85,
+      attackDamage: 28,     // v9.7.1 P2: P1(14) * 2.0 = 28 (HARD RULE)
+      attackCooldown: 0.75, // v9.7.1 P2: density x2 (1.5 / 2 = 0.75)
+      asset: 'assets/monster_grape.png',
+      desc: '五連發濃郁劇毒泥沼！'
     }
   },
 
@@ -153,26 +153,26 @@ export const MONSTER_TYPES = {
     name: '金花瓣使',
     type: 'ranged',
     role: '廣角重砲散彈手',
-    hp: 105,
+    hp: 148,               // v9.7.1 P1: 105 * 1.41
     speed: 50,
-    contactDamage: 12,
-    attackDamage: 15,
+    contactDamage: 15,
+    attackDamage: 15,      // v9.7.1 P1: v9.6 baseline (rebalanced from 19)
     attackCooldown: 1.7,
     telegraphDuration: 0.40,
     asset: 'assets/monster_yellow.png',
-    assetP2: 'assets/monster_yellow_p2.png',
+    assetP2: 'assets/monster_yellow.png',
     color: '#FFD700',
-    desc: '高貴鵝黃花瓣造型。向前釋放 5 道 75 度廣角扇形金花散射彈幕，密不透風！',
+    desc: '高貴鵝黃花瓣造型。向前釋放 5 道 75 度廣角金花散射彈幕！',
     telegraphType: 'petal_fan',
     score: 180,
     phase2: {
-      name: '耀陽金花聖使',
-      hp: 160,
-      speed: 70,
-      attackDamage: 21,
-      attackCooldown: 1.25,
-      asset: 'assets/monster_yellow_p2.png',
-      desc: '旋轉金色花瓣雨，難以預測的多角度旋轉花瓣風暴！'
+      name: '金花瓣使・捕食獵殺態',
+      hp: 215,
+      speed: 80,
+      attackDamage: 30,     // v9.7.1 P2: P1(15) * 2.0 = 30 (HARD RULE)
+      attackCooldown: 0.85, // v9.7.1 P2: density x2 (1.7 / 2 = 0.85)
+      asset: 'assets/monster_yellow.png',
+      desc: '八向旋轉金色花瓣全域圓環彈幕！'
     }
   },
 
@@ -181,33 +181,33 @@ export const MONSTER_TYPES = {
     name: '玄晶葉衛',
     type: 'heavy',
     role: '超重裝黑曜巨獸',
-    hp: 240,
-    speed: 38,
-    contactDamage: 20,
-    attackDamage: 24,
+    hp: 336,               // v9.7.1 P1: 240 * 1.40
+    speed: 40,
+    contactDamage: 24,
+    attackDamage: 24,      // v9.7.1 P1: v9.6 baseline (rebalanced from 30 for survivability)
     attackCooldown: 2.1,
     telegraphDuration: 0.40,
     asset: 'assets/monster_obsidian.png',
-    assetP2: 'assets/monster_obsidian_p2.png',
+    assetP2: 'assets/monster_obsidian.png',
     color: '#3949AB',
-    desc: '深藍紫厚重黑曜晶體巨怪。重擊撼動全地表並引發巨大尖石地刺，不可硬碰！',
+    desc: '深藍紫厚重黑曜晶體巨怪。重擊撼動地表引發地刺！',
     telegraphType: 'ground_tremor',
     score: 300,
     phase2: {
-      name: '玄曜晶晶泰坦',
-      hp: 360,
-      speed: 50,
-      attackDamage: 32,
-      attackCooldown: 1.6,
-      asset: 'assets/monster_obsidian_p2.png',
-      desc: '生長巨大紫色晶簇裝甲，全場震地衝擊波與巨石連續爆破！'
+      name: '玄晶葉衛・捕食獵殺態',
+      hp: 480,
+      speed: 60,
+      attackDamage: 48,     // v9.7.1 P2: P1(24) * 2.0 = 48 (HARD RULE)
+      attackCooldown: 1.05, // v9.7.1 P2: density x2 (2.1 / 2 = 1.05)
+      asset: 'assets/monster_obsidian.png',
+      desc: '三連地刺震波與全場晶簇爆破！'
     }
   },
 
   transit: {
     id: 'monster_transit',
     name: '車票幽靈',
-    disabled: true, // v9.5: 悠遊卡怪獸已從遊戲正式排除
+    disabled: true,
     type: 'ghost',
     role: '穿梭城市之旅途幽靈 (已退役)',
     hp: 85,
@@ -226,8 +226,8 @@ export const MONSTER_TYPES = {
       name: '悠遊卡寄靈',
       hp: 140,
       speed: 130,
-      attackDamage: 22,
-      attackCooldown: 1.1,
+      attackDamage: 32,
+      attackCooldown: 0.70,
       asset: 'assets/monster_transit_p2.png',
       desc: '彩虹捷運光帶纏繞。'
     }
@@ -238,9 +238,9 @@ export const BOSS_CONFIG = {
   id: 'boss_flower_king',
   name: '夢影巨花王',
   title: '晨霧夢境的支配者',
-  maxHp: 2800,          // Phase 1 Max HP = 2800
-  phase1Hp: 2800,       // v9.6: Phase 1 獨立血條 (2800 HP)
-  phase2Hp: 3600,       // v9.6: Phase 2 獨立血條 (3600 HP)
+  maxHp: 3600,          // Phase 1 Max HP = 3600 (v9.7.1)
+  phase1Hp: 3600,       // v9.7.1: Phase 1 獨立血條 (3600 HP, 2800 * 1.28)
+  phase2Hp: 5200,       // v9.7.1: Phase 2 獨立血條 (5200 HP, 3600 * 1.44, Total = 8800 HP)
   transformDuration: 2.8, // 2.8s 變身無敵
   width: 260,
   height: 280,
@@ -252,8 +252,8 @@ export const BOSS_CONFIG = {
   antiFacetank: {
     distThreshold: 120,     // px - "in your face" distance
     standingDuration: 1.2,  // seconds before cleave triggers
-    vineCleaveDamage: 18,   // damage on cleave
-    vineCleaveKnockback: 250 // px knockback
+    vineCleaveDamage: 24,   // damage on cleave
+    vineCleaveKnockback: 280 // px knockback
   },
   arena: {
     startX: 14800,
@@ -266,33 +266,33 @@ export const BOSS_CONFIG = {
   phase1: {
     name: '夢影巨花王・夢境安撫態',
     bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就……一下下……」',
-    attackCooldown: 1.35,   // 9-way spiral petals
-    petalDamage: 16,
+    attackCooldown: 1.40,   // 9-way spiral petals
+    petalDamage: 20,        // v9.7.1: 16 * 1.25 = 20
     petalCount: 9,          // 9-way interlaced spiral
     petalSpeed: 330,        // px/s
-    vineDamage: 20,
+    vineDamage: 25,         // v9.7.1: 20 * 1.25 = 25
     groundSpikeCount: 3,    // 3~4 consecutive ground spikes
-    sporeDamage: 11,        // sleep spore damage
+    sporeDamage: 14,        // sleep spore damage (11 * 1.27 = 14)
     sporeSlowDuration: 1.5, // seconds of slow on hit
-    summonCooldown: 5.5,
+    summonCooldown: 6.0,
     bulletSpeed: 330,
     colorTheme: '#E91E63'
   },
   phase2: {
     name: '夢影巨花王・狂暴盛開態',
-    bannerText: 'PHASE 2：夢境徹底綻放！「現在……沒有人能逃離我的夢境！！」',
-    attackCooldown: 0.82,
-    petalDamage: 22,
+    bannerText: 'PHASE 2：狂暴盛開！「現在……沒有人能逃離我的夢境！！」',
+    attackCooldown: 0.70,   // v9.7.1: faster attack cadence
+    petalDamage: 30,        // v9.7.1: 20 * 1.5 = 30
     petalCount: 16,         // 360° 16-way crimson petal storm
-    petalSpeed: 375,        // px/s
-    targetedDamage: 28,
-    vineDamage: 28,
-    summonCooldown: 4.0,
-    bulletSpeed: 375,
-    chomperDamage: 24,      // Venus Flytrap chomp
-    scytheDamage: 24,       // 追擊藤蔓尖刺
-    thornsDamage: 20,       // 旋刺龍卷
-    miasmaDamage: 14,       // 夢幻花粉毒霧
+    petalSpeed: 385,        // px/s
+    targetedDamage: 40,
+    vineDamage: 38,
+    summonCooldown: 4.5,
+    bulletSpeed: 385,
+    chomperDamage: 36,      // Venus Flytrap chomp
+    scytheDamage: 36,       // 追擊藤蔓尖刺
+    thornsDamage: 30,       // 旋刺龍卷
+    miasmaDamage: 20,       // 夢幻花粉毒霧
     colorTheme: '#880E4F'
   }
 };

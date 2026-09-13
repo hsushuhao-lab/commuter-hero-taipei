@@ -593,12 +593,10 @@ class Game {
         this.milestoneBannerTimer = 3.2;
       } else if (c >= 30 && !this.announcedMilestones[30]) {
         this.announcedMilestones[30] = true;
-        this.milestoneBanner = '👹 通勤共振 30 幣：全場怪獸進化至 PHASE 2！';
+        this.milestoneBanner = '⚠️ ATTACK PHASE II：怪獸開始追你了。';
         this.milestoneBannerTimer = 3.2;
-      } else if (c >= 45 && !this.announcedMilestones[45]) {
-        this.announcedMilestones[45] = true;
-        this.milestoneBanner = '🌟 通勤共振 45 幣：主角覺醒第二型態！戰力全面強化！';
-        this.milestoneBannerTimer = 3.2;
+        this.camera.shake(10, 0.8);
+        hud.triggerPhase2Cinematic();
       } else if (c >= 60 && !this.announcedMilestones[60]) {
         this.announcedMilestones[60] = true;
         this.milestoneBanner = '🔥 通勤共振 60 幣：夢影巨花王狂暴共振！難度提升！';
@@ -1257,6 +1255,20 @@ class Game {
         if (m.isDead) continue;
         if (Math.hypot(proj.x - m.x, proj.y - (m.y - 25)) < proj.width + 25) {
           m.takeDamage(proj.damage);
+          if (proj.knockback) {
+            const kbDist = typeof proj.knockback === 'number' ? Math.min(260, proj.knockback) : 85;
+            const kbVel = typeof proj.knockback === 'number' ? Math.min(480, proj.knockback * 1.2) : 280;
+            m.x += (proj.vx >= 0 ? 1 : -1) * kbDist;
+            m.vx = (proj.vx >= 0 ? 1 : -1) * kbVel;
+          }
+          if (proj.splashRadius && proj.splashDamage) {
+            for (let otherM of this.level.monsters) {
+              if (otherM !== m && !otherM.isDead && Math.hypot(proj.x - otherM.x, proj.y - (otherM.y - 25)) <= proj.splashRadius) {
+                otherM.takeDamage(proj.splashDamage);
+              }
+            }
+            particles.emitHitSparks(proj.x, proj.y, '#FFD54F', 10);
+          }
           if (!proj.penetrating) proj.life = 0;
         }
       }
@@ -1280,26 +1292,6 @@ class Game {
       if (Math.hypot(proj.x - p.x, proj.y - (p.y - 35)) < proj.width + 22) {
         p.takeDamage(proj.damage);
         proj.life = 0;
-      }
-    }
-
-    // 3. Shakira Form 2 Mayo Orbs Collision
-    if (p.form2Active && p.mayoOrbs && p.mayoOrbs.length > 0) {
-      const orbs = p.getMayoOrbsWorld();
-      for (let orb of orbs) {
-        // Absorb enemy bullets
-        for (let proj of projectiles.projectiles) {
-          if (!proj.isPlayer && Math.hypot(proj.x - orb.x, proj.y - orb.y) < orb.radius + proj.width) {
-            proj.life = 0;
-            particles.emitHitSparks(orb.x, orb.y, '#FFD54F', 6);
-          }
-        }
-        // Damage monsters touching orbs
-        for (let m of this.level.monsters) {
-          if (!m.isDead && Math.hypot(m.x - orb.x, (m.y - 25) - orb.y) < orb.radius + 25) {
-            m.takeDamage(15 * dt * 30);
-          }
-        }
       }
     }
 

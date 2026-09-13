@@ -22,6 +22,9 @@ export class HUD {
     this.cutinTimer = 0;
     this.cutinChar = null;
 
+    // GTA-style Attack Phase II Cinematic Banner
+    this.phase2CinematicTimer = 0;
+
     // Victory & Result
     this.isVictory = false;
     this.isGameOver = false;
@@ -187,6 +190,14 @@ export class HUD {
         this.cutinActive = false;
       }
     }
+
+    if (this.phase2CinematicTimer > 0) {
+      this.phase2CinematicTimer -= dt;
+    }
+  }
+
+  triggerPhase2Cinematic() {
+    this.phase2CinematicTimer = 1.1;
   }
 
   triggerVictory(player) {
@@ -209,6 +220,11 @@ export class HUD {
     // --- 3. Anime Cut-in Overlay ---
     if (this.cutinActive && this.cutinChar) {
       this.renderCutinOverlay(ctx, vw, vh);
+    }
+
+    // --- 3.5 GTA-style Attack Phase II Cinematic Banner ---
+    if (this.phase2CinematicTimer > 0) {
+      this.renderPhase2Banner(ctx, vw, vh);
     }
 
     // --- 4. Mobile Touch Controls ---
@@ -237,8 +253,8 @@ export class HUD {
     const avatarY = 16;
     ctx.fillStyle = player.charConfig.colors.primary;
     ctx.fillRect(avatarX, avatarY, 50, 50);
-    ctx.strokeStyle = player.form2Active ? '#FFD54F' : '#fff';
-    ctx.lineWidth = player.form2Active ? 2.5 : 1.5;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
     ctx.strokeRect(avatarX, avatarY, 50, 50);
 
     if (player.spriteSheet && player.spriteSheet.complete) {
@@ -249,10 +265,10 @@ export class HUD {
     // Name & Title
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 14px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.fillText(player.name + (player.form2Active ? ' ★覺醒II' : ''), avatarX + 58, avatarY + 16);
-    ctx.fillStyle = player.form2Active ? '#FFD54F' : 'rgba(255,255,255,0.7)';
+    ctx.fillText(player.name, avatarX + 58, avatarY + 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.font = '11px sans-serif';
-    ctx.fillText(player.form2Active ? player.charConfig.form2.title : player.charConfig.title, avatarX + 58, avatarY + 30);
+    ctx.fillText(player.charConfig.title, avatarX + 58, avatarY + 30);
 
     // HP Bar
     const hpX = avatarX + 58;
@@ -356,17 +372,20 @@ export class HUD {
     const barX = (vw - barW) / 2;
     const barY = 82;
 
-    // Boss Name & Phase (v9.5 True Two-Phase)
+    // Boss Name & Phase (v9.7.1 8800 HP staged bar)
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
-    let title = '【PHASE 1：晨霧守護態】松德院區門前・夢影巨花王 (HP 2400)';
+    let title = '【PHASE 1：晨霧守護態】松德院區門前・夢影巨花王 (HP 3600)';
     let barColor = '#E91E63';
 
     if (boss.isTransforming) {
-      title = '🌹【變身中・100%無敵】PHASE 2：夢境狂暴盛開！';
+      title = '🌹【變身中・100%無敵】PHASE 2：狂暴盛開！';
       barColor = '#FF1744';
     } else if (boss.phase === 2) {
-      title = '🌹【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王 (HP 3200)';
+      title = '🌹【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王 (HP 5200)';
+      if (boss.isRaging) {
+        title += ' 🔥 狂怒爆發！';
+      }
       barColor = '#C2185B';
     }
 
@@ -381,14 +400,15 @@ export class HUD {
     ctx.strokeRect(barX, barY, barW, barH);
 
     // HP Fill
-    const ratio = Math.max(0, boss.hp / (boss.maxHp || 2400));
+    const maxHp = boss.phase === 2 ? 5200 : 3600;
+    const ratio = Math.max(0, boss.hp / (boss.maxHp || maxHp));
     ctx.fillStyle = barColor;
     ctx.fillRect(barX, barY, barW * ratio, barH);
 
     // Numeric HP
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px monospace';
-    ctx.fillText(`${Math.ceil(boss.hp)} / ${boss.maxHp || 2400}`, vw / 2, barY + 11);
+    ctx.fillText(`${Math.ceil(boss.hp)} / ${boss.maxHp || maxHp}`, vw / 2, barY + 11);
 
     ctx.restore();
   }
@@ -484,6 +504,50 @@ export class HUD {
       }
       ctx.restore();
     }
+
+    ctx.restore();
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // GTA-Style Attack Phase II Dramatic Cinematic Banner (Section 41)
+  // ══════════════════════════════════════════════════════════════════
+  renderPhase2Banner(ctx, vw, vh) {
+    if (this.phase2CinematicTimer <= 0) return;
+    ctx.save();
+
+    // Dark high contrast vignette overlay
+    ctx.fillStyle = 'rgba(15, 0, 5, 0.72)';
+    ctx.fillRect(0, 0, vw, vh);
+
+    // Cinema letterbox bars (top & bottom 45px)
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, vw, 45);
+    ctx.fillRect(0, vh - 45, vw, 45);
+
+    // Red & Gold accent ribbon across center
+    const ribbonY = vh / 2 - 40;
+    ctx.fillStyle = 'rgba(213, 0, 0, 0.88)';
+    ctx.fillRect(0, ribbonY, vw, 80);
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(0, ribbonY, vw, 4);
+    ctx.fillRect(0, ribbonY + 76, vw, 4);
+
+    // Main GTA typography: ATTACK PHASE II
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 38px "Impact", "Arial Black", sans-serif';
+    ctx.fillStyle = '#000';
+    ctx.fillText('ATTACK PHASE II', vw / 2 + 2, vh / 2 - 8);
+    ctx.fillStyle = '#FFEB3B';
+    ctx.shadowColor = '#FF1744';
+    ctx.shadowBlur = 18;
+    ctx.fillText('ATTACK PHASE II', vw / 2, vh / 2 - 10);
+
+    // Subtitle: THEY'RE HUNTING YOU. / 怪獸開始追你了。
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 16px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText("THEY'RE HUNTING YOU.  ／  怪獸開始追你了。", vw / 2, vh / 2 + 20);
 
     ctx.restore();
   }
@@ -741,11 +805,11 @@ export class HUD {
     ctx.font = '13px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'left';
     const statsX = cx - 140;
-    ctx.fillText(`英雄：${player.name}${player.form2Active ? '【覺醒 II】' : ''}`, statsX, cy - 95);
+    ctx.fillText(`英雄：${player.name}`, statsX, cy - 95);
     ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 73);
     ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 (3分滿載) | 體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 51);
     ctx.fillText(`收集金幣：${player.coins} 枚 | 墜崖失誤：${player.fallCount || 0} 次`, statsX, cy - 29);
-    ctx.fillText(`雙階巨花王：夢境安撫態(2800) + 狂暴盛開態(3600) 討伐確認`, statsX, cy - 7);
+    ctx.fillText(`雙階巨花王：夢境安撫態(3600) + 狂暴盛開態(5200) 討伐確認`, statsX, cy - 7);
 
     // Rank — centered
     ctx.fillStyle = '#FFD700';

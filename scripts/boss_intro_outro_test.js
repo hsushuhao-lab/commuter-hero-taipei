@@ -68,14 +68,14 @@ function test(name, fn) {
   }
 }
 
-test('1. Boss HP & Two-Phase Specifications: P1 HP = 2800, P2 HP = 3600 (Total 6400)', () => {
-  assert.strictEqual(BOSS_CONFIG.phase1Hp, 2800);
-  assert.strictEqual(BOSS_CONFIG.phase2Hp, 3600);
+test('1. Boss HP & Two-Phase Specifications: P1 HP = 3600, P2 HP = 5200 (Total 8800)', () => {
+  assert.strictEqual(BOSS_CONFIG.phase1Hp, 3600);
+  assert.strictEqual(BOSS_CONFIG.phase2Hp, 5200);
   assert.strictEqual(BOSS_CONFIG.transformDuration, 2.8);
 
   const boss = new Boss();
-  assert.strictEqual(boss.hp, 2800);
-  assert.strictEqual(boss.maxHp, 2800);
+  assert.strictEqual(boss.hp, 3600);
+  assert.strictEqual(boss.maxHp, 3600);
   assert.strictEqual(boss.phase, 1);
 });
 
@@ -106,10 +106,10 @@ test('3. Boss Entrance Trigger at x >= 14750 (Camera Shake & Banner)', () => {
 test('4. True Two-Phase Transition & Invulnerability (2.8s freeze)', () => {
   const boss = new Boss();
   assert.strictEqual(boss.phase, 1);
-  assert.strictEqual(boss.hp, 2800);
+  assert.strictEqual(boss.hp, 3600);
 
   // Deplete Phase 1 HP
-  boss.takeDamage(2800);
+  boss.takeDamage(3600);
   assert.strictEqual(boss.phase, 1);
   assert.strictEqual(boss.isTransforming, true, 'Boss must enter isTransforming state');
   assert.strictEqual(boss.hp, 0);
@@ -122,8 +122,8 @@ test('4. True Two-Phase Transition & Invulnerability (2.8s freeze)', () => {
   boss.update(2.9, new Player('yu'), { shake: () => {}, x: 0 });
   assert.strictEqual(boss.isTransforming, false, 'Transformation should complete');
   assert.strictEqual(boss.phase, 2, 'Boss must advance to Phase 2');
-  assert.strictEqual(boss.hp, 3600, 'Phase 2 HP must be 3600');
-  assert.strictEqual(boss.maxHp, 3600, 'Phase 2 maxHp must be 3600');
+  assert.strictEqual(boss.hp, 5200, 'Phase 2 HP must be 5200');
+  assert.strictEqual(boss.maxHp, 5200, 'Phase 2 maxHp must be 5200');
 });
 
 test('5. Complete Outro Flow: Boss Defeat -> Companions -> Triple Punch -> 180s Evaluation', () => {

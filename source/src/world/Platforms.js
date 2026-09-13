@@ -74,9 +74,10 @@ export class PlatformManager {
       item.bobOffset += dt * 3;
       item.y = item.originY + Math.sin(item.bobOffset) * 5;
 
-      // Collection check
-      const dist = Math.hypot(player.x - item.x, (player.y - 35) - item.y);
-      if (dist < 36) {
+      // Collection check (responsive box matching player body 44x70)
+      const dx = Math.abs(player.x - item.x);
+      const dy = Math.abs((player.y - 35) - item.y);
+      if (dx < 46 && dy < 60) {
         item.collected = true;
         if (item.type === 'coin') {
           player.addCoins(1);

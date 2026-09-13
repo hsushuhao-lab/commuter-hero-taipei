@@ -33,8 +33,8 @@ export class Boss {
     this.width = this.config.width;
     this.height = this.config.height;
 
-    this.hp = this.config.phase1Hp || 2800;
-    this.maxHp = this.config.phase1Hp || 2800;
+    this.hp = this.config.phase1Hp || 3600;
+    this.maxHp = this.config.phase1Hp || 3600;
     this.phase = 1; // 1 or 2
     this.phase2Triggered = false;
 
@@ -42,6 +42,7 @@ export class Boss {
     this.isTransforming = false;
     this.transformTimer = 0;
     this.resonanceEnraged = false; // 60 coins buff only, does NOT skip P1!
+    this.isRaging = false;         // Phase 2 <30% HP rage state
     this.multiHitGate = new Map(); // 100ms multi-hit throttle per attackInstanceId
 
     this.vx = 0;
@@ -63,8 +64,14 @@ export class Boss {
     this.isVineCleaving = false;
     this.vineCleaveTimer = 0;
 
-    // Spore projectiles in world (tracked separately for slow effect)
+    // Boss Lunge / Dash state
+    this.isLunging = false;
+    this.lungeTimer = 0;
+    this.lungeVx = 0;
+
+    // Spore & Tracking Pollen projectiles in world
     this.spores = [];
+    this.trackingPollen = [];
 
     // Active dt-driven telegraph queue
     this.activeTelegraphs = [];
@@ -176,9 +183,10 @@ export class Boss {
     this.phase2TransformTimer = this.transformTimer;
     this.phase2ScaleAnim = 0.0;
 
-    // Clear all projectiles, spores, active telegraphs
+    // Clear all projectiles, spores, active telegraphs, and tracking pollen
     projectiles.clear();
     this.spores = [];
+    this.trackingPollen = [];
     this.spinningThorns = [];
     this.activeTelegraphs = [];
 
@@ -346,11 +354,11 @@ export class Boss {
         this.isTransforming = false;
         this.phase = 2;
         this.phase2Triggered = true;
-        this.hp = this.config.phase2Hp || 3600;
-        this.maxHp = this.config.phase2Hp || 3600;
+        this.hp = this.config.phase2Hp || 5200;
+        this.maxHp = this.config.phase2Hp || 5200;
         this.roarTimer = 0;
         this.attackTimer = 1.2;
-        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 3600', '#FF1744');
+        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 5200', '#FF1744');
       }
       return; // 100% frozen during transform!
     }
@@ -417,10 +425,35 @@ export class Boss {
     const maxX = this.config.arena.endX - 150;
     this.x = Math.max(minX, Math.min(maxX, this.x));
 
-    // Slow repositioning towards player
-    const arenaMid = (this.config.arena.startX + this.config.arena.endX) / 2;
-    const desiredX = player.x + (player.x < arenaMid ? 360 : -360);
-    this.x += (desiredX - this.x) * dt * (this.phase === 2 ? 0.8 : 0.4);
+    // Repositioning or Lunging
+    if (this.isLunging) {
+      this.lungeTimer -= dt;
+      this.x += this.lungeVx * dt;
+      const minX = this.config.arena.startX + 200;
+      const maxX = this.config.arena.endX - 150;
+      this.x = Math.max(minX, Math.min(maxX, this.x));
+      if (player && !player.isDead) {
+        const dx = Math.abs(this.x - player.x);
+        const dy = Math.abs((this.y - 60) - player.y);
+        if (dx < 90 && dy < 95) {
+          player.takeDamage(26);
+          if (typeof player.knockback === 'function') {
+            player.knockback(this.facing * 240);
+          } else {
+            player.vx = this.facing * 240;
+          }
+          particles.emitHitSparks(player.x, player.y - 30, '#FF1744', 12);
+        }
+      }
+      if (this.lungeTimer <= 0) {
+        this.isLunging = false;
+      }
+    } else {
+      // Slow repositioning towards player
+      const arenaMid = (this.config.arena.startX + this.config.arena.endX) / 2;
+      const desiredX = player.x + (player.x < arenaMid ? 360 : -360);
+      this.x += (desiredX - this.x) * dt * (this.phase === 2 ? 0.8 : 0.4);
+    }
 
     // Anti-Facetank
     const distToPlayer = Math.abs(player.x - this.x);
@@ -465,47 +498,58 @@ export class Boss {
         this.launchSpores(player);
       }
     } else {
-      // Phase 2 sequenced attack rotation (mod 5)
+      // Phase 2 sequenced attack rotation (mod 6)
       this.scytheTimer -= dt;
       this.thornTimer -= dt;
       this.miasmaTimer -= dt;
       this.chomperTimer -= dt;
 
+      const rageMult = (this.hp <= this.maxHp * 0.3) ? 0.75 : 1.0;
+      this.isRaging = (this.hp <= this.maxHp * 0.3);
+
       if (this.attackTimer <= 0) {
-        const seq = this.phase2AttackSequence % 5;
+        const seq = this.phase2AttackSequence % 6;
         this.phase2AttackSequence++;
 
         switch (seq) {
-          case 0: // 花瓣暴風雨 (with safe cone)
-            this.attackTimer = (currentConfig.attackCooldown || 0.85) * p2CooldownMult;
+          case 0: // Radial Bloom (16-way crimson storm with safe cone + 2 targeted needles)
+            this.attackTimer = (currentConfig.attackCooldown || 0.85) * p2CooldownMult * rageMult;
             this.firePetalBarrage(player);
             break;
-          case 1: // 死神鐮刀 (0.45s telegraph)
-            this.attackTimer = 4.5 * p2CooldownMult;
-            this.scytheTimer = 4.5;
+          case 1: // Boss Lunge / Dash (0.45s telegraph)
+            this.attackTimer = 3.6 * p2CooldownMult * rageMult;
+            this.queueBossLunge(player);
+            break;
+          case 2: // Ground Roots / Vine Thrust
+            this.attackTimer = 3.2 * p2CooldownMult * rageMult;
+            this.triggerVineThrust(player);
+            break;
+          case 3: // Tracking Pollen
+            this.attackTimer = 3.8 * p2CooldownMult * rageMult;
+            this.launchTrackingPollen(player);
+            break;
+          case 4: // 死神鐮刀 (0.45s telegraph)
+            this.attackTimer = 4.2 * p2CooldownMult * rageMult;
+            this.scytheTimer = 4.2;
             this.queueAbyssalScythe(player);
             break;
-          case 2: // 旋刺龍卷 (0.60s telegraph)
-            this.attackTimer = 5.5 * p2CooldownMult;
-            this.thornTimer = 5.5;
-            this.queueSpinningThorns();
-            break;
-          case 3: // 暗影瘴氣 (0.55s telegraph)
-            this.attackTimer = 5.0 * p2CooldownMult;
-            this.miasmaTimer = 5.0;
-            this.queueShadowMiasma(player);
-            break;
-          case 4: // 捕蠅草巨顎 (0.45s telegraph)
-            this.attackTimer = 5.0 * p2CooldownMult;
-            this.chomperTimer = 5.0;
-            this.queueVenusChomper(player);
+          case 5: // 捕蠅草巨顎 / 旋刺龍卷 / 暗影瘴氣
+            this.attackTimer = 4.4 * p2CooldownMult * rageMult;
+            const r = Math.random();
+            if (r < 0.35) {
+              this.queueVenusChomper(player);
+            } else if (r < 0.70) {
+              this.queueSpinningThorns();
+            } else {
+              this.queueShadowMiasma(player);
+            }
             break;
         }
       }
 
       // Vine Ground Thrust (triple, Phase 2)
       if (this.vineTimer <= 0) {
-        this.vineTimer = 3.2 * p2CooldownMult;
+        this.vineTimer = 3.2 * p2CooldownMult * rageMult;
         this.triggerVineThrust(player);
       }
 
@@ -517,13 +561,14 @@ export class Boss {
 
       // Sleep Spore Clouds (faster in Phase 2)
       if (this.sporeTimer <= 0) {
-        this.sporeTimer = 4.0 * p2CooldownMult;
+        this.sporeTimer = 4.0 * p2CooldownMult * rageMult;
         this.launchSpores(player);
       }
     }
 
     this._updateSpores(dt, player);
     this._updateSpinningThorns(dt, player);
+    this._updateTrackingPollen(dt, player);
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -783,9 +828,65 @@ export class Boss {
     audio.playHit();
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2: Boss Lunge / Dash (0.45s telegraph, fast ground charge)
+  // ══════════════════════════════════════════════════════════════════
+  queueBossLunge(player) {
+    audio.playTelegraph();
+    const lungeDir = player.x < this.x ? -1 : 1;
+    this.facing = lungeDir;
+    this.activeTelegraphs.push({
+      type: 'lunge',
+      timer: 0.45,
+      maxTimer: 0.45,
+      startX: this.x,
+      targetX: this.x + lungeDir * 380,
+      y: this.y,
+      dir: lungeDir,
+      onExecute: () => {
+        this.executeBossLunge(lungeDir);
+      }
+    });
+  }
+
+  executeBossLunge(dir) {
+    if (this.isDead || this.isTransforming) return;
+    audio.playBossRoar();
+    this.isLunging = true;
+    this.lungeTimer = 0.40;
+    this.lungeVx = dir * 550;
+    particles.emitFloatingText(this.x, this.y - 180, '⚡ 狂暴突進！', '#FF1744');
+    for (let i = 0; i < 15; i++) {
+      particles.emitDust(this.x - dir * 40, this.y - 10, 8, '#B71C1C');
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // Phase 2: Tracking Pollen (homing golden pollen projectiles)
+  // ══════════════════════════════════════════════════════════════════
+  launchTrackingPollen(player) {
+    audio.playTelegraph();
+    particles.emitFloatingText(this.x, this.y - 180, '✨ 追蹤花粉！', '#FFD700');
+    const count = 3;
+    for (let i = 0; i < count; i++) {
+      const baseAngle = (player.x < this.x ? Math.PI : 0) + (i - 1) * 0.45;
+      this.trackingPollen.push({
+        x: this.x + (player.x < this.x ? -50 : 50),
+        y: this.y - 120 + (i - 1) * 25,
+        angle: baseAngle,
+        speed: 160 * (this.resonanceEnraged ? 1.10 : 1.0),
+        life: 3.5,
+        maxLife: 3.5,
+        damage: (this.config.phase2.sporeDamage || 18) * (this.resonanceEnraged ? 1.10 : 1.0),
+        hasHit: false,
+        pulseTimer: 0
+      });
+    }
+  }
+
   summonMinions() {
     const activeMinions = this.minions.filter(m => !m.isDead && m.x >= this.config.arena.startX);
-    if (activeMinions.length >= 4) return; // Prevent overcrowding
+    if (activeMinions.length >= 2) return; // Prevent overcrowding (Section 29: 召喚少量一般怪獸)
 
     const spawnY = this.config.arena.groundY - 10;
     if (this.phase === 1) {
@@ -1090,8 +1191,52 @@ export class Boss {
     }
   }
 
+  _updateTrackingPollen(dt, player) {
+    for (let i = this.trackingPollen.length - 1; i >= 0; i--) {
+      const p = this.trackingPollen[i];
+      p.life -= dt;
+      p.pulseTimer += dt;
+      if (p.life <= 0) {
+        this.trackingPollen.splice(i, 1);
+        continue;
+      }
+      if (player && !player.isDead) {
+        const targetAngle = Math.atan2((player.y - 35) - p.y, player.x - p.x);
+        let diff = normalizeAngle(targetAngle - p.angle);
+        p.angle += Math.max(-2.4 * dt, Math.min(2.4 * dt, diff));
+      }
+      p.x += Math.cos(p.angle) * p.speed * dt;
+      p.y += Math.sin(p.angle) * p.speed * dt;
+
+      // Trail particles
+      if (Math.random() < 0.35) {
+        particles.emit({
+          x: p.x,
+          y: p.y,
+          vx: (Math.random() - 0.5) * 20,
+          vy: (Math.random() - 0.5) * 20,
+          size: 4,
+          color: '#FFD700',
+          life: 0.3,
+          shape: 'circle',
+          fade: true
+        });
+      }
+
+      if (!p.hasHit && player && !player.isDead) {
+        const dist = Math.hypot(p.x - player.x, p.y - (player.y - 35));
+        if (dist < 28) {
+          p.hasHit = true;
+          player.takeDamage(p.damage);
+          particles.emitHitSparks(p.x, p.y, '#FFD700', 10);
+          this.trackingPollen.splice(i, 1);
+        }
+      }
+    }
+  }
+
   render(ctx) {
-    // Render active telegraphs (Scythe, Thorns, Miasma, Chomp)
+    // Render active telegraphs (Scythe, Thorns, Miasma, Chomp, Lunge)
     this._renderTelegraphs(ctx);
 
     // Render spore clouds (includes Shadow Miasma zones)
@@ -1099,6 +1244,9 @@ export class Boss {
 
     // Render spinning thorns
     this._renderSpinningThorns(ctx);
+
+    // Render tracking pollen
+    this._renderTrackingPollen(ctx);
 
     // Render ground spike warnings
     this._renderGroundSpikeWarnings(ctx);
@@ -1110,7 +1258,15 @@ export class Boss {
 
     ctx.save();
     ctx.translate(this.x, this.y + entranceOffset);
-    ctx.scale(this.facing, 1);
+
+    // Procedural deformation: breathing squash & stretch
+    const breathX = 1.0 + Math.sin(this.bobTimer * 2.5) * 0.035;
+    const breathY = 1.0 - Math.sin(this.bobTimer * 2.5) * 0.035;
+
+    // Phase 2: 20% larger than Phase 1 (RULE 36: 15-25% visual size increase)
+    const phaseScale = (this.phase === 2) ? 1.20 : 1.0;
+
+    ctx.scale(this.facing * breathX * phaseScale, breathY * phaseScale);
 
     if (this.isDead) {
       ctx.globalAlpha = Math.max(0, this.deathSequenceTimer / 2.2);
@@ -1199,6 +1355,19 @@ export class Boss {
       ctx.restore();
     }
 
+    // Phase 2 Rage Mode (<30% HP) Visual Crimson Fire Aura
+    if (this.isRaging && !this.isDead) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.85)';
+      ctx.lineWidth = 4 + Math.sin(this.bobTimer * 10) * 2;
+      ctx.shadowColor = '#FF0000';
+      ctx.shadowBlur = 24;
+      ctx.beginPath();
+      ctx.arc(0, -110, 125 + Math.sin(this.bobTimer * 8) * 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Anti-facetank warning indicator: pulse red aura when player is in danger zone
     if (this.facetankTimer > 0.5 && this.vineCleaveCooldown <= 0) {
       const warnAlpha = Math.min(0.7, (this.facetankTimer / 1.2) * 0.7);
@@ -1276,6 +1445,25 @@ export class Boss {
       ctx.arc(wx, wy, t.size * pulse, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#004D40';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  _renderTrackingPollen(ctx) {
+    for (const p of this.trackingPollen) {
+      const alpha = Math.min(1.0, (p.life / p.maxLife) * 1.5);
+      const pulse = 1.0 + Math.sin(p.pulseTimer * 8) * 0.2;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#FFD700';
+      ctx.shadowColor = '#FF8F00';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 9 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FF6F00';
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.restore();
@@ -1379,6 +1567,22 @@ export class Boss {
         ctx.fillStyle = '#FF5252';
         ctx.font = 'bold 13px sans-serif';
         ctx.fillText('⚠ CHOMP DANGER', tg.x - 55, tg.y - 45);
+      }
+      else if (tg.type === 'lunge') {
+        // 0.45s Red Directional Charge Arrow Corridor
+        ctx.fillStyle = 'rgba(255, 23, 68, 0.22)';
+        ctx.strokeStyle = '#FF1744';
+        ctx.lineWidth = 3;
+        ctx.shadowColor = '#FF1744';
+        ctx.shadowBlur = 14;
+        const totalW = 380 * tg.dir;
+        const currentW = totalW * progress;
+        const startX = tg.dir > 0 ? tg.startX : tg.startX + currentW;
+        ctx.fillRect(startX, tg.y - 120, Math.abs(currentW), 120);
+        ctx.strokeRect(tg.dir > 0 ? tg.startX : tg.startX + totalW, tg.y - 120, Math.abs(totalW), 120);
+        ctx.fillStyle = '#FF5252';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillText('⚡ LUNGE CHARGE ⚡', tg.startX + totalW * 0.5 - 65, tg.y - 130);
       }
 
       ctx.restore();

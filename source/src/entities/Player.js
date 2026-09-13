@@ -54,14 +54,10 @@ export class Player {
     // Collectibles & Evolution (Commuter Resonance)
     this.coins = 0;
     this.hasUnlockedUlt = false; // 15 金幣永久解鎖
-    this.form2Active = false;    // 45 金幣覺醒第二型態
 
     // Dash (E / touch button)
     this.dashTimer = 0;
     this.dashCooldown = 0;
-
-    // Shakira Form 2 Orbiting Mayo Orbs
-    this.mayoOrbs = [];
 
     // Cooldowns
     this.skillCooldown = 0;
@@ -120,8 +116,6 @@ export class Player {
     this.speed = this.charConfig.stats.speed;
     this.jumpForce = this.charConfig.stats.jumpForce;
     this.gravity = this.charConfig.stats.gravity;
-    this.form2Active = false;
-    this.mayoOrbs = [];
     this.loadSpriteSheet();
   }
 
@@ -141,49 +135,6 @@ export class Player {
       this.hasUnlockedUlt = true;
       audio.playPowerup();
       particles.emitCoinSparkle(this.x, this.y - 40);
-    }
-    // 45 金幣主角覺醒第二型態！
-    if (this.coins >= 45 && !this.form2Active) {
-      this.awakenForm2();
-    }
-  }
-
-  awakenForm2() {
-    this.form2Active = true;
-    audio.playPowerup();
-
-    if (this.id === 'yu') {
-      this.speed += 45;
-      this.maxHp += 35;
-      this.hp += 35;
-    } else if (this.id === 'shakira') {
-      this.speed += 35;
-      this.maxHp += 45;
-      this.hp += 45;
-      // 3 枚流心 Mayo Orbs 圍繞護衛
-      this.mayoOrbs = [
-        { angle: 0 },
-        { angle: (Math.PI * 2) / 3 },
-        { angle: (Math.PI * 4) / 3 }
-      ];
-    } else if (this.id === 'sandra') {
-      this.speed += 30;
-      this.maxHp += 60;
-      this.hp += 60;
-    }
-
-    // Huge golden awakening burst
-    for (let i = 0; i < 40; i++) {
-      particles.emit({
-        x: this.x + (Math.random() * 60 - 30),
-        y: this.y - Math.random() * 80,
-        vx: (Math.random() - 0.5) * 200,
-        vy: -Math.random() * 200 - 50,
-        size: 8,
-        color: this.charConfig.colors.accent,
-        life: 1.5,
-        shape: 'star'
-      });
     }
   }
 
@@ -240,7 +191,7 @@ export class Player {
     if (this.dashCooldown > 0 || this.isDead) return false;
     this.dashTimer = 0.22;
     this.dashCooldown = 2.0;
-    this.invulnerableTimer = 0.35;
+    this.invulnerableTimer = 0.22; // v9.7.1: strictly covers active dash movement only
     this.vx = this.facing * 850;
     audio.playPowerup();
 
@@ -261,7 +212,7 @@ export class Player {
   }
 
   takeDamage(amount) {
-    if (this.invulnerableTimer > 0 || (this.isUlting && this.ultPhase === 'RELEASE') || this.isDead || this.dashTimer > 0 || this.fallRecoveryTimer > 0) return false;
+    if (this.invulnerableTimer > 0 || (this.isUlting && (this.ultPhase === 'RELEASE' || this.ultPhase === 'CUTIN')) || this.isDead || this.dashTimer > 0 || this.fallRecoveryTimer > 0) return false;
 
     // v9.5: Wind-up provides 50% damage reduction
     if (this.isUlting && this.ultPhase === 'WINDUP') {
@@ -279,7 +230,7 @@ export class Player {
     this.hp -= amount;
     audio.playHit();
     this.hitstopTimer = 0.06; // 60ms Hitstop
-    this.invulnerableTimer = 1.2; // 1.2s 無敵幀
+    this.invulnerableTimer = 0.5; // v9.7.1: 0.5s iframe (reduced from 1.2s to maintain danger without stun-lock)
     this.animState = 'hit';
     this.animTimer = 0;
     particles.emitHitSparks(this.x, this.y - 30, '#FF5252', 10);
@@ -291,124 +242,89 @@ export class Player {
     return true;
   }
 
+  knockback(amount) {
+    this.vx = amount;
+  }
+
   triggerSkill() {
     if ((this.isUlting && this.ultPhase !== 'IDLE') || this.isDead) return;
-    if (this.skillCooldown > 0 && this.comboStage === 0) return;
+    if (this.skillCooldown > 0) return;
 
     const spawnX = this.x + this.facing * 35;
     const spawnY = this.y - 35;
 
     if (this.id === 'yu') {
       // ═════════════════════════════════════════════════════════════════════════
-      // 禹志晨：雨傘風壓斬 (Parry / Melee Arc / Deflect)
-      // v9.5: 前方瞬時扇形 melee hitbox，半徑 210px (F2: 245px), 95°, 58 dmg (F2: 72), CD 0.32s
-      // 偏轉消除 230px (F2: 280px) 敵彈，偏轉成功生成 260px 反擊風刃 (24 dmg, F2 貫穿 2 敵)
+      // 禹志晨：雨傘機關槍 (Suppression Fire / Rapid Needle Bullets)
+      // v9.7.1: CD 0.16s, 16 dmg, 射程 480px, 三人最高射速, 偏轉近身 180px 敵彈
       // ═════════════════════════════════════════════════════════════════════════
-      const isF2 = this.form2Active;
-      const charCooldown = this.charConfig.stats.skillCooldown || 0.32;
-      this.skillCooldown = charCooldown;
+      this.skillCooldown = this.charConfig.stats.skillCooldown || 0.16;
       this.isAttacking = true;
-      this.attackTimer = 0.16;
+      this.attackTimer = 0.14;
       this.animState = 'attack';
       this.animTimer = 0;
       audio.playSkill(this.id);
 
-      const arcRadius = isF2 ? 245 : 210;
-      const arcDmg = isF2 ? 72 : 58;
-      const deflectRad = isF2 ? 280 : 230;
-
-      // 1. Deflect / eliminate enemy bullets in front within 230px / 280px
-      let deflectedCount = 0;
+      // 1. Deflect / eliminate enemy bullets in front within 180px
       for (let i = projectiles.projectiles.length - 1; i >= 0; i--) {
         const p = projectiles.projectiles[i];
         if (!p.isPlayer) {
           const dx = p.x - this.x;
           const dy = p.y - spawnY;
           const dist = Math.hypot(dx, dy);
-          if (dist <= deflectRad && dx * this.facing > 0) {
-            const angle = Math.atan2(dy, dx * this.facing);
-            if (Math.abs(angle) <= (95 * Math.PI / 360)) {
-              particles.emitHitSparks(p.x, p.y, '#00E5FF', 10);
-              projectiles.projectiles.splice(i, 1);
-              deflectedCount++;
-            }
+          if (dist <= 180 && dx * this.facing > 0) {
+            particles.emitHitSparks(p.x, p.y, '#00E5FF', 6);
+            projectiles.projectiles.splice(i, 1);
           }
         }
       }
 
-      // If deflected at least 1 bullet, spawn counter wind-blade! (range 260px, damage 24)
-      if (deflectedCount >= 1) {
-        audio.playPowerup();
-        particles.emitFloatingText(this.x + this.facing * 50, this.y - 60, 'PARRY! 反擊風刃', '#00E5FF');
-        projectiles.spawn({
-          id: 'yu_counter_' + Date.now(),
-          isPlayer: true,
-          type: 'wind_blade',
-          x: spawnX,
-          y: spawnY,
-          vx: this.facing * 650,
-          vy: 0,
-          maxDistance: 260,
-          width: 48,
-          height: 48,
-          damage: 24,
-          life: 0.45,
-          penetrating: isF2,
-          maxPenetrations: isF2 ? 2 : 1
-        });
-      }
-
-      // 2. Instantaneous Melee Arc Hitbox
-      this.hitstopTimer = 0.05; // 45~60ms hitstop
+      // 2. Spawn rapid umbrella needle bullet
       projectiles.spawn({
-        id: 'yu_arc_' + Date.now(),
+        id: 'yu_mg_' + Date.now() + Math.random(),
         isPlayer: true,
-        type: 'wind_blade',
+        type: 'umbrella_bullet',
         x: spawnX,
-        y: spawnY,
-        vx: this.facing * 500,
-        vy: 0,
-        maxDistance: arcRadius,
-        width: isF2 ? 65 : 50,
-        height: isF2 ? 65 : 50,
-        damage: arcDmg,
-        life: 0.12,
-        penetrating: true,
-        isMeleeArc: true,
-        canClearEnemyBullets: true
+        y: spawnY + (Math.random() - 0.5) * 8,
+        vx: this.facing * 820,
+        vy: (Math.random() - 0.5) * 30,
+        maxDistance: 480,
+        width: 32,
+        height: 18,
+        damage: 16,
+        life: 0.65,
+        knockback: true,
+        penetrating: false
       });
 
-      // Visual arc slash particles
-      for (let i = -3; i <= 3; i++) {
-        const ang = (i / 3) * (95 * Math.PI / 360);
+      // Needle wind particles
+      for (let i = 0; i < 3; i++) {
         particles.emit({
-          x: this.x + Math.cos(ang) * arcRadius * 0.7 * this.facing,
-          y: spawnY + Math.sin(ang) * arcRadius * 0.7,
-          vx: this.facing * 80,
-          vy: Math.sin(ang) * 40,
-          size: 6,
+          x: spawnX + this.facing * Math.random() * 20,
+          y: spawnY + (Math.random() - 0.5) * 15,
+          vx: this.facing * (60 + Math.random() * 40),
+          vy: (Math.random() - 0.5) * 20,
+          size: 4,
           color: '#00E5FF',
-          life: 0.25,
+          life: 0.2,
           shape: 'spark'
         });
       }
     } 
     else if (this.id === 'shakira') {
       // ═════════════════════════════════════════════════════════════════════════
-      // 夏奇拉：蛋能雙彈 (Ranged Splash / Strictly NO melee hitbox)
-      // v9.5: 雙發分離蛋彈，直擊 28 (F2: 34), range 600px, splash 90px (F2: 100px), splash dmg 18, CD 0.42s
+      // 夏奇拉：蛋能雙彈 (Ranged Splash / True Ranged DPS)
+      // v9.7.1: 雙發分離蛋彈，直擊 38 dmg (三人最高小招), range 600px, splash 90px (20 dmg), CD 0.42s
       // ═════════════════════════════════════════════════════════════════════════
-      const isF2 = this.form2Active;
-      const charCooldown = this.charConfig.stats.skillCooldown || 0.42;
-      this.skillCooldown = charCooldown;
+      this.skillCooldown = this.charConfig.stats.skillCooldown || 0.42;
       this.isAttacking = true;
       this.attackTimer = 0.18;
       this.animState = 'attack';
       this.animTimer = 0;
       audio.playSkill(this.id);
 
-      const directDmg = isF2 ? 34 : 28;
-      const splashRad = isF2 ? 100 : 90;
+      const directDmg = 38;
+      const splashRad = 90;
       const offsets = [-16, 16]; // 上下分離，無近戰判定
       offsets.forEach((offsetY, idx) => {
         projectiles.spawn({
@@ -420,112 +336,61 @@ export class Player {
           vx: this.facing * 600,
           vy: 0,
           maxDistance: 600,
-          width: isF2 ? 34 : 26,
-          height: isF2 ? 28 : 20,
+          width: 28,
+          height: 22,
           damage: directDmg,
           splashRadius: splashRad,
-          splashDamage: 18,
+          splashDamage: 20,
           life: 1.1,
-          isMeleeArc: false // Strictly ranged
+          isMeleeArc: false,
+          knockback: true
         });
       });
     } 
     else {
       // ═════════════════════════════════════════════════════════════════════════
-      // 珊卓澎：爆炒上菜 (2-Stage Melee Combo / Knockback)
-      // v9.5: 一段 150px 110° arc, 72 dmg, 520px knockback, 70ms hitstop
-      // 0.32s 內再按接二段「翻鍋追擊」衝擊波 (290px 48 dmg, F2: 500px 88 dmg 貫穿)
+      // 珊卓澎：平底鍋揮舞・怒火鍋氣 (Hit-and-Run / Melee Arc)
+      // v9.7.1: 一段揮舞 160px 110° arc, 34 dmg (低傷害), 380px knockback, CD 0.38s
+      // 靠三人最快移速 (370) 游擊穿梭戰場
       // ═════════════════════════════════════════════════════════════════════════
-      const isF2 = this.form2Active;
+      this.skillCooldown = this.charConfig.stats.skillCooldown || 0.38;
+      this.hitstopTimer = 0.04;
+      this.isAttacking = true;
+      this.attackTimer = 0.16;
+      this.animState = 'attack';
+      this.animTimer = 0;
+      audio.playSkill(this.id);
 
-      if (this.comboStage === 1 && this.comboTimer > 0) {
-        // ── 二段：翻鍋追擊 (Ground shockwave) ──
-        this.comboStage = 0;
-        this.comboTimer = 0;
-        this.skillCooldown = 0.45;
-        this.isAttacking = true;
-        this.attackTimer = 0.22;
-        this.animState = 'attack';
-        this.animTimer = 0;
-        audio.playSkill(this.id);
+      projectiles.spawn({
+        id: 'sa_swing_' + Date.now(),
+        isPlayer: true,
+        type: 'pan_wave',
+        x: spawnX,
+        y: spawnY,
+        vx: this.facing * 500,
+        vy: 0,
+        maxDistance: 160,
+        width: 54,
+        height: 54,
+        damage: 34,
+        knockback: 380,
+        life: 0.16,
+        penetrating: true,
+        isMeleeArc: true
+      });
 
-        const waveRange = isF2 ? 500 : 290;
-        const waveDmg = isF2 ? 88 : 48;
-
-        projectiles.spawn({
-          id: 'sa_combo2_' + Date.now(),
-          isPlayer: true,
-          type: 'pan_wave',
-          x: spawnX,
-          y: this.y - 15,
-          vx: this.facing * 560,
-          vy: 0,
-          maxDistance: waveRange,
-          width: isF2 ? 72 : 56,
-          height: isF2 ? 60 : 44,
-          damage: waveDmg,
-          knockback: 380,
-          life: 0.55,
-          penetrating: isF2,
-          isGroundWave: true
+      // Flame swing arc particles & anger sparks
+      for (let i = 0; i < 8; i++) {
+        particles.emit({
+          x: spawnX + this.facing * Math.random() * 60,
+          y: spawnY + (Math.random() - 0.5) * 50,
+          vx: this.facing * 50,
+          vy: (Math.random() - 0.5) * 40,
+          size: 6,
+          color: Math.random() < 0.5 ? '#FF5722' : '#FFA726',
+          life: 0.25,
+          shape: 'spark'
         });
-
-        // Fiery ground particles
-        for (let i = 0; i < 12; i++) {
-          particles.emit({
-            x: spawnX + this.facing * i * 22,
-            y: this.y - 10,
-            vx: this.facing * 40,
-            vy: -Math.random() * 60 - 20,
-            size: 5,
-            color: '#FF5722',
-            life: 0.4,
-            shape: 'star'
-          });
-        }
-      } else {
-        // ── 一段：近戰揮擊 (Melee arc, 150px, 110°, 72 dmg, 520px knockback) ──
-        this.comboStage = 1;
-        this.comboTimer = 0.32; // 0.32s 內可接二段
-        this.skillCooldown = 0.12; // 暫時冷卻，等待接段
-        this.hitstopTimer = 0.07; // 70ms hitstop
-        this.isAttacking = true;
-        this.attackTimer = 0.18;
-        this.animState = 'attack';
-        this.animTimer = 0;
-        audio.playSkill(this.id);
-
-        projectiles.spawn({
-          id: 'sa_combo1_' + Date.now(),
-          isPlayer: true,
-          type: 'pan_wave',
-          x: spawnX,
-          y: spawnY,
-          vx: this.facing * 480,
-          vy: 0,
-          maxDistance: 150,
-          width: isF2 ? 68 : 52,
-          height: isF2 ? 68 : 52,
-          damage: 72,
-          knockback: 520,
-          life: 0.15,
-          penetrating: true,
-          isMeleeArc: true
-        });
-
-        // Flame swing arc particles
-        for (let i = 0; i < 8; i++) {
-          particles.emit({
-            x: spawnX + this.facing * Math.random() * 80,
-            y: spawnY + (Math.random() - 0.5) * 60,
-            vx: this.facing * 60,
-            vy: (Math.random() - 0.5) * 50,
-            size: 6,
-            color: '#FFA726',
-            life: 0.3,
-            shape: 'spark'
-          });
-        }
       }
     }
   }
@@ -550,16 +415,14 @@ export class Player {
     audio.playUltRelease(this.id);
     projectiles.clearEnemyProjectiles(); // 清屏消除敵彈
 
-    const isF2 = this.form2Active;
-
     if (this.id === 'yu') {
       // ═════════════════════════════════════════════════════════════════════════
-      // 禹志晨大招：760px 貫穿走廊 (180px 高風壓 corridor)，多段穿透，per-target hit cooldown，1.3s 無敵
+      // 禹志晨大招：760px 貫穿走廊 (180px 高風壓 corridor)，多段穿透，304 傷害
       // ═════════════════════════════════════════════════════════════════════════
       this.vx = this.facing * 850;
       const corridorLength = 760;
-      const bladeCount = isF2 ? 10 : 8;
-      const bladeDmg = isF2 ? 46 : 38;
+      const bladeCount = 8;
+      const bladeDmg = 38; // 8 * 38 = 304 dmg
       for (let i = 0; i < bladeCount; i++) {
         projectiles.spawn({
           id: 'yu_ult_' + i + '_' + Date.now(),
@@ -570,8 +433,8 @@ export class Player {
           vx: this.facing * (550 + i * 25),
           vy: (Math.random() - 0.5) * 30,
           maxDistance: corridorLength,
-          width: isF2 ? 60 : 48,
-          height: isF2 ? 60 : 48,
+          width: 48,
+          height: 48,
           damage: bladeDmg,
           life: 0.85,
           penetrating: true,
@@ -582,11 +445,10 @@ export class Player {
     } 
     else if (this.id === 'shakira') {
       // ═════════════════════════════════════════════════════════════════════════
-      // 夏奇拉大招：半徑 500px 固定戰區，14 顆流星蛋雨 (各 30 dmg)，回復 30/40 HP
-      // 500px 戰區外完全不可被命中
+      // 夏奇拉大招：半徑 500px 固定戰區，14 顆流星蛋雨 (各 30 dmg = 420 dmg)，回復 30 HP
       // ═════════════════════════════════════════════════════════════════════════
-      this.addHp(isF2 ? 40 : 30);
-      this.shieldTimer = isF2 ? 4.0 : 3.0;
+      this.addHp(30);
+      this.shieldTimer = 3.0;
       this.ultZoneCenterX = this.x; // 鎖定當前施放戰區中心
       const eggCount = 14;
       const eggDmg = 30;
@@ -614,8 +476,7 @@ export class Player {
     } 
     else {
       // ═════════════════════════════════════════════════════════════════════════
-      // 珊卓澎大招：主廚旋風鍋，核心吸附 350px，14 道鍋氣 max range 420px (各 30 dmg)
-      // Boss 只受輕微 pull
+      // 珊卓澎大招：主廚旋風鍋，核心吸附 350px，14 道鍋氣 max range 420px (各 30 dmg = 420 dmg)
       // ═════════════════════════════════════════════════════════════════════════
       this.pullEnemiesInZone(350);
       const waveCount = 14;
@@ -631,27 +492,10 @@ export class Player {
           vx: Math.cos(ang) * 520,
           vy: Math.sin(ang) * 520,
           maxDistance: 420,
-          width: isF2 ? 56 : 42,
-          height: isF2 ? 56 : 42,
+          width: 42,
+          height: 42,
           damage: waveDmg,
           life: 0.75,
-          penetrating: true
-        });
-      }
-      if (isF2) {
-        projectiles.spawn({
-          id: 'sa_ult_dragon_' + Date.now(),
-          isPlayer: true,
-          type: 'pan_wave',
-          x: this.x + this.facing * 50,
-          y: this.y - 40,
-          vx: this.facing * 580,
-          vy: 0,
-          maxDistance: 500,
-          width: 80,
-          height: 80,
-          damage: 85,
-          life: 0.85,
           penetrating: true
         });
       }
@@ -672,16 +516,6 @@ export class Player {
     if (g.boss && !g.boss.isDead && Math.hypot(g.boss.x - this.x, g.boss.y - this.y) < radius) {
       g.boss.x += (this.x - g.boss.x) * 0.05; // Boss only slightly pulled
     }
-  }
-
-  getMayoOrbsWorld() {
-    if (!this.form2Active || !this.mayoOrbs || this.mayoOrbs.length === 0) return [];
-    const radius = 75; // 嚴格 75px 環繞半徑
-    return this.mayoOrbs.map(orb => ({
-      x: this.x + Math.cos(orb.angle) * radius,
-      y: (this.y - 40) + Math.sin(orb.angle) * radius,
-      radius: 14
-    }));
   }
 
   update(dt, input, platforms) {
@@ -777,6 +611,7 @@ export class Player {
         if (this.ultTimer <= 0) {
           this.ultPhase = 'RECOVERY';
           this.ultRecoveryTimer = 0.15;
+          this.invulnerableTimer = 0; // v9.7.1: return immediately to normal damage detection once gameplay resumes
         }
       } else if (this.ultPhase === 'RECOVERY') {
         this.ultRecoveryTimer -= dt;
@@ -1064,37 +899,6 @@ export class Player {
       offsetX, offsetY, drawW, drawH
     );
 
-    // Form 2 Awakened Aura
-    if (this.form2Active) {
-      const time = performance.now() * 0.005;
-      const pulse = 1 + Math.sin(time) * 0.12;
-      ctx.save();
-      ctx.globalAlpha = 0.5 + Math.sin(time * 2) * 0.2;
-      if (this.id === 'yu') {
-        // Cyan tactical energy rings
-        ctx.strokeStyle = '#00E5FF';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(0, -42, 38 * pulse, 52 * pulse, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      } else if (this.id === 'shakira') {
-        // Golden dawn light aura
-        ctx.strokeStyle = '#FFD54F';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(0, -42, 40 * pulse, 50 * pulse, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      } else {
-        // Sandra flaming aura
-        ctx.strokeStyle = '#FF5722';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.ellipse(0, -42, 42 * pulse, 54 * pulse, 0, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-
     // Shakira active shield bubble
     if (this.shieldTimer > 0) {
       ctx.strokeStyle = 'rgba(206, 147, 216, 0.85)';
@@ -1104,29 +908,6 @@ export class Player {
       ctx.arc(0, -45, 55, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-    }
-
-    // Shakira Form 2 Orbiting Mayo Orbs
-    if (this.form2Active && this.mayoOrbs && this.mayoOrbs.length > 0) {
-      ctx.save();
-      for (let orb of this.mayoOrbs) {
-        const ox = Math.cos(orb.angle) * 55;
-        const oy = -42 + Math.sin(orb.angle) * 55;
-        // Outer white egg white
-        ctx.fillStyle = '#FFFFFF';
-        ctx.beginPath();
-        ctx.arc(ox, oy, 11, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#FFD54F';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        // Inner golden yolk
-        ctx.fillStyle = '#FFA000';
-        ctx.beginPath();
-        ctx.arc(ox, oy, 6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
     }
 
     // v9.6: Ultimate Wind-up Visual Aura (Character-Specific High-Energy Charge)

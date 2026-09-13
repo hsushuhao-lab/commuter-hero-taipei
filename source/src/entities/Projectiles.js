@@ -123,6 +123,21 @@ export class ProjectileManager {
         ctx.closePath();
         ctx.fill();
       } 
+      else if (p.type === 'umbrella_bullet') {
+        // Needle wind bullet from umbrella machine gun
+        ctx.fillStyle = '#00E5FF';
+        ctx.shadowColor = '#0288D1';
+        ctx.shadowBlur = 8;
+        const dir = p.vx >= 0 ? 1 : -1;
+        ctx.scale(dir, 1);
+        ctx.beginPath();
+        ctx.moveTo(p.width * 0.5, 0);
+        ctx.lineTo(-p.width * 0.5, -p.height * 0.4);
+        ctx.lineTo(-p.width * 0.2, 0);
+        ctx.lineTo(-p.width * 0.5, p.height * 0.4);
+        ctx.closePath();
+        ctx.fill();
+      }
       else if (p.type === 'egg') {
         // Golden soft boiled egg bullet
         ctx.fillStyle = '#FFFDE7';

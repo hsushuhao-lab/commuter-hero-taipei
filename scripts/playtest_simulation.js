@@ -184,26 +184,31 @@ testAssert('Coffee heals 25 HP (cap maxHp), removes speed buff, and shows HP FUL
   assert.strictEqual(player.invulnerableTimer, 0, 'Full HP coffee strictly grants no invulnerability buff');
 });
 
-// 5. Hero Skills Physical Ranges, Arcs, Deflect, and Cooldowns (v9.5.0)
+// 5. Hero Skills Physical Ranges, Arcs, Deflect, and Cooldowns (v9.7.1)
 testAssert('All 3 Heroes have calibrated physical ranges, arcs, deflect radii, and cooldowns', () => {
   const yu = CHARACTERS.yu;
   const shakira = CHARACTERS.shakira;
   const sandra = CHARACTERS.sandra;
 
-  assert.strictEqual(yu.skill.range, 210);
-  assert.strictEqual(yu.skill.arcAngle, 95);
-  assert.strictEqual(yu.skill.deflectRadius, 230);
-  assert.strictEqual(yu.skill.cooldown, 0.32);
+  // Speed order: Sandra (370) > Shakira (345) > Yu (320)
+  assert.strictEqual(sandra.stats.speed, 370);
+  assert.strictEqual(shakira.stats.speed, 345);
+  assert.strictEqual(yu.stats.speed, 320);
 
+  // Yu Umbrella Machine Gun
+  assert.strictEqual(yu.skill.range, 480);
+  assert.strictEqual(yu.skill.cooldown, 0.16);
+  assert.strictEqual(yu.skill.deflectRadius, 180);
+
+  // Shakira Mayo Egg Projectile
   assert.strictEqual(shakira.skill.range, 600);
   assert.strictEqual(shakira.skill.splashRadius, 90);
   assert.strictEqual(shakira.skill.cooldown, 0.42);
 
-  assert.strictEqual(sandra.skill.meleeRange, 150);
-  assert.strictEqual(sandra.skill.combo2Range, 290);
+  // Sandra Flame Pan Swing
+  assert.strictEqual(sandra.skill.range, 160);
   assert.strictEqual(sandra.skill.fanAngle, 110);
-  assert.strictEqual(sandra.skill.cooldown, 0.45);
-  assert.strictEqual(sandra.skill.comboWindow, 0.32);
+  assert.strictEqual(sandra.skill.cooldown, 0.38);
 });
 
 // 6. Yu Ult Specs (v9.5.0: 760px Corridor, 1.3s invulnerable, CD 7.0s)
@@ -215,20 +220,17 @@ testAssert('Yu Ult: Max rush 760px corridor, invulnerable 1.3s, CD 7.0s', () => 
   assert.strictEqual(yu.ult.cooldown, 7.0);
 });
 
-// 7. Shakira Ult Specs (v9.5.0: 500px Zone radius, 30 HP heal, CD 8.0s)
-testAssert('Shakira Ult: Zone radius 500px, 30 HP heal, CD 8.0s', () => {
+// 7. Shakira Ult Specs & Form 2 Complete Removal (v9.7.1)
+testAssert('Shakira Ult: Zone radius 500px, 30 HP heal, CD 8.0s, Form 2 removed', () => {
   const shakira = CHARACTERS.shakira;
   assert.strictEqual(shakira.ult.zoneRadius, 500);
   assert.strictEqual(shakira.ult.heal, 30);
   assert.strictEqual(shakira.ult.cooldown, 8.0);
   
-  // Shakira Mayo Orbs orbit radius strictly 75px
+  // Rule 1 & Rule 14: Hero has NO Form 2
   const player = new Player('shakira');
-  player.awakenForm2();
-  const orbs = player.getMayoOrbsWorld();
-  assert.strictEqual(orbs.length, 3);
-  const orbDist = Math.hypot(orbs[0].x - player.x, orbs[0].y - (player.y - 35));
-  assert(Math.abs(orbDist - 75) < 1.0, `Mayo Orb distance should be 75px, got ${orbDist}`);
+  assert.strictEqual(player.awakenForm2, undefined, 'player.awakenForm2 must be removed');
+  assert.strictEqual(player.form2Active, undefined, 'player.form2Active must be removed');
 });
 
 // 8. Sandra Ult Specs (v9.5.0: Cyclone core radius 350px, gust range 420px, CD 8.2s)
@@ -256,20 +258,20 @@ testAssert('Monster 3D distribution across ground, high brick, and slope platfor
   }
 });
 
-// 10. Boss Arena Continuity, Projectile Clamping & v9.6 True Two-Phase Upgrade
-testAssert('Boss v9.6: P1 HP=2800, P2 HP=3600, Transform=2.8s, Arena floor continuous', () => {
+// 10. Boss Arena Continuity, Projectile Clamping & v9.7.1 True Two-Phase Upgrade
+testAssert('Boss v9.7.1: P1 HP=3600, P2 HP=5200, Transform=2.8s, Arena floor continuous', () => {
   const pm = new PlatformManager();
   const level = new Level(pm);
   assert.strictEqual(BOSS_CONFIG.arena.startX, 14800);
   assert.strictEqual(BOSS_CONFIG.arena.endX, 16500);
   assert.strictEqual(BOSS_CONFIG.arena.width, 1700);
-  // v9.6 HP checks
-  assert.strictEqual(BOSS_CONFIG.phase1Hp, 2800, `Expected phase1Hp=2800, got ${BOSS_CONFIG.phase1Hp}`);
-  assert.strictEqual(BOSS_CONFIG.phase2Hp, 3600, `Expected phase2Hp=3600, got ${BOSS_CONFIG.phase2Hp}`);
+  // v9.7.1 HP checks
+  assert.strictEqual(BOSS_CONFIG.phase1Hp, 3600, `Expected phase1Hp=3600, got ${BOSS_CONFIG.phase1Hp}`);
+  assert.strictEqual(BOSS_CONFIG.phase2Hp, 5200, `Expected phase2Hp=5200, got ${BOSS_CONFIG.phase2Hp}`);
   assert.strictEqual(BOSS_CONFIG.transformDuration, 2.8, `Expected transformDuration=2.8, got ${BOSS_CONFIG.transformDuration}`);
   assert(BOSS_CONFIG.antiFacetank, 'antiFacetank config must exist');
-  assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveDamage, 18);
-  assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveKnockback, 250);
+  assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveDamage, 24);
+  assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveKnockback, 280);
   assert(BOSS_CONFIG.phase1.petalCount >= 9, `Phase1 petal count must be >= 9, got ${BOSS_CONFIG.phase1.petalCount}`);
 
   // Check arena floor continuity: no gaps between 14800 and 16500

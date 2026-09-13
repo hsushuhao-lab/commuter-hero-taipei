@@ -66,17 +66,17 @@ export class Monster {
     this.image = this.imageP1;
 
     if (this.config.phase2) {
-      this.attackDamage = this.config.phase2.attackDamage || Math.round(this.config.attackDamage * 1.45);
-      this.attackCooldown = this.config.phase2.attackCooldown || (this.config.attackCooldown * 0.78);
+      this.attackDamage = this.config.phase2.attackDamage;
+      this.attackCooldown = this.config.phase2.attackCooldown;
     } else {
-      this.attackDamage = Math.round(this.config.attackDamage * 1.45);
-      this.attackCooldown = this.config.attackCooldown * 0.78;
+      this.attackDamage = this.config.attackDamage * 2;
+      this.attackCooldown = this.config.attackCooldown * 0.5;
     }
-    this.telegraphDuration = Math.max(0.32, (this.config.telegraphDuration || 0.40) * 0.85);
+    this.telegraphDuration = Math.max(0.30, (this.config.telegraphDuration || 0.40) * 0.85);
 
     particles.emitHitSparks(this.x, this.y - 20, '#FFD700', 16);
     particles.emitHitSparks(this.x, this.y - 20, this.config.color, 14);
-    particles.emitFloatingText(this.x, this.y - 45, '⚡ ATK PHASE 2', this.config.color);
+    particles.emitFloatingText(this.x, this.y - 45, '⚡ PREDATOR HUNT', this.config.color);
   }
 
   evolveToPhase2() {
@@ -113,7 +113,7 @@ export class Monster {
       }
     }
 
-    // 30 金幣觸發怪獸二階段全體進化 (Commuter Resonance)
+    // 30 金幣觸發怪獸二階段全體進化 (Predator Mode)
     if (player.coins >= 30 && !this.isPhase2) {
       this.evolveToPhase2();
     }
@@ -122,12 +122,45 @@ export class Monster {
     if (this.hitTimer > 0) this.hitTimer -= dt;
     if (this.turnaroundTimer > 0) this.turnaroundTimer -= dt;
 
-    // Face player unless currently turning around from edge/boundary
-    if (this.turnaroundTimer <= 0) {
-      this.facing = player.x < this.x ? -1 : 1;
+    const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+    const distFromOrigin = Math.abs(this.x - this.originX);
+
+    // ── PHASE 1: AGGRO LEASH (Threatening but Avoidable) ──
+    // If player runs away (>550px) or monster is pulled far (>650px), drop aggro & return home!
+    let hasAggro = true;
+    if (this.attackPhase === 1) {
+      if (distToPlayer > 520 || distFromOrigin > 600 || (player.x - this.x) > 220) {
+        hasAggro = false;
+        if (this.isTelegraphing) {
+          this.isTelegraphing = false;
+          this.telegraphTimer = 0;
+        }
+      }
     }
 
-    const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+    // Facing direction
+    if (this.turnaroundTimer <= 0) {
+      if (hasAggro) {
+        // In Phase 2, interceptors predict player position
+        if (this.attackPhase === 2 && ['blue', 'red', 'pink', 'obsidian'].includes(this.typeKey)) {
+          const predictionTime = 0.45;
+          const predictedX = player.x + (player.vx || 0) * predictionTime;
+          const targetX = (this.typeKey === 'blue' || this.typeKey === 'obsidian') ? predictedX : player.x;
+          if (Math.abs(targetX - this.x) > 15) {
+            this.facing = targetX < this.x ? -1 : 1;
+          }
+        } else {
+          if (Math.abs(player.x - this.x) > 10) {
+            this.facing = player.x < this.x ? -1 : 1;
+          }
+        }
+      } else {
+        // Return towards origin
+        if (distFromOrigin > 25) {
+          this.facing = this.originX < this.x ? -1 : 1;
+        }
+      }
+    }
 
     // Sky drop descent behavior
     if (this.isSkyDrop && this.y < this.originY) {
@@ -140,6 +173,31 @@ export class Monster {
       }
     }
 
+    // ── Phase 2 Tactical Re-entry ──
+    if (this.reentryCooldown > 0) this.reentryCooldown -= dt;
+    // When active chasing predator from current encounter zone falls behind off-screen, re-enter from screen edge (max 2 times, 5s CD)
+    if (this.attackPhase === 2 && (this.isPursuer || Math.abs(this.originX - player.x) < 1400)) {
+      if ((!this.reentryCooldown || this.reentryCooldown <= 0) && (this.reentryCount || 0) < 2 && player.x - this.x > 850 && player.x - this.x < 1300) {
+        this.reentryCount = (this.reentryCount || 0) + 1;
+        this.reentryCooldown = 5.0;
+        this.x = player.x - 620;
+        particles.emitDust(this.x, this.y, 12, this.config.color);
+      }
+    }
+
+    // Movement calculation
+    let targetSpeed = this.speed;
+    if (this.attackPhase === 1) {
+      // Phase 1 chase speed is below/near player forward speed (0.75x)
+      targetSpeed = this.speed * 0.75;
+    } else {
+      // Phase 2 catch-up acceleration
+      let catchUpMult = 1.15;
+      if (distToPlayer > 350) catchUpMult = 1.30;
+      if (distToPlayer > 550) catchUpMult = 1.45;
+      targetSpeed = this.speed * catchUpMult;
+    }
+
     // Patrol / Float behavior
     if (this.typeKey === 'transit') {
       this.vx = 0;
@@ -147,29 +205,33 @@ export class Monster {
       // Sinusoidal floating
       const targetBaseY = this.isSkyDrop && this.y < this.originY ? this.y : this.originY;
       this.y = targetBaseY + Math.sin(this.bobTimer) * 22;
-      if (distToPlayer < 700 && !this.isTelegraphing) {
-        this.vx = this.facing * this.speed * 0.75;
+      if (hasAggro && !this.isTelegraphing) {
+        this.vx = this.facing * targetSpeed;
+      } else if (!hasAggro && distFromOrigin > 25) {
+        this.vx = this.facing * this.speed * 0.5;
       } else {
         this.vx = 0;
       }
     } else {
       // Ground patrol
-      if ((distToPlayer < 650 || this.turnaroundTimer > 0) && !this.isTelegraphing) {
-        this.vx = this.facing * this.speed;
+      if (hasAggro && !this.isTelegraphing) {
+        this.vx = this.facing * targetSpeed;
+      } else if (!hasAggro && distFromOrigin > 25) {
+        this.vx = this.facing * this.speed * 0.5;
       } else {
         this.vx = 0;
       }
 
-      // Patrol bounds check
-      if (this.patrolBounds) {
+      // Patrol bounds check (only active if returning or patrolling without aggro)
+      if (this.patrolBounds && !hasAggro) {
         if (this.x <= this.patrolBounds.minX && this.vx <= 0) {
           this.facing = 1;
-          this.vx = this.speed;
+          this.vx = this.speed * 0.5;
           this.x = this.patrolBounds.minX;
           this.turnaroundTimer = 0.8;
         } else if (this.x >= this.patrolBounds.maxX && this.vx >= 0) {
           this.facing = -1;
-          this.vx = -this.speed;
+          this.vx = -this.speed * 0.5;
           this.x = this.patrolBounds.maxX;
           this.turnaroundTimer = 0.8;
         }
@@ -185,7 +247,7 @@ export class Monster {
         );
         if (!hasFloorAhead) {
           this.facing = -this.facing;
-          this.vx = this.facing * this.speed;
+          this.vx = this.facing * targetSpeed * 0.5;
           this.turnaroundTimer = 0.8;
         }
       }
@@ -204,7 +266,8 @@ export class Monster {
     }
 
     // Handle Attack & Telegraph (screen-visible range, no offscreen snipes)
-    if (distToPlayer < 650) {
+    const attackRange = this.attackPhase === 2 ? 680 : 500;
+    if (hasAggro && distToPlayer < attackRange) {
       if (this.isTelegraphing) {
         this.telegraphTimer += dt;
         if (this.telegraphTimer >= this.telegraphDuration) {
@@ -221,6 +284,8 @@ export class Monster {
           audio.playTelegraph();
         }
       }
+    } else {
+      this.isTelegraphing = false;
     }
   }
 
@@ -241,7 +306,7 @@ export class Monster {
         y: spawnY,
         vx: dir * (isP2 ? 620 : 520),
         vy: 0,
-        maxDistance: 650,
+        maxDistance: isP2 ? 650 : 380,
         width: isP2 ? 36 : 32,
         height: 14,
         color: '#FF5252',
@@ -285,7 +350,7 @@ export class Monster {
             y: this.y,
             vx: d * 340,
             vy: 0,
-            maxDistance: 450,
+            maxDistance: 350,
             width: 42,
             height: 28,
             color: '#40C4FF',
@@ -325,7 +390,7 @@ export class Monster {
           y: spawnY - 10,
           vx: dir * (180 + idx * 35),
           vy: vy,
-          maxDistance: 520,
+          maxDistance: isP2 ? 520 : 360,
           width: isP2 ? 26 : 22,
           height: isP2 ? 26 : 22,
           color: isP2 ? '#7B1FA2' : '#BA68C8',
@@ -349,7 +414,7 @@ export class Monster {
           y: spawnY + yo,
           vx: dir * (isP2 ? 620 : 550),
           vy: yo * 2,
-          maxDistance: 580,
+          maxDistance: isP2 ? 580 : 360,
           width: isP2 ? 38 : 32,
           height: 24,
           color: '#00E5FF',
@@ -394,7 +459,7 @@ export class Monster {
             y: spawnY,
             vx: dir * 340,
             vy: i * 80,
-            maxDistance: 500,
+            maxDistance: 350,
             width: 24,
             height: 16,
             color: '#FFD700',
@@ -437,7 +502,7 @@ export class Monster {
         y: this.y,
         vx: dir * (isP2 ? 320 : 260),
         vy: 0,
-        maxDistance: isP2 ? 520 : 450,
+        maxDistance: isP2 ? 520 : 360,
         width: isP2 ? 68 : 56,
         height: 48,
         color: '#3949AB',
@@ -480,7 +545,7 @@ export class Monster {
           y: spawnY + i * 8,
           vx: dir * (240 + i * 40),
           vy: 300 + i * 20,
-          maxDistance: 480,
+          maxDistance: isP2 ? 480 : 350,
           width: isP2 ? 30 : 26,
           height: isP2 ? 30 : 26,
           color: isP2 ? '#F50057' : '#FF80AB',

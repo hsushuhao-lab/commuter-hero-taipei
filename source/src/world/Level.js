@@ -205,7 +205,7 @@ export class Level {
     this.pm.addPlatform(2400, 370, 180, 24, 'brick');
     this.pm.addPlatform(2700, 440, 180, 24, 'brick');
 
-    // S1 Collectibles: 20 Coins + 4 Coffee (None in Gap 1: 1800~1940)
+    // S1 Collectibles: 20 Coins + 2 Coffee (Coffee only on jump platforms)
     [220, 410, 630, 900, 1160, 1430, 1650, 2000, 2250, 2530, 2810, 2980, 3150, 3300, 3450].forEach(cx => {
       this.pm.addItem('coin', cx, groundY - 35);
     });
@@ -215,9 +215,9 @@ export class Level {
     this.pm.addItem('coin', 2100, 400);
     this.pm.addItem('coin', 2700, 400);
 
-    // S1 Coffee (reduced to 2 cups)
-    this.pm.addItem('coffee', 1050, groundY - 35);
-    this.pm.addItem('coffee', 2400, groundY - 35);
+    // S1 Coffee (reduced to 2 cups; both require an active jump)
+    this.pm.addItem('coffee', 1050, 390);
+    this.pm.addItem('coffee', 2400, 330);
 
     // S1 Monsters
     this.spawnMonsterOnGround('red', 500);
@@ -243,7 +243,7 @@ export class Level {
     this.pm.addPlatform(5900, 430, 180, 24, 'brick');
     this.pm.addPlatform(6100, 360, 140, 24, 'brick');
 
-    // S2 Collectibles: 20 Coins + 5 Coffee (None in Gaps: 4850~5010, 6250~6425)
+    // S2 Collectibles: 20 Coins + 3 Coffee (Coffee only on jump platforms)
     [3620, 3850, 4080, 4310, 4540, 4750, 5050, 5250, 5480, 5700, 5950, 6180, 6460, 6680, 6880].forEach(cx => {
       this.pm.addItem('coin', cx, groundY - 35);
     });
@@ -253,10 +253,10 @@ export class Level {
     this.pm.addItem('coin', 5900, 390);
     this.pm.addItem('coin', 6100, 320);
 
-    // S2 Coffee (reduced to 3 cups)
-    this.pm.addItem('coffee', 4100, groundY - 35);
-    this.pm.addItem('coffee', 5550, groundY - 35);
-    this.pm.addItem('coffee', 6750, groundY - 35);
+    // S2 Coffee (reduced to 3 cups; all require an active jump)
+    this.pm.addItem('coffee', 4100, 320);
+    this.pm.addItem('coffee', 5550, 320);
+    this.pm.addItem('coffee', 6200, 320);
 
     // S2 Monsters
     this.spawnMonsterOnGround('grape', 3700);
@@ -281,7 +281,7 @@ export class Level {
     this.pm.addPlatform(9980, 440, 170, 24, 'brick');
     this.pm.addPlatform(10220, 370, 170, 24, 'brick');
 
-    // S3 Collectibles: 20 Coins + 3 Coffee (None in Gaps: 8200~8385, 9750~9945)
+    // S3 Collectibles: 20 Coins + 3 Coffee (Coffee only on jump platforms)
     [7120, 7350, 7580, 7810, 8100, 8420, 8650, 8880, 9150, 9350, 9550, 9700, 9980, 10180, 10380].forEach(cx => {
       this.pm.addItem('coin', cx, groundY - 35);
     });
@@ -291,10 +291,10 @@ export class Level {
     this.pm.addItem('coin', 9980, 400);
     this.pm.addItem('coin', 10220, 330);
 
-    // S3 Coffee (reduced to 3 cups)
-    this.pm.addItem('coffee', 7550, groundY - 35);
-    this.pm.addItem('coffee', 8700, groundY - 35);
-    this.pm.addItem('coffee', 9400, groundY - 35);
+    // S3 Coffee (reduced to 3 cups; all require an active jump)
+    this.pm.addItem('coffee', 7550, 320);
+    this.pm.addItem('coffee', 8550, 400);
+    this.pm.addItem('coffee', 8850, 320);
 
     // S3 Monsters
     this.spawnMonsterOnGround('ice', 7350);
@@ -320,7 +320,7 @@ export class Level {
     this.pm.addPlatform(12680, 360, 180, 24, 'brick');
     this.pm.addPlatform(13000, 430, 180, 24, 'brick');
 
-    // S4 Collectibles: 20 Coins + 2 Coffee (None in Gap 6: 11950~12160)
+    // S4 Collectibles: 20 Coins + 2 Coffee (Coffee only on jump platforms)
     [10620, 10850, 11080, 11310, 11540, 11770, 11900, 12200, 12450, 12700, 12950, 13200, 13450, 13680, 13900].forEach(cx => {
       this.pm.addItem('coin', cx, groundY - 35);
     });
@@ -330,9 +330,9 @@ export class Level {
     this.pm.addItem('coin', 12350, 390);
     this.pm.addItem('coin', 13000, 390);
 
-    // S4 Coffee (reduced to 2 cups)
-    this.pm.addItem('coffee', 11150, groundY - 35);
-    this.pm.addItem('coffee', 13900, groundY - 35);
+    // S4 Coffee (reduced to 2 cups; both require an active jump)
+    this.pm.addItem('coffee', 11050, 340);
+    this.pm.addItem('coffee', 12680, 320);
 
     // S4 Monsters
     this.spawnMonsterOnGround('obsidian', 10800);
@@ -356,7 +356,7 @@ export class Level {
     this.pm.addPlatform(14700, 430, 170, 24, 'brick');
 
     this.pm.addItem('coin', 14200, 390);
-    this.pm.addItem('coffee', 14480, groundY - 35);
+    this.pm.addItem('coffee', 14460, 320);
     this.pm.addItem('coin', 14720, 380);
     this.pm.addItem('coin', 14180, 400);  // extra platform coin
 
@@ -369,7 +369,7 @@ export class Level {
     this.pm.addPlatform(15150, 410, 180, 24, 'brick');
     this.pm.addPlatform(15650, 340, 180, 24, 'brick');
     this.pm.addPlatform(16150, 410, 180, 24, 'brick');
-    this.pm.addItem('coffee', 15650, 290);
+    this.pm.addItem('coffee', 15650, 300);
     this.pm.addItem('coin', 16150, 370);    // extra coin on far platform
 
     // 5.3 ★ 松德醫院挑高大廳・最終打卡點 (16500 ~ 18000) ★
@@ -378,7 +378,7 @@ export class Level {
     this.pm.addPlatform(17350, 440, 180, 24, 'brick');
 
     this.pm.addItem('coin', 16780, 390);
-    this.pm.addItem('coffee', 17080, groundY - 35);
+    this.pm.addItem('coffee', 17050, 330);
     this.pm.addItem('coin', 17380, 390);
     this.pm.addItem('coin', 16600, groundY - 35);   // corridor coin
 

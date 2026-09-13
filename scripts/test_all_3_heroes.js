@@ -53,7 +53,7 @@ const CG = window.CommuterGame;
 const { Game, input, hud, projectiles, particles } = CG;
 
 console.log('================================================================');
-console.log('=== COMMUTER HERO v9.7.1 - 3-HERO FULL END-TO-END VERIFICATION ===');
+console.log('=== COMMUTER HERO v9.7.2 - 3-HERO FULL END-TO-END VERIFICATION ===');
 console.log('================================================================\n');
 
 const heroes = ['yu', 'shakira', 'sandra'];

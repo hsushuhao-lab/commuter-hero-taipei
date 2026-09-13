@@ -40,7 +40,11 @@ eval(scriptMatch[1]);
 const { Game } = window.CommuterGame;
 const game = new Game();
 game.startGame();
-game.player.coins = 30;
+game.player.hp = 37;
+game.player.addCoins(30);
+assert.strictEqual(game.player.resonancePhase, 2, '30 coins must trigger Hero Resonance Phase II once');
+assert.strictEqual(game.player.maxHp, 200, 'Yu Hero Phase II max HP must be 200');
+assert.strictEqual(game.player.hp, 137, 'Hero Phase II must add old max HP, not full-heal');
 game.level.triggerPhase2Predator(game.player);
 
 assert(game.level.monsters.length > 0, 'Phase 2 must have active monsters');

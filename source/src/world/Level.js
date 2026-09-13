@@ -423,13 +423,6 @@ export class Level {
   triggerPhase2Predator(player) {
     this.phase2PredatorTriggered = true;
 
-    // Transition all currently spawned monsters to attackPhase = 2
-    for (let m of this.monsters) {
-      if (!m.isDead) {
-        m.attackPhase = 2;
-      }
-    }
-
     // Spawn Phase 2 Predator Reinforcements (Flanking, Rear, Air, Snipers, Interceptors)
     // Rear pursuers: spawn behind player to prevent easy continuous retreat
     const rearX = Math.max(100, player.x - 420);
@@ -460,9 +453,9 @@ export class Level {
     this.spawnMonsterOnGround('ice', 14500);
     this.spawnFlyingMonster('grape', 14650, 210);
 
-    // Ensure all monsters are in attackPhase = 2
+    // Apply one authoritative transition after all existing and reinforcement monsters exist.
     for (let m of this.monsters) {
-      m.attackPhase = 2;
+      if (!m.isDead) m.triggerAttackPhase2();
     }
   }
 

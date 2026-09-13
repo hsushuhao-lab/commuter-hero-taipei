@@ -22,7 +22,7 @@ export class StyleBibleUI {
       '版本紀錄 (Release)'
     ];
 
-    // Preload art bible sheets 00 ~ 07
+    // Preload art bible sheets 00 ~ 12
     this.artSheetImgs = [];
     this.artSheetTitles = [
       'Sheet 00: 封面重製與美術企劃總攬',
@@ -32,12 +32,17 @@ export class StyleBibleUI {
       'Sheet 04: 怪獸二階段進化 (烈焰紅苗 / 激流藍葉王 / 極凍冰花怪)',
       'Sheet 05: 怪獸二階段進化 (魅影葡後 / 耀陽金花聖使 / 玄曜晶晶泰坦)',
       'Sheet 06: 第八怪獸「車票幽靈 / 悠遊卡寄靈」',
-      'Sheet 07: 終點站「松德醫院挑高大廳打卡機與雙階段魔王」'
+      'Sheet 07: 終點站「松德醫院挑高大廳打卡機與雙階段魔王」',
+      'Sheet 08: 禹志晨 大招前搖設定稿 (冷靜逆風展傘・風場疾行)',
+      'Sheet 09: 夏奇拉 大招前搖設定稿 (元氣蛋浪召喚・星雨爆發)',
+      'Sheet 10: 珊卓澎 大招前搖設定稿 (主廚料理旋風・海鸚風暴)',
+      'Sheet 11: 夢影巨花王 最終 Boss 重製設定稿 (夢境安撫態 ➔ 狂暴盛開態)',
+      'Sheet 12: 怪獸戰鬥設定圖鑑 (取消外觀二階・攻擊階段 1 / 2 強化)'
     ];
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 13; i++) {
       const img = new Image();
-      img.src = `assets/art_bible_0${i}.jpg`;
+      img.src = `assets/art_bible_${String(i).padStart(2, '0')}.jpg`;
       this.artSheetImgs.push(img);
     }
   }
@@ -51,11 +56,11 @@ export class StyleBibleUI {
   }
 
   nextSheet() {
-    this.selectedArtSheet = (this.selectedArtSheet + 1) % 8;
+    this.selectedArtSheet = (this.selectedArtSheet + 1) % 13;
   }
 
   prevSheet() {
-    this.selectedArtSheet = (this.selectedArtSheet + 7) % 8;
+    this.selectedArtSheet = (this.selectedArtSheet + 12) % 13;
   }
 
   render(ctx, vw, vh) {
@@ -253,13 +258,13 @@ export class StyleBibleUI {
       ctx.fillText('美術設計圖載入中...', previewX + previewW / 2 - 60, previewY + previewH / 2);
     }
 
-    // Right Thumbnails list (00 ~ 07)
-    const thumbX = x + previewW + 15;
-    const thumbW = 150;
-    const thumbH = Math.floor((previewH - 7 * 6) / 8);
+    // Right Thumbnails list (00 ~ 12)
+    const thumbX = x + previewW + 10;
+    const thumbW = 160;
+    const thumbH = Math.floor((previewH - 12 * 4) / 13);
 
-    for (let i = 0; i < 8; i++) {
-      const ty = previewY + i * (thumbH + 6);
+    for (let i = 0; i < 13; i++) {
+      const ty = previewY + i * (thumbH + 4);
       const isSel = this.selectedArtSheet === i;
       ctx.fillStyle = isSel ? 'rgba(255, 213, 79, 0.25)' : 'rgba(255, 255, 255, 0.06)';
       ctx.fillRect(thumbX, ty, thumbW, thumbH);
@@ -269,12 +274,12 @@ export class StyleBibleUI {
 
       const tImg = this.artSheetImgs[i];
       if (tImg && tImg.complete && tImg.naturalWidth > 0) {
-        ctx.drawImage(tImg, thumbX + 4, ty + 2, thumbH * 1.3, thumbH - 4);
+        ctx.drawImage(tImg, thumbX + 2, ty + 2, thumbH * 1.3, thumbH - 4);
       }
 
       ctx.fillStyle = isSel ? '#FFD54F' : '#CFD8DC';
-      ctx.font = isSel ? 'bold 10px sans-serif' : '10px sans-serif';
-      ctx.fillText('Sheet 0' + i, thumbX + thumbH * 1.3 + 8, ty + thumbH / 2 + 3);
+      ctx.font = isSel ? 'bold 9px sans-serif' : '9px sans-serif';
+      ctx.fillText('Sheet ' + String(i).padStart(2, '0'), thumbX + thumbH * 1.3 + 6, ty + thumbH / 2 + 3);
     }
   }
 
@@ -286,15 +291,16 @@ export class StyleBibleUI {
     ctx.font = '12px sans-serif';
     ctx.fillStyle = '#CFD8DC';
     const notes = [
-      '• 交付版本：v9.1.0 Route & Art Fidelity Edition (象山至松德 18,000px 全線・五大場景全入實機)',
+      '• 交付版本：v9.6.0 Opening Cinematic × Hero Identity × Monster Phase × 3-Min Full Edition',
       '• 核心更新項目：',
-      '   1. 五大主場景美術 100% 導入實際 Gameplay（出口、巷弄、公園雨景、坡道山城、松德院區），400~700px 柔和漸變。',
-      '   2. 遊戲全程擴展至 18,000px：起點「象山站 2 號出口」至終點「松德內部大廳打卡機 (x=17650)」。',
-      '   3. 純化雙道具經濟：僅保留金幣與咖啡（+25 HP），移除 EasyCard pickup/心/能量。',
-      '   4. 嚴格物理打擊與彈幕射程：三大英雄招式實體碰撞框、冷卻時間與投射物距離物理定錨。',
-      '   5. Boss 決戰場 (14800~16500) 嚴格連續平整石板地面無深坑；投射物封閉邊界限制。',
-      '   6. 動態真實打卡時間計算與七拍勝利終點演出。',
-      '   7. 離線自給自足：單一 index.html 零外部依賴雙擊即玩。'
+      '   1. 盛大 Opening 動畫：黑幕晨光、台北地標剪影蒙太奇、7大怪獸登場卡牌、3大主角立繪切入。',
+      '   2. 三主角大招前搖視覺升級：禹志晨(戰術逆風展傘)、夏奇拉(元氣蛋浪星雨)、珊卓澎(料理火焰風暴)。',
+      '   3. 一般怪獸取消外觀二階換皮：維持同一外觀，全面啟用 Attack Phase 1 / 2 強化彈幕與傷害。',
+      '   4. 最終魔王二階段重製：同種族語言狂暴盛開態，尖銳花瓣、高亮核心光芒、高壓四重招式。',
+      '   5. 3分鐘時間制：07:57 出發至 08:00 抵達松德，總倒數 180s，重新校準難度與怪物密度。',
+      '   6. 手機操作修復：左下虛擬方向鍵(◀/▶)與搖桿實質驅動平移，支援多點觸控與按下反饋。',
+      '   7. 全畫面返回主選單：所有次級畫面皆可返回 Title；結算畫面提供 Retry / Reselect / Home 3 選項。',
+      '   8. 離線自給自足：單一 index.html 零外部依賴雙擊即玩，通過 7 大自動化驗證測試。'
     ];
     notes.forEach((n, i) => ctx.fillText(n, x, y + 22 + i * 20));
   }

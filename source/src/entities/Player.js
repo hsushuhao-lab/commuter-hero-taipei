@@ -1129,17 +1129,97 @@ export class Player {
       ctx.restore();
     }
 
-    // v9.5: Ultimate Wind-up Visual Aura
+    // v9.6: Ultimate Wind-up Visual Aura (Character-Specific High-Energy Charge)
     if (this.isUlting && this.ultPhase === 'WINDUP') {
-      const pulse = 1 + Math.sin(performance.now() * 0.02) * 0.15;
+      const now = performance.now();
+      const progress = 1.0 - Math.max(0, this.ultWindupTimer) / (this.ultWindupMax || 0.5);
+      const pulse = 1 + Math.sin(now * 0.02) * 0.15;
       ctx.save();
-      ctx.strokeStyle = '#FFD54F';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = '#FFD700';
-      ctx.shadowBlur = 18;
-      ctx.beginPath();
-      ctx.arc(0, -42, 52 * pulse, 0, Math.PI * 2);
-      ctx.stroke();
+
+      if (this.id === 'yu') {
+        // Yu: Blue-white air pressure streamlines & collapsing wind vortex
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#00E5FF';
+        ctx.lineWidth = 3.5;
+
+        // Inward collapsing wind ring
+        const collapseR = 60 * (1.1 - progress * 0.4);
+        ctx.beginPath();
+        ctx.arc(0, -42, collapseR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Speed lines converging towards umbrella tip
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + now * 0.008;
+          const r1 = 70 * (1 - progress * 0.3);
+          const r2 = 30;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r1, -42 + Math.sin(a) * r1);
+          ctx.lineTo(Math.cos(a) * r2, -42 + Math.sin(a) * r2);
+          ctx.stroke();
+        }
+
+        // Glasses glint flare
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(8, -55, 4 + Math.sin(now * 0.03) * 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (this.id === 'shakira') {
+        // Shakira: Golden egg light rings & spiral sparkles
+        ctx.shadowColor = '#FFD54F';
+        ctx.shadowBlur = 22;
+
+        // Dual rotating egg-orbit rings
+        ctx.strokeStyle = '#FFD54F';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, -42, 54 * pulse, 30 * pulse, now * 0.004, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#CE93D8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, -42, 30 * pulse, 54 * pulse, -now * 0.004, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Radiating sweet morning star
+        ctx.fillStyle = '#FFF9C4';
+        ctx.beginPath();
+        ctx.arc(0, -78, 5 + Math.sin(now * 0.02) * 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Sandra: Blazing wok flame vortex leaping up from ground
+        ctx.shadowColor = '#FF5722';
+        ctx.shadowBlur = 24;
+
+        // Ground fiery rune circle
+        ctx.strokeStyle = '#FF5722';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.ellipse(0, -4, 48 * pulse, 14 * pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#FFD54F';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, -4, 32 * pulse, 10 * pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Leaping flame pillars around the chef
+        for (let i = 0; i < 5; i++) {
+          const flameX = ((i - 2) * 18);
+          const flameH = 40 + Math.sin(now * 0.02 + i) * 20;
+          ctx.fillStyle = i % 2 === 0 ? '#FF7043' : '#FFA726';
+          ctx.beginPath();
+          ctx.moveTo(flameX - 8, -4);
+          ctx.quadraticCurveTo(flameX, -4 - flameH, flameX + 8, -4);
+          ctx.fill();
+        }
+      }
+
       ctx.restore();
     }
 

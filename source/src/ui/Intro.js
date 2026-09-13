@@ -1,33 +1,29 @@
 /**
- * 08點上班大作戰：通勤英雄篇 - 開場角色與怪獸介紹動畫 (Intro.js)
- * 內容：
- * 1. 幕一：松德通勤三大英雄 (禹志晨、夏奇拉、珊卓澎)
- * 2. 幕二：晨霧異變・七大花系阻截怪獸
- * 3. 幕三：決戰松德大門前・夢影巨花王 (Phase 1 守護態 & Phase 2 狂暴深淵態)
- * 支援點擊/按鍵跳過，隨時可於主選單重播。
+ * 08點上班大作戰：通勤英雄篇 - 盛大 Opening 開場動畫 (Intro.js)
+ * v9.6.0 規格：
+ * - 幕一 (0.0s~4.0s)：黑幕晨光 ➔ 標題浮現 ➔ 07:57:00 打卡倒數警報
+ * - 幕二 (4.0s~8.0s)：台北地標剪影 ➔ 捷運列車狂飆蒙太奇 ➔ 晨霧阻截警報
+ * - 幕三 (8.0s~12.5s)：晨霧異變・七大花系阻截怪獸集結（外觀恆定 + Attack Phase 1/2 雙階彈幕強化）
+ * - 幕四 (12.5s~17.0s)：三大通勤英雄集結出擊（禹志晨、夏奇拉、珊卓澎）➔ 氣勢切入主選單
+ * 支援全程點擊、SPACE、ENTER、ESC 跳過，亦可於主選單隨時點擊重播。
  */
 
 import { CHARACTERS } from '../data/Characters.js';
-import { MONSTER_TYPES, BOSS_CONFIG } from '../data/Monsters.js';
+import { MONSTER_TYPES } from '../data/Monsters.js';
 import { audio } from '../engine/Audio.js';
 
 export class IntroCinematic {
   constructor() {
     this.isActive = false;
     this.time = 0;
-    this.duration = 24.0; // 總時長 24 秒
-    this.act = 1; // 1: Heroes, 2: Monsters, 3: Boss
+    this.duration = 17.0; // 總時長 17 秒
     this.onComplete = null;
 
-    // Preload intro assets
+    // Background & Asset Preload
     this.bgStation = new Image();
     this.bgStation.src = 'assets/bg_station.jpg';
     this.bgHospital = new Image();
     this.bgHospital.src = 'assets/bg_hospital.jpg';
-    this.bossP1 = new Image();
-    this.bossP1.src = 'assets/boss_flower_phase1.png';
-    this.bossP2 = new Image();
-    this.bossP2.src = 'assets/boss_flower_phase2.png';
 
     // Hero portraits
     this.heroImgs = {
@@ -38,6 +34,16 @@ export class IntroCinematic {
     this.heroImgs.yu.src = 'assets/hero_yu_portrait.png';
     this.heroImgs.shakira.src = 'assets/hero_shakira_portrait.png';
     this.heroImgs.sandra.src = 'assets/hero_sandra_portrait.png';
+
+    // Hero Windup Cut-ins
+    this.windupImgs = {
+      yu: new Image(),
+      shakira: new Image(),
+      sandra: new Image()
+    };
+    this.windupImgs.yu.src = 'assets/cutin_windup_yu.png';
+    this.windupImgs.shakira.src = 'assets/cutin_windup_shakira.png';
+    this.windupImgs.sandra.src = 'assets/cutin_windup_sandra.png';
 
     // Monster images
     this.monsterImgs = {};
@@ -58,14 +64,20 @@ export class IntroCinematic {
 
   skip() {
     this.isActive = false;
-    if (this.onComplete) this.onComplete();
+    if (this.onComplete) {
+      const cb = this.onComplete;
+      this.onComplete = null;
+      cb();
+    }
   }
 
   nextAct() {
-    if (this.time < 9.0) {
-      this.time = 9.0;
-    } else if (this.time < 17.0) {
-      this.time = 17.0;
+    if (this.time < 4.0) {
+      this.time = 4.0;
+    } else if (this.time < 8.0) {
+      this.time = 8.0;
+    } else if (this.time < 12.5) {
+      this.time = 12.5;
     } else {
       this.skip();
     }
@@ -85,16 +97,14 @@ export class IntroCinematic {
 
     ctx.save();
 
-    // Dark backdrop with subtle ambient drift
-    ctx.fillStyle = '#0a0e17';
-    ctx.fillRect(0, 0, vw, vh);
-
-    if (this.time < 9.0) {
-      this.renderActHeroes(ctx, vw, vh);
-    } else if (this.time < 17.0) {
-      this.renderActMonsters(ctx, vw, vh);
+    if (this.time < 4.0) {
+      this.renderAct1Title(ctx, vw, vh);
+    } else if (this.time < 8.0) {
+      this.renderAct2Montage(ctx, vw, vh);
+    } else if (this.time < 12.5) {
+      this.renderAct3Monsters(ctx, vw, vh);
     } else {
-      this.renderActBoss(ctx, vw, vh);
+      this.renderAct4Heroes(ctx, vw, vh);
     }
 
     // Top Right Skip Button
@@ -106,121 +116,257 @@ export class IntroCinematic {
     ctx.restore();
   }
 
-  // --- ACT 1: 三大通勤英雄 ---
-  renderActHeroes(ctx, vw, vh) {
-    const heroKeys = ['yu', 'shakira', 'sandra'];
-    const subTime = this.time % 3.0;
-    const heroIdx = Math.min(2, Math.floor(this.time / 3.0));
-    const hKey = heroKeys[heroIdx];
-    const char = CHARACTERS[hKey];
-    const portrait = this.heroImgs[hKey];
+  // ── ACT 1: 黑幕晨光 ➔ 標題浮現 ➔ 07:57:00 倒數警報 (0.0 ~ 4.0s) ──
+  renderAct1Title(ctx, vw, vh) {
+    const t = this.time;
+    // Twilight background transitioning into warm morning golden mist
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, vh);
+    bgGrad.addColorStop(0, '#040711');
+    bgGrad.addColorStop(0.65, '#151928');
+    bgGrad.addColorStop(1, '#3B231A');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, vw, vh);
 
-    // Background station subtle pan
-    if (this.bgStation.complete) {
-      ctx.save();
-      ctx.globalAlpha = 0.25;
-      const panX = -(this.time * 25) % 100;
-      ctx.drawImage(this.bgStation, panX, 0, vw + 100, vh);
-      ctx.restore();
-    }
-
-    // Dynamic diagonal color streak
+    // Morning golden sun rays raycasting from upper center
     ctx.save();
-    ctx.translate(vw / 2, vh / 2);
-    ctx.rotate(-0.06);
-    ctx.fillStyle = char.colors.primary;
-    ctx.globalAlpha = 0.75;
-    ctx.fillRect(-vw, -120, vw * 2, 240);
-    ctx.fillStyle = char.colors.secondary;
-    ctx.globalAlpha = 0.35;
-    ctx.fillRect(-vw, -140, vw * 2, 16);
-    ctx.fillRect(-vw, 124, vw * 2, 16);
+    const rayAlpha = Math.min(0.45, t * 0.15);
+    ctx.globalAlpha = rayAlpha;
+    ctx.fillStyle = '#FFE082';
+    for (let i = 0; i < 9; i++) {
+      const angle = -Math.PI / 2 + (i - 4) * 0.22 + Math.sin(t * 0.8 + i) * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(vw / 2, -50);
+      ctx.lineTo(vw / 2 + Math.cos(angle - 0.08) * 900, Math.sin(angle - 0.08) * 900);
+      ctx.lineTo(vw / 2 + Math.cos(angle + 0.08) * 900, Math.sin(angle + 0.08) * 900);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.restore();
 
-    // Slide-in slide animation for portrait
-    const slideProgress = Math.min(1.0, subTime * 2.5);
-    const portraitX = -200 + slideProgress * 280;
-    const portraitY = 90;
-
-    if (portrait && portrait.complete && portrait.naturalWidth > 0) {
-      ctx.save();
-      ctx.shadowColor = char.colors.accent;
-      ctx.shadowBlur = 20;
-      ctx.drawImage(portrait, portraitX, portraitY, 260, 360);
-      ctx.restore();
-    }
-
-    // Text Information block
-    const textX = 390;
-    const textAlpha = Math.min(1.0, Math.max(0, (subTime - 0.2) * 3));
+    // Digital Urgent Clock Display (07:56:58 -> 07:57:00)
+    const clockAlpha = Math.min(1.0, Math.max(0, (t - 0.4) * 2));
     ctx.save();
-    ctx.globalAlpha = textAlpha;
+    ctx.globalAlpha = clockAlpha;
+    ctx.fillStyle = 'rgba(20, 24, 36, 0.85)';
+    ctx.strokeStyle = '#FF5252';
+    ctx.lineWidth = 2;
+    const cw = 280;
+    const ch = 52;
+    const cx = (vw - cw) / 2;
+    const cy = 110;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cx, cy, cw, ch, 8);
+    else ctx.rect(cx, cy, cw, ch);
+    ctx.fill();
+    ctx.stroke();
 
-    // Header Badge
-    ctx.fillStyle = char.colors.accent;
-    ctx.fillRect(textX, 85, 170, 24);
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText(`通勤英雄第 ${heroIdx + 1} 位`, textX + 10, 102);
+    ctx.fillStyle = '#FF5252';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠️ 通勤警戒鐘響起・距離遲到僅剩 3 分鐘！', vw / 2, cy + 20);
 
-    // Hero Name
-    ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 36px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.shadowColor = char.colors.primary;
-    ctx.shadowBlur = 15;
-    ctx.fillText(char.name, textX, 150);
+    const clockSec = t < 2.0 ? '58' : (t < 3.0 ? '59' : '00');
+    const clockMin = clockSec === '00' ? '57' : '56';
+    ctx.fillStyle = '#FFEB3B';
+    ctx.font = 'bold 24px monospace';
+    ctx.shadowColor = '#FF5252';
+    ctx.shadowBlur = 10;
+    ctx.fillText(`07:${clockMin}:${clockSec} AM`, vw / 2, cy + 44);
+    ctx.restore();
 
-    // Title
-    ctx.fillStyle = char.colors.secondary;
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillText(`【${char.title}】`, textX, 185);
+    // Main Game Title: 08點上班大作戰
+    const titleAlpha = Math.min(1.0, Math.max(0, (t - 1.0) * 1.5));
+    const titleScale = Math.min(1.0, 0.85 + (t - 1.0) * 0.15);
+    ctx.save();
+    ctx.globalAlpha = titleAlpha;
+    ctx.translate(vw / 2, vh / 2 + 35);
+    ctx.scale(titleScale, titleScale);
 
-    // Role & Stats
-    ctx.fillStyle = '#CFD8DC';
-    ctx.font = '14px sans-serif';
-    ctx.fillText(`定位：${char.role}`, textX, 220);
-    ctx.fillText(`小招：${char.skill.name}（零冷卻・無限連續發射！）`, textX, 248);
-    ctx.fillText(`大招：${char.ult.name}（6枚金幣解鎖・無敵全屏壓制）`, textX, 276);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
 
-    // Quote
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = 'italic bold 15px sans-serif';
-    ctx.fillText(char.quote, textX, 330);
+    // Title Golden Drop Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.font = '900 62px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText('08點上班大作戰', 4, 4);
 
-    // Lore Description
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.font = '13px sans-serif';
-    ctx.fillText(char.desc, textX, 370, 520);
+    // Title Main Glow
+    ctx.fillStyle = '#FFF8E1';
+    ctx.shadowColor = '#FFB300';
+    ctx.shadowBlur = 28;
+    ctx.fillText('08點上班大作戰', 0, 0);
 
+    // Subtitle Badge
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = '#00E5FF';
+    ctx.fillStyle = '#80D8FF';
+    ctx.font = 'bold 24px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText('【通勤英雄篇】TAIPEI COMMUTER HEROES', 0, 56);
+
+    // Punchy Tagline
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#FFE082';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('捷運信義線狂暴通勤路・08:00:00 前抵達松德院區！', 0, 96);
     ctx.restore();
   }
 
-  // --- ACT 2: 七大晨間花系怪獸 ---
-  renderActMonsters(ctx, vw, vh) {
-    const mTime = this.time - 9.0; // 0 to 8.0s
+  // ── ACT 2: 台北地標剪影 ➔ 捷運列車狂飆蒙太奇 (4.0 ~ 8.0s) ──
+  renderAct2Montage(ctx, vw, vh) {
+    const t = this.time - 4.0; // 0 to 4.0s
+
+    // Background Station Pan
+    if (this.bgStation.complete) {
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      const pan = (t * 40) % 150;
+      ctx.drawImage(this.bgStation, -pan, 0, vw + 200, vh);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#0B132B';
+      ctx.fillRect(0, 0, vw, vh);
+    }
+
+    // Sky gradient with dawn glow
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, vh);
+    skyGrad.addColorStop(0, 'rgba(11, 19, 43, 0.85)');
+    skyGrad.addColorStop(0.7, 'rgba(28, 37, 65, 0.85)');
+    skyGrad.addColorStop(1, 'rgba(74, 44, 42, 0.9)');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, vw, vh);
+
+    // Taipei 101 & Xiangshan Silhouette on horizon
     ctx.save();
+    ctx.fillStyle = 'rgba(10, 15, 30, 0.95)';
+    // Mountain ridge
+    ctx.beginPath();
+    ctx.moveTo(0, vh - 90);
+    ctx.quadraticCurveTo(180, vh - 220, 360, vh - 130);
+    ctx.quadraticCurveTo(580, vh - 260, 780, vh - 140);
+    ctx.quadraticCurveTo(890, vh - 190, vw, vh - 110);
+    ctx.lineTo(vw, vh);
+    ctx.lineTo(0, vh);
+    ctx.fill();
+
+    // Taipei 101 tower silhouette
+    const twX = 720;
+    const twBaseY = vh - 110;
+    ctx.fillRect(twX - 18, twBaseY - 260, 36, 260);
+    for (let seg = 0; seg < 7; seg++) {
+      const segY = twBaseY - 70 - seg * 24;
+      const segW = 44 - seg * 2;
+      ctx.fillRect(twX - segW / 2, segY, segW, 20);
+    }
+    // Spire
+    ctx.fillRect(twX - 3, twBaseY - 290, 6, 30);
+    ctx.fillStyle = '#FF5252';
+    ctx.beginPath();
+    ctx.arc(twX, twBaseY - 290, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Fast Commuter MRT Train Zooming Across (from left to right)
+    const trainProgress = ((t * 0.9) % 1.6);
+    const trainX = -450 + trainProgress * (vw + 800);
+    const trainY = vh - 170;
+    const trainW = 420;
+    const trainH = 75;
+
+    ctx.save();
+    // Train motion blur speed trails
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
+    ctx.fillRect(trainX - 120, trainY + 12, 120, trainH - 24);
+
+    // Train Body
+    ctx.fillStyle = '#ECEFF1';
+    ctx.strokeStyle = '#00B0FF';
+    ctx.lineWidth = 3;
+    if (ctx.roundRect) ctx.roundRect(trainX, trainY, trainW, trainH, 10);
+    else ctx.rect(trainX, trainY, trainW, trainH);
+    ctx.fill();
+    ctx.stroke();
+
+    // Blue Line Stripe
+    ctx.fillStyle = '#0288D1';
+    ctx.fillRect(trainX, trainY + trainH - 22, trainW, 14);
+
+    // Glowing Windows
+    ctx.fillStyle = '#FFF9C4';
+    ctx.shadowColor = '#FFEB3B';
+    ctx.shadowBlur = 10;
+    for (let w = 0; w < 6; w++) {
+      ctx.fillRect(trainX + 35 + w * 60, trainY + 15, 42, 28);
+    }
+
+    // High-beam Headlights
+    ctx.fillStyle = 'rgba(255, 255, 200, 0.7)';
+    ctx.beginPath();
+    ctx.moveTo(trainX + trainW, trainY + 30);
+    ctx.lineTo(trainX + trainW + 280, trainY - 20);
+    ctx.lineTo(trainX + trainW + 280, trainY + 90);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Emergency Broadcast Alert Banner (Top Center)
+    ctx.save();
+    ctx.fillStyle = 'rgba(213, 0, 0, 0.92)';
+    ctx.strokeStyle = '#FFD700';
+    ctx.lineWidth = 2.5;
+    const bannerW = 680;
+    const bannerH = 72;
+    const bx = (vw - bannerW) / 2;
+    const by = 48;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bannerW, bannerH, 8);
+    else ctx.rect(bx, by, bannerW, bannerH);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 22px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#FF1744';
+    ctx.shadowBlur = 10;
+    ctx.fillText('🚨【台北捷運信義線・突發通勤警報】🚨', vw / 2, by + 28);
+
+    ctx.fillStyle = '#FFF9C4';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.shadowBlur = 0;
+    ctx.fillText('晨霧花系怪獸大群佔據象山至松德路廊！全體通勤英雄進入一級備戰！', vw / 2, by + 54);
+    ctx.restore();
+  }
+
+  // ── ACT 3: 晨霧異變・七大花系阻截怪獸集結 (8.0 ~ 12.5s) ──
+  renderAct3Monsters(ctx, vw, vh) {
+    const t = this.time - 8.0; // 0 to 4.5s
+    ctx.save();
+
+    // Dark high-tech grid backdrop
+    ctx.fillStyle = '#080C14';
+    ctx.fillRect(0, 0, vw, vh);
 
     // Header Title
     ctx.fillStyle = '#FF5252';
-    ctx.font = 'bold 24px sans-serif';
+    ctx.font = 'bold 26px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#FF1744';
-    ctx.shadowBlur = 12;
-    ctx.fillText('⚠️ 晨霧異變・七大阻截怪獸全面來襲！(30幣全體進化二階段)', vw / 2, 50);
+    ctx.shadowBlur = 16;
+    ctx.fillText('⚠️ 晨霧異變・七大阻截怪獸全面甦醒！', vw / 2, 42);
 
-    ctx.fillStyle = '#B0BEC5';
-    ctx.font = '13px sans-serif';
-    ctx.fillText('七大花系阻截怪獸・攻擊力與射程全面進化・30幣後進化至二階段！', vw / 2, 75);
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.shadowBlur = 0;
+    ctx.fillText('【外觀造型恆定】・【全面實裝 Attack Phase 1 / 2 雙階彈幕強化】', vw / 2, 70);
 
     const monsterList = [
       'blue', 'red', 'pink', 'ice', 'grape', 'yellow', 'obsidian'
     ];
 
-    // Render 7 monster showcase cards horizontally (wider cards now)
-    const cardW = 120;
-    const cardH = 340;
+    const cardW = 124;
+    const cardH = 345;
     const startX = (vw - (cardW * 7 + 6 * 10)) / 2;
-    const cardY = 95;
+    const cardY = 92;
 
     monsterList.forEach((mKey, idx) => {
       const cfg = MONSTER_TYPES[mKey];
@@ -228,59 +374,77 @@ export class IntroCinematic {
       const cx = startX + idx * (cardW + 10);
 
       // Card pop-in stagger animation
-      const appearTime = idx * 0.45;
-      const progress = Math.min(1.0, Math.max(0, (mTime - appearTime) * 3));
-      const offsetY = (1.0 - progress) * 40;
+      const appearDelay = idx * 0.12;
+      const progress = Math.min(1.0, Math.max(0, (t - appearDelay) * 3));
+      const offsetY = (1.0 - progress) * 30;
 
       ctx.save();
       ctx.globalAlpha = progress;
       ctx.translate(cx, cardY + offsetY);
 
-      // Card Base
-      ctx.fillStyle = 'rgba(18, 24, 38, 0.92)';
+      // Card background
+      ctx.fillStyle = 'rgba(15, 20, 32, 0.94)';
       ctx.fillRect(0, 0, cardW, cardH);
       ctx.strokeStyle = cfg.color;
       ctx.lineWidth = 2;
       ctx.strokeRect(0, 0, cardW, cardH);
 
-      // Top color tag
+      // Top color indicator tag
       ctx.fillStyle = cfg.color;
       ctx.fillRect(0, 0, cardW, 6);
 
-      // Monster Sprite (Clean borderless, facing right)
+      // Monster Sprite (Single authentic appearance)
       if (img && img.complete && img.naturalWidth > 0) {
         ctx.save();
         ctx.shadowColor = cfg.color;
-        ctx.shadowBlur = 10;
-        const spriteSize = 74;
-        ctx.drawImage(img, (cardW - spriteSize) / 2, 20, spriteSize, spriteSize);
+        ctx.shadowBlur = 12;
+        const spriteSize = 72;
+        ctx.drawImage(img, (cardW - spriteSize) / 2, 18, spriteSize, spriteSize);
         ctx.restore();
       }
 
-      // Name & Role
+      // Name & Subtitle
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#FFF';
-      ctx.font = 'bold 13px sans-serif';
-      ctx.fillText(cfg.name, cardW / 2, 115);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(cfg.name, cardW / 2, 110);
 
       ctx.fillStyle = cfg.color;
       ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(cfg.role || cfg.type, cardW / 2, 134);
+      ctx.fillText(cfg.role || cfg.type, cardW / 2, 128);
+
+      // Attack Phase Badges
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.fillRect(8, 140, cardW - 16, 22);
+      ctx.fillStyle = '#E0E0E0';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('P1: 標準阻截模式', 12, 155);
+
+      ctx.fillStyle = 'rgba(255, 179, 0, 0.2)';
+      ctx.fillRect(8, 168, cardW - 16, 22);
+      ctx.fillStyle = '#FFD54F';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('⚡ P2: 密集狂暴彈幕', 12, 183);
 
       // Stats
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#ECEFF1';
+      ctx.fillStyle = '#90A4AE';
       ctx.font = '10px monospace';
-      ctx.fillText(`HP: ${cfg.hp}`, 12, 160);
-      ctx.fillText(`速度: ${cfg.speed}`, 12, 178);
-      ctx.fillText(`攻擊: ${cfg.attackDamage}`, 12, 196);
-      ctx.fillText(`射程: 800px+`, 12, 214);
+      ctx.fillText(`HP: ${cfg.hp}`, 12, 212);
+      ctx.fillText(`ATK: ${cfg.attackDamage}`, 12, 230);
+      ctx.fillText(`SPD: ${cfg.speed}`, 12, 248);
 
-      // Desc
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      // Attack Feature description
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
       ctx.font = '9px sans-serif';
-      const descSnippet = cfg.desc.substring(0, 36) + '...';
-      ctx.fillText(descSnippet, 10, 240, cardW - 20);
+      let atkFeature = '直線連發彈幕';
+      if (mKey === 'ice') atkFeature = '5向廣角暴風雪';
+      else if (mKey === 'grape') atkFeature = '5連落點毒霧沼';
+      else if (mKey === 'blue') atkFeature = '3連水刃+漩渦';
+      else if (mKey === 'yellow') atkFeature = '8向金環大爆炸';
+      else if (mKey === 'obsidian') atkFeature = '3段破土玄晶刺';
+      else if (mKey === 'pink') atkFeature = '超音速俯衝轟炸';
+      ctx.fillText(`特色: ${atkFeature}`, 12, 275, cardW - 20);
 
       ctx.restore();
     });
@@ -288,89 +452,103 @@ export class IntroCinematic {
     ctx.restore();
   }
 
-  // --- ACT 3: 松德大門前・終極魔王預告 ---
-  renderActBoss(ctx, vw, vh) {
-    const bTime = this.time - 17.0; // 0 to 7.0s
+  // ── ACT 4: 三大通勤英雄集結出擊 (12.5 ~ 17.0s) ──
+  renderAct4Heroes(ctx, vw, vh) {
+    const t = this.time - 12.5; // 0 to 4.5s
     ctx.save();
 
-    // Background Songde Hospital
-    if (this.bgHospital.complete) {
+    // Dark indigo backdrop with dynamic energy rays
+    ctx.fillStyle = '#060A14';
+    ctx.fillRect(0, 0, vw, vh);
+
+    // Header Title
+    ctx.fillStyle = '#00E5FF';
+    ctx.font = 'bold 26px "PingFang SC", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#00B0FF';
+    ctx.shadowBlur = 18;
+    ctx.fillText('🔥 松德院區準時特攻隊・三大通勤英雄出擊！', vw / 2, 40);
+
+    const heroes = ['yu', 'shakira', 'sandra'];
+    const cardW = 280;
+    const cardH = 375;
+    const startX = (vw - (cardW * 3 + 2 * 25)) / 2;
+    const cardY = 65;
+
+    heroes.forEach((hId, idx) => {
+      const char = CHARACTERS[hId];
+      const portrait = this.heroImgs[hId];
+      const windup = this.windupImgs[hId];
+      const cx = startX + idx * (cardW + 25);
+
+      const delay = idx * 0.15;
+      const progress = Math.min(1.0, Math.max(0, (t - delay) * 2.5));
+      const offsetY = (1.0 - progress) * 40;
+
       ctx.save();
-      ctx.globalAlpha = 0.30;
-      ctx.drawImage(this.bgHospital, 0, 0, vw, vh);
+      ctx.globalAlpha = progress;
+      ctx.translate(cx, cardY + offsetY);
+
+      // Hero Card Base
+      ctx.fillStyle = 'rgba(16, 22, 38, 0.94)';
+      ctx.fillRect(0, 0, cardW, cardH);
+      ctx.strokeStyle = char.colors.primary;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(0, 0, cardW, cardH);
+
+      // Accent top banner
+      ctx.fillStyle = char.colors.primary;
+      ctx.fillRect(0, 0, cardW, 8);
+
+      // Hero Portrait / Wind-up Storyboard
+      const displayImg = (windup && windup.complete && windup.naturalWidth > 0) ? windup : portrait;
+      if (displayImg && displayImg.complete && displayImg.naturalWidth > 0) {
+        ctx.save();
+        ctx.shadowColor = char.colors.accent;
+        ctx.shadowBlur = 14;
+        ctx.drawImage(displayImg, (cardW - 190) / 2, 18, 190, 190);
+        ctx.restore();
+      }
+
+      // Name & Title
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 22px "PingFang SC", sans-serif';
+      ctx.shadowColor = char.colors.primary;
+      ctx.shadowBlur = 12;
+      ctx.fillText(char.name, cardW / 2, 232);
+
+      ctx.fillStyle = char.colors.accent;
+      ctx.font = 'bold 12px sans-serif';
+      ctx.shadowBlur = 0;
+      ctx.fillText(`【${char.title}】`, cardW / 2, 254);
+
+      // Role
+      ctx.fillStyle = '#CFD8DC';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`定位：${char.role}`, cardW / 2, 276);
+
+      // Ult Move Highlight
+      ctx.fillStyle = char.colors.secondary;
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(`奧義：${char.ult.name}`, cardW / 2, 300);
+
+      // Catchphrase Quote
+      ctx.fillStyle = '#FFE082';
+      ctx.font = 'italic bold 11px sans-serif';
+      ctx.fillText(char.quote, cardW / 2, 335, cardW - 24);
+
       ctx.restore();
-    }
+    });
 
-    // Warning Header
-    ctx.fillStyle = '#FF1744';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#FF1744';
-    ctx.shadowBlur = 16;
-    ctx.fillText('⚡ 決戰地點：松德院區大門前！終極支配者現身！', vw / 2, 45);
-
-    ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('擊敗魔王二階段狂暴變身・衝向松德打卡機完成 07:58:24 準時打卡！', vw / 2, 75);
-
-    // Two Forms Side by Side
-    const colW = 380;
-    const colH = 340;
-    const startX = (vw - (colW * 2 + 40)) / 2;
-    const colY = 95;
-
-    // --- Form 1: 晨霧守護態 ---
+    // Bottom Final Call to Action
     ctx.save();
-    ctx.translate(startX, colY);
-    ctx.fillStyle = 'rgba(18, 24, 38, 0.90)';
-    ctx.fillRect(0, 0, colW, colH);
-    ctx.strokeStyle = '#E91E63';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(0, 0, colW, colH);
-
-    ctx.fillStyle = '#E91E63';
-    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = 'bold 18px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('【PHASE 1：晨霧守護態】', colW / 2, 30);
-
-    if (this.bossP1.complete && this.bossP1.naturalWidth > 0) {
-      ctx.drawImage(this.bossP1, colW / 2 - 90, 45, 180, 180);
-    }
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#FFF';
-    ctx.font = '13px sans-serif';
-    ctx.fillText('• 巨大蓮花王冠、翠綠皇袍藤蔓、心靈水晶核心', 20, 245);
-    ctx.fillText('• 7 路扇形擴散花瓣散彈 + 破土突刺藤蔓', 20, 275);
-    ctx.fillText('• 支配晨間大霧，召喚先遣怪獸護衛', 20, 305);
-    ctx.restore();
-
-    // --- Form 2: 狂暴深淵裂變態 ---
-    ctx.save();
-    ctx.translate(startX + colW + 40, colY);
-    ctx.fillStyle = 'rgba(28, 12, 28, 0.92)';
-    ctx.fillRect(0, 0, colW, colH);
-    ctx.strokeStyle = '#880E4F';
-    ctx.lineWidth = 2.5;
-    ctx.strokeRect(0, 0, colW, colH);
-
-    ctx.fillStyle = '#FF4081';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#FF4081';
-    ctx.shadowBlur = 10;
-    ctx.fillText('【PHASE 2：狂暴深淵裂變態】', colW / 2, 30);
-
-    if (this.bossP2.complete && this.bossP2.naturalWidth > 0) {
-      ctx.drawImage(this.bossP2, colW / 2 - 90, 45, 180, 180);
-    }
-
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#FF80AB';
-    ctx.font = '13px sans-serif';
-    ctx.fillText('• 花瓣裂變為暗紅黑曜荊棘龍刃、多重複眼現形', 20, 245);
-    ctx.fillText('• 16 路超高速狂暴螺旋彈幕輪盤 + 正對玩家瞄準針', 20, 275);
-    ctx.fillText('• 三連發追蹤地裂藤蔓 + 雙怪同時空降召喚！', 20, 305);
+    ctx.shadowColor = '#FF6F00';
+    ctx.shadowBlur = 12;
+    ctx.fillText('「打卡倒數計時 180 秒，全速向松德大門衝刺！！」', vw / 2, vh - 22);
     ctx.restore();
 
     ctx.restore();
@@ -378,12 +556,12 @@ export class IntroCinematic {
 
   renderSkipButton(ctx, vw) {
     ctx.save();
-    const bx = vw - 140;
-    const by = 18;
-    const bw = 120;
-    const bh = 34;
+    const bx = vw - 150;
+    const by = 16;
+    const bw = 135;
+    const bh = 36;
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
     ctx.fillRect(bx, by, bw, bh);
     ctx.strokeStyle = '#FFD54F';
     ctx.lineWidth = 1.5;
@@ -393,7 +571,7 @@ export class IntroCinematic {
     ctx.font = 'bold 13px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('略過 [SPACE] ⏩', bx + bw / 2, by + bh / 2);
+    ctx.fillText('略過 [SPACE/ESC] ⏩', bx + bw / 2, by + bh / 2);
     ctx.restore();
   }
 

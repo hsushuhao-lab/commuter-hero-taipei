@@ -25,6 +25,14 @@ export class Camera {
     this.targetZoom = 1.0;
   }
 
+  get shakeTimer() {
+    return this.shakeDuration;
+  }
+
+  set shakeTimer(v) {
+    this.shakeDuration = v;
+  }
+
   setTarget(target) {
     this.target = target;
   }

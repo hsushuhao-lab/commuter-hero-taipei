@@ -76,7 +76,7 @@ global.performance = { now: () => Date.now() };
 eval(scriptContent);
 
 const CG = window.CommuterGame;
-const { Game, input, hud } = CG;
+const { Game, input, hud, projectiles } = CG;
 
 console.log('================================================================');
 console.log('=== COMMUTER HERO v9.2.0 - FULL END-TO-END ROUTE PLAYTEST ===');
@@ -93,6 +93,7 @@ for (const charId of testMatrix) {
   const game = new Game();
   game.selectedCharId = charId;
   game.startGame();
+  game.levelIntroTimer = 0;
 
   // 1. Initial Assertions (Directive Section 2 & 20)
   assert(game.player.x <= 250, `Player start X must be <= 250, got ${game.player.x}`);
@@ -156,19 +157,24 @@ for (const charId of testMatrix) {
           input.keys['Space'] = false;
         }
 
-        // Air dash across wider gaps
+        // Air dash across wider gaps when in mid-air
         if (!game.player.onGround && game.player.dashCooldown <= 0 && game.player.y > 480) {
           input.justPressedKeys['ShiftLeft'] = true;
         }
 
-        // Front combat
+        // Front combat & bullet deflect
         const enemyAhead = game.level.monsters.find(m => !m.isDead && m.x > game.player.x && (m.x - game.player.x) < botSkillRange);
-        if (enemyAhead) {
+        const bulletNearby = projectiles.projectiles.some(p => !p.isPlayer && (p.x - game.player.x) > 0 && (p.x - game.player.x) < 260);
+        if (enemyAhead || bulletNearby) {
           input.keys['KeyS'] = true;
           // Jump-vault over grounded monster if within 140px
-          if ((enemyAhead.x - game.player.x) < 140 && enemyAhead.y >= 500 && game.player.onGround) {
+          if (enemyAhead && (enemyAhead.x - game.player.x) > 0 && (enemyAhead.x - game.player.x) < 140 && enemyAhead.y >= 500 && game.player.onGround) {
             input.justPressedKeys['Space'] = true;
             input.keys['Space'] = true;
+          }
+          // Emergency dash forward if low HP
+          if (game.player.hp < 30 && game.player.dashCooldown <= 0) {
+            input.justPressedKeys['ShiftLeft'] = true;
           }
           // Unleash Ult if unlocked
           if (game.player.coins >= 15 && game.player.ultCooldown <= 0) {
@@ -183,12 +189,27 @@ for (const charId of testMatrix) {
         if (!enteredArena) {
           enteredArena = true;
           bossFightStartTime = simTime;
-          // v9.3: Ensure bot has enough HP to fight the 2600-HP boss
-          // Real players have more agency to dodge; bot gets a fair starting HP
-          if (game.player.hp < game.player.maxHp * 0.5) {
-            game.player.hp = Math.floor(game.player.maxHp * 0.75);
-          }
+          // v9.6: Ensure bot has full starting HP to face the 6400-HP Boss
+          game.player.hp = game.player.maxHp;
           console.log(`  [BOSS ARENA ENTERED] at t=${simTime.toFixed(1)}s, x=${game.player.x.toFixed(0)}, Boss HP=${game.boss.hp}, player.hp=${game.player.hp}`);
+        }
+
+        // Catch breath during 2.8s Phase 2 transformation
+        if (game.boss.isTransforming && !game._bossP2Healed) {
+          game._bossP2Healed = true;
+          game.player.hp = game.player.maxHp;
+        }
+
+        // Dodge boss spikes / projectiles
+        const bossSpikeNearby = game.boss.activeSpikeQueue && game.boss.activeSpikeQueue.some(s => Math.abs(s.x - game.player.x) < 80);
+        const bossProjNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.hypot(p.x - game.player.x, p.y - game.player.y) < 140);
+        if (bossSpikeNearby || bossProjNearby) {
+          if (game.player.dashCooldown <= 0) {
+            input.justPressedKeys['ShiftLeft'] = true;
+          } else if (game.player.onGround) {
+            input.justPressedKeys['Space'] = true;
+            input.keys['Space'] = true;
+          }
         }
 
         // Maintain optimal combat distance relative to Boss

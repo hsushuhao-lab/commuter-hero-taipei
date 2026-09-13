@@ -28,7 +28,7 @@ class Game {
     this.canvas.width = this.vw;
     this.canvas.height = this.vh;
 
-    this.state = 'MENU'; // MENU, INTRO, SELECT, PLAYING, VICTORY_RUN, VICTORY, GAMEOVER
+    this.state = 'OPENING'; // OPENING, MENU, INTRO, SELECT, PLAYING, PAUSE, VICTORY_RUN, VICTORY, GAMEOVER
     this.selectedCharId = 'yu';
 
     this.camera = new Camera(this.vw, this.vh);
@@ -38,6 +38,12 @@ class Game {
     this.player = new Player(this.selectedCharId);
     this.boss = new Boss();
     this.boss.minions = this.level.monsters;
+
+    // Level entrance banner timer (3.0s skippable card)
+    this.levelIntroTimer = 0;
+
+    // Mobile multi-pointer tracking system
+    this.activePointers = new Map(); // pointerId -> { type: 'joystick'|'left'|'right'|'jump'|'skill'|'ult'|'dash' }
 
     // Victory sequence tracking & Watchdog
     this.victoryTimer = 0;
@@ -87,11 +93,54 @@ class Game {
   initEvents() {
     window.addEventListener('resize', () => this.resizeCanvas());
 
-    // Space / Enter / Escape to skip Intro
+    // Global keyboard handling for state shortcuts & navigation
     window.addEventListener('keydown', (e) => {
-      if (this.state === 'INTRO') {
+      // Opening / Intro skip
+      if (this.state === 'OPENING' || this.state === 'INTRO') {
         if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') {
           introCinematic.skip();
+        }
+      }
+      // Character Select back to Menu
+      else if (this.state === 'SELECT') {
+        if (e.code === 'Escape' || e.code === 'Backspace') {
+          this.state = 'MENU';
+          audio.playCoin();
+        }
+      }
+      // Playing: Level Intro skip or Pause toggle
+      else if (this.state === 'PLAYING') {
+        if (this.levelIntroTimer > 0) {
+          this.levelIntroTimer = 0;
+          return;
+        }
+        if (e.code === 'Escape' || e.code === 'KeyP') {
+          this.state = 'PAUSE';
+          audio.playCoin();
+        }
+      }
+      // Pause Menu shortcuts: ESC/Resume, R/Restart, M/Home
+      else if (this.state === 'PAUSE') {
+        if (e.code === 'Escape') {
+          this.state = 'PLAYING';
+          audio.playCoin();
+        } else if (e.code === 'KeyR') {
+          this.startGame();
+        } else if (e.code === 'KeyM') {
+          this.state = 'MENU';
+          audio.playCoin();
+        }
+      }
+      // Victory or GameOver shortcuts: R/Retry, C/Reselect, M/Home
+      else if (this.state === 'VICTORY' || this.state === 'GAMEOVER' || (this.state === 'PLAYING' && hud.isGameOver)) {
+        if (e.code === 'KeyR') {
+          this.startGame();
+        } else if (e.code === 'KeyC') {
+          this.state = 'SELECT';
+          audio.playCoin();
+        } else if (e.code === 'KeyM') {
+          this.state = 'MENU';
+          audio.playCoin();
         }
       }
     });
@@ -112,32 +161,61 @@ class Game {
       this.handlePointerDown(mx, my, e);
     });
 
-    // Canvas pointermove for analog virtual joystick
+    // Canvas pointermove for analog virtual joystick & touch tracking
     this.canvas.addEventListener('pointermove', (e) => {
-      if (this.joystickPointerId !== null && e.pointerId === this.joystickPointerId && (this.state === 'PLAYING' || this.state === 'VICTORY_RUN')) {
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.vw / rect.width;
-        const scaleY = this.vh / rect.height;
-        const mx = (e.clientX - rect.left) * scaleX;
-        const my = (e.clientY - rect.top) * scaleY;
-        hud.updateJoystick(mx, my, true);
-        input.setJoystick(hud.joystick.normX, hud.joystick.normY);
+      const rect = this.canvas.getBoundingClientRect();
+      const scaleX = this.vw / rect.width;
+      const scaleY = this.vh / rect.height;
+      const mx = (e.clientX - rect.left) * scaleX;
+      const my = (e.clientY - rect.top) * scaleY;
+
+      if (this.activePointers.has(e.pointerId)) {
+        const info = this.activePointers.get(e.pointerId);
+        if (info.type === 'joystick') {
+          hud.updateJoystick(mx, my, true);
+          input.setJoystick(hud.joystick.normX, hud.joystick.normY);
+        } else if (info.type === 'left') {
+          const inBtn = (mx >= hud.btnLeft.x - 20 && mx <= hud.btnLeft.x + hud.btnLeft.w + 20 && my >= hud.btnLeft.y - 20 && my <= hud.btnLeft.y + hud.btnLeft.h + 20);
+          hud.btnLeft.isPressed = inBtn;
+          input.touchLeft = inBtn;
+        } else if (info.type === 'right') {
+          const inBtn = (mx >= hud.btnRight.x - 20 && mx <= hud.btnRight.x + hud.btnRight.w + 20 && my >= hud.btnRight.y - 20 && my <= hud.btnRight.y + hud.btnRight.h + 20);
+          hud.btnRight.isPressed = inBtn;
+          input.touchRight = inBtn;
+        }
       }
     });
 
-    // Canvas pointerup / cancel
+    // Canvas pointerup / cancel - Multi-pointer independent release
     const endPointer = (e) => {
-      if (e && e.pointerId === this.joystickPointerId) {
-        this.joystickPointerId = null;
-        hud.resetJoystick();
-        input.resetJoystick();
+      if (!e) return;
+      if (this.activePointers.has(e.pointerId)) {
+        const info = this.activePointers.get(e.pointerId);
+        if (info.type === 'joystick') {
+          this.joystickPointerId = null;
+          hud.resetJoystick();
+          input.resetJoystick();
+        } else if (info.type === 'left') {
+          hud.btnLeft.isPressed = false;
+          input.touchLeft = false;
+        } else if (info.type === 'right') {
+          hud.btnRight.isPressed = false;
+          input.touchRight = false;
+        } else if (info.type === 'jump') {
+          hud.btnJump.isPressed = false;
+          input.touchJump = false;
+        } else if (info.type === 'skill') {
+          hud.btnSkill.isPressed = false;
+          input.touchSkill = false;
+        } else if (info.type === 'ult') {
+          hud.btnUlt.isPressed = false;
+          input.touchUlt = false;
+        } else if (info.type === 'dash') {
+          hud.btnDash.isPressed = false;
+          input.touchDash = false;
+        }
+        this.activePointers.delete(e.pointerId);
       }
-      input.touchLeft = false;
-      input.touchRight = false;
-      input.touchJump = false;
-      input.touchSkill = false;
-      input.touchUlt = false;
-      input.touchDash = false;
     };
 
     this.canvas.addEventListener('pointerup', endPointer);
@@ -161,12 +239,11 @@ class Game {
     this.canvas.style.height = `${Math.floor(targetH)}px`;
   }
 
-  handlePointerDown(mx, my) {
+  handlePointerDown(mx, my, e) {
     audio.ensureContext();
 
     // If Style Bible is open
     if (styleBibleUI.isOpen) {
-      // Check tab clicks or close click
       const pad = 36;
       const modalW = this.vw - pad * 2;
       const modalH = this.vh - pad * 2;
@@ -186,7 +263,7 @@ class Game {
         if (mx >= thumbX && mx <= pad + modalW - 20) {
           const thumbH = 34;
           const clickedIdx = Math.floor((my - (pad + 115)) / (thumbH + 6));
-          if (clickedIdx >= 0 && clickedIdx < 8) {
+          if (clickedIdx >= 0 && clickedIdx < 13) {
             styleBibleUI.selectedArtSheet = clickedIdx;
           }
         } else if (mx >= pad + 20 && mx <= pad + 20 + previewW) {
@@ -203,9 +280,9 @@ class Game {
       return;
     }
 
-    if (this.state === 'INTRO') {
-      // Top right skip button: x: vw - 140, y: 18, w: 120, h: 34
-      if (mx >= this.vw - 140 && mx <= this.vw - 20 && my >= 18 && my <= 52) {
+    // Opening / Intro Flow
+    if (this.state === 'OPENING' || this.state === 'INTRO') {
+      if (mx >= this.vw - 150 && mx <= this.vw - 15 && my >= 16 && my <= 52) {
         introCinematic.skip();
       } else {
         introCinematic.nextAct();
@@ -213,17 +290,18 @@ class Game {
       return;
     }
 
+    // Main Menu Flow
     if (this.state === 'MENU') {
       // 1. Start Game Button
       if (mx >= 350 && mx <= 610 && my >= 340 && my <= 392) {
         this.state = 'SELECT';
         audio.playCoin();
       }
-      // 2. Watch Intro Button
+      // 2. Watch Opening Button
       else if (mx >= 350 && mx <= 610 && my >= 402 && my <= 452) {
-        this.state = 'INTRO';
+        this.state = 'OPENING';
         introCinematic.start(() => {
-          this.state = 'SELECT';
+          this.state = 'MENU';
         });
         audio.playCoin();
       }
@@ -231,8 +309,18 @@ class Game {
       else if (mx >= 380 && mx <= 580 && my >= 462 && my <= 505) {
         styleBibleUI.toggle();
       }
+      return;
     } 
-    else if (this.state === 'SELECT') {
+
+    // Character Select Flow
+    if (this.state === 'SELECT') {
+      // Back to Menu Button
+      if (mx >= 40 && mx <= 180 && my >= 30 && my <= 66) {
+        this.state = 'MENU';
+        audio.playCoin();
+        return;
+      }
+
       // 3 Hero cards: Yu, Shakira, Sandra
       const cardW = 260;
       const cardH = 340;
@@ -251,39 +339,134 @@ class Game {
       if (mx >= 380 && mx <= 580 && my >= 470 && my <= 520) {
         this.startGame();
       }
+      return;
     } 
-    else if (this.state === 'PLAYING') {
+
+    // Pause Menu Flow
+    if (this.state === 'PAUSE') {
+      const cx = this.vw / 2;
+      const cy = this.vh / 2;
+      const btnW = 260;
+      // 1. Resume
+      if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy - 20 && my <= cy + 24) {
+        this.state = 'PLAYING';
+        audio.playCoin();
+      }
+      // 2. Restart
+      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy + 36 && my <= cy + 80) {
+        this.startGame();
+      }
+      // 3. Back to Title
+      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy + 92 && my <= cy + 136) {
+        this.state = 'MENU';
+        audio.playCoin();
+      }
+      return;
+    }
+
+    // Playing Flow
+    if (this.state === 'PLAYING') {
+      // Level Intro Banner Skip on click
+      if (this.levelIntroTimer > 0) {
+        this.levelIntroTimer = 0;
+        return;
+      }
+
+      // Pause button check
+      if (mx >= hud.btnPause.x && mx <= hud.btnPause.x + hud.btnPause.w &&
+          my >= hud.btnPause.y && my <= hud.btnPause.y + hud.btnPause.h) {
+        this.state = 'PAUSE';
+        audio.playCoin();
+        return;
+      }
+
+      const hitRect = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+      const hitCircle = (btn, x, y) => Math.hypot(x - (btn.x + btn.w / 2), y - (btn.y + btn.h / 2)) <= btn.w / 2 + 12;
+
+      // Check Left D-Pad (◀)
+      if (hitRect(hud.btnLeft, mx, my)) {
+        hud.btnLeft.isPressed = true;
+        input.touchLeft = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'left' });
+        return;
+      }
+
+      // Check Right D-Pad (▶)
+      if (hitRect(hud.btnRight, mx, my)) {
+        hud.btnRight.isPressed = true;
+        input.touchRight = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'right' });
+        return;
+      }
+
       // Check Virtual Joystick touch / click
       const jDist = Math.hypot(mx - hud.joystick.baseX, my - hud.joystick.baseY);
       if (jDist <= hud.joystick.radius + 35) {
         this.joystickPointerId = e ? e.pointerId : 1;
+        if (e) this.activePointers.set(e.pointerId, { type: 'joystick' });
         hud.updateJoystick(mx, my, true);
         input.setJoystick(hud.joystick.normX, hud.joystick.normY);
         return;
       }
 
       // Mobile touch action buttons
-      const hitCircle = (btn, x, y) => Math.hypot(x - (btn.x + btn.w / 2), y - (btn.y + btn.h / 2)) <= btn.w / 2 + 10;
-
       if (hitCircle(hud.btnJump, mx, my)) {
+        hud.btnJump.isPressed = true;
         input.touchJump = true;
         input.jumpBufferTime = performance.now();
+        if (e) this.activePointers.set(e.pointerId, { type: 'jump' });
+        return;
       }
-      if (hitCircle(hud.btnSkill, mx, my)) input.touchSkill = true;
-      if (hitCircle(hud.btnUlt, mx, my)) input.touchUlt = true;
-      if (hitCircle(hud.btnDash, mx, my)) input.touchDash = true;
+      if (hitCircle(hud.btnSkill, mx, my)) {
+        hud.btnSkill.isPressed = true;
+        input.touchSkill = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'skill' });
+        return;
+      }
+      if (hitCircle(hud.btnUlt, mx, my)) {
+        hud.btnUlt.isPressed = true;
+        input.touchUlt = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'ult' });
+        return;
+      }
+      if (hitCircle(hud.btnDash, mx, my)) {
+        hud.btnDash.isPressed = true;
+        input.touchDash = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'dash' });
+        return;
+      }
 
-      // Check Game Over retry click
+      // Check Game Over 3 buttons
       if (hud.isGameOver) {
-        this.startGame();
+        if (hitRect(hud.endButtons.retry, mx, my)) {
+          this.startGame();
+        } else if (hitRect(hud.endButtons.reselect, mx, my)) {
+          this.state = 'SELECT';
+          audio.playCoin();
+        } else if (hitRect(hud.endButtons.home, mx, my)) {
+          this.state = 'MENU';
+          audio.playCoin();
+        }
       }
+      return;
     }
-    else if (this.state === 'VICTORY') {
-      if (hud.isVictory) {
+
+    // Game Over & Victory Screens: 3 replay options
+    if (this.state === 'GAMEOVER' || this.state === 'VICTORY') {
+      const hitRect = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+      if (hitRect(hud.endButtons.retry, mx, my)) {
         this.startGame();
+      } else if (hitRect(hud.endButtons.reselect, mx, my)) {
+        this.state = 'SELECT';
+        audio.playCoin();
+      } else if (hitRect(hud.endButtons.home, mx, my)) {
+        this.state = 'MENU';
+        audio.playCoin();
       }
+      return;
     }
-    else if (this.state === 'VICTORY_RUN') {
+
+    if (this.state === 'VICTORY_RUN') {
       // Tap screen to accelerate to final report
       if (this.victoryTimer > 2.0) {
         this.victoryTimer = 10.0;
@@ -293,6 +476,7 @@ class Game {
 
   startGame() {
     this.state = 'PLAYING';
+    this.levelIntroTimer = 3.0; // 3.0s skippable level entrance card
     this.player = new Player(this.selectedCharId);
     this.pm.reset();
     this.level.buildLevelGeometry();
@@ -304,6 +488,7 @@ class Game {
     particles.reset();
     hud.reset();
     input.reset();
+    this.activePointers.clear();
     this.victoryTimer = 0;
     this.victorySubState = '';
     this.victoryPunchTimer = 0;
@@ -312,9 +497,8 @@ class Game {
     this.milestoneBanner = null;
     this.milestoneBannerTimer = 0;
     this.announcedMilestones = {};
-    this.bossEntranceDone = false;  // v9.4: reset boss entrance for new game
+    this.bossEntranceDone = false;  // reset boss entrance for new game
     this.joystickPointerId = null;
-    // v9.3: Reset companions & celebration state
     this.companions = [];
     this.dialogueBubbles = [];
     this.celebrationTimer = 0;
@@ -330,6 +514,11 @@ class Game {
 
   start() {
     this.lastTime = performance.now();
+    if (this.state === 'OPENING') {
+      introCinematic.start(() => {
+        this.state = 'MENU';
+      });
+    }
     const loop = (time) => {
       const dt = Math.min(0.05, (time - this.lastTime) / 1000);
       this.lastTime = time;
@@ -344,12 +533,27 @@ class Game {
   }
 
   update(dt) {
-    if (this.state === 'INTRO') {
+    if (this.state === 'OPENING' || this.state === 'INTRO') {
       introCinematic.update(dt);
       return;
     }
 
+    if (this.state === 'PAUSE') {
+      return;
+    }
+
     if (this.state === 'PLAYING') {
+      if (this.levelIntroTimer > 0) {
+        this.levelIntroTimer -= dt;
+        this.camera.update(dt);
+        return;
+      }
+
+      if (hud.isGameOver) {
+        this.state = 'GAMEOVER';
+        return;
+      }
+
       // Update Entities & World
       this.player.update(dt, input, this.pm.platforms);
       if (this.player.fallTimePenalty > 0) {
@@ -362,10 +566,11 @@ class Game {
 
       // Check Boss Arena trigger (Arena entrance at x >= 14700)
       if (this.player.x >= 14700 && !this.boss.isDead) {
-        // v9.4: Show boss entrance banner (first time only)
+        // Show boss entrance banner and shake camera (first time only)
         if (!this.bossEntranceDone && this.player.x >= 14750) {
           this.bossEntranceDone = true;
-          this.milestoneBanner = '🌹 夢影巨花王現身！準備迎戰！';
+          this.camera.shake(12, 1.5);
+          this.milestoneBanner = '🌹 決戰松德！夢影巨花王現身！';
           this.milestoneBannerTimer = 3.5;
         }
         this.boss.update(dt, this.player, this.camera);
@@ -1058,7 +1263,11 @@ class Game {
 
       // vs Boss (Arena is at 14800 ~ 16500)
       if (this.player.x >= 14600 && !this.boss.isDead) {
-        if (Math.hypot(proj.x - this.boss.x, proj.y - (this.boss.y - 120)) < proj.width + 90) {
+        const bossCenterX = this.boss.x;
+        const bossCenterY = this.boss.y - (this.boss.height ? this.boss.height / 2 : 120);
+        const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width;
+        const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
+        if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
           this.boss.takeDamage(proj.damage);
           if (!proj.penetrating) proj.life = 0;
         }
@@ -1106,7 +1315,7 @@ class Game {
   render() {
     this.ctx.clearRect(0, 0, this.vw, this.vh);
 
-    if (this.state === 'INTRO') {
+    if (this.state === 'OPENING' || this.state === 'INTRO') {
       introCinematic.render(this.ctx, this.vw, this.vh);
       return;
     }
@@ -1116,7 +1325,7 @@ class Game {
     } else if (this.state === 'SELECT') {
       this.renderSelect();
     } else {
-      // PLAYING, VICTORY_RUN, VICTORY, GAMEOVER
+      // PLAYING, PAUSE, VICTORY_RUN, VICTORY, GAMEOVER
       // 1. Parallax Backgrounds
       this.level.renderBackgrounds(this.ctx, this.camera);
 
@@ -1142,6 +1351,11 @@ class Game {
         this.renderMilestoneBanner(this.milestoneBanner);
       }
 
+      // Level Entrance 3.0s Intro Banner
+      if (this.state === 'PLAYING' && this.levelIntroTimer > 0) {
+        this.renderLevelIntroBanner();
+      }
+
       // 4. Cinematic Victory Run Rendering (companions + speech bubbles)
       if (this.state === 'VICTORY_RUN') {
         // Render companion Chibi characters (screen-space coords)
@@ -1165,6 +1379,11 @@ class Game {
           const clockText = hud.punchedTimeText || '08:00:00';
           this.renderVictoryBanner(`🎉 ${clockText} 打卡成功！ON TIME！準時上班大成功！`);
         }
+      }
+
+      // Pause Menu Overlay
+      if (this.state === 'PAUSE') {
+        this.renderPauseMenu();
       }
     }
 
@@ -1367,6 +1586,132 @@ class Game {
     ctx.font = 'bold 20px sans-serif';
     ctx.fillText('進入台北晨間冒險', this.vw / 2, 502);
 
+    // Return to Menu Button
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(40, 30, 140, 36);
+    ctx.strokeStyle = '#90A4AE';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(40, 30, 140, 36);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('◀ 返回主畫面', 110, 48);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  renderLevelIntroBanner() {
+    const ctx = this.ctx;
+    const progress = Math.max(0, this.levelIntroTimer / 3.0);
+    const alpha = progress < 0.15 ? progress / 0.15 : (progress > 0.85 ? (1.0 - progress) / 0.15 : 1.0);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const cx = this.vw / 2;
+    const cy = this.vh / 2 - 40;
+    const bannerW = 680;
+    const bannerH = 130;
+
+    // Dark high-tech card
+    ctx.fillStyle = 'rgba(10, 16, 30, 0.94)';
+    ctx.strokeStyle = '#00E5FF';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cx - bannerW / 2, cy - bannerH / 2, bannerW, bannerH, 12);
+    else ctx.rect(cx - bannerW / 2, cy - bannerH / 2, bannerW, bannerH);
+    ctx.fill();
+    ctx.stroke();
+
+    // Top gold indicator
+    ctx.fillStyle = '#FFD54F';
+    ctx.fillRect(cx - bannerW / 2 + 10, cy - bannerH / 2 + 4, bannerW - 20, 4);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 28px "PingFang SC", sans-serif';
+    ctx.shadowColor = '#00E5FF';
+    ctx.shadowBlur = 14;
+    ctx.fillText('⏰ 07:57:00 捷運信義線 通勤大作戰 START！', cx, cy - 12);
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('距離 08:00:00 松德院區打卡僅剩 3 分鐘！擊潰阻截怪獸前進！', cx, cy + 22);
+
+    ctx.fillStyle = '#80D8FF';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('[點擊螢幕或按任意鍵立即出發 ⏩]', cx, cy + 48);
+
+    ctx.restore();
+  }
+
+  renderPauseMenu() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 10, 20, 0.82)';
+    ctx.fillRect(0, 0, this.vw, this.vh);
+
+    const cx = this.vw / 2;
+    const cy = this.vh / 2;
+    const modalW = 420;
+    const modalH = 290;
+
+    // Modal base
+    ctx.fillStyle = 'rgba(20, 28, 48, 0.96)';
+    ctx.strokeStyle = '#00E5FF';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cx - modalW / 2, cy - modalH / 2, modalW, modalH, 12);
+    else ctx.rect(cx - modalW / 2, cy - modalH / 2, modalW, modalH);
+    ctx.fill();
+    ctx.stroke();
+
+    // Title
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFE082';
+    ctx.font = 'bold 28px "PingFang SC", sans-serif';
+    ctx.shadowColor = '#FFB300';
+    ctx.shadowBlur = 14;
+    ctx.fillText('⏸️ 遊戲暫停 (PAUSED)', cx, cy - 85);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#B0BEC5';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('08:00 上班倒數暫時凍結，喘口氣繼續前行！', cx, cy - 52);
+
+    // 3 Buttons
+    const btnW = 260;
+    const btnH = 44;
+    
+    // 1. Resume
+    ctx.fillStyle = '#0288D1';
+    ctx.fillRect(cx - btnW / 2, cy - 20, btnW, btnH);
+    ctx.strokeStyle = '#81D4FA';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cx - btnW / 2, cy - 20, btnW, btnH);
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillText('繼續遊戲 (ESC / Resume)', cx, cy + 7);
+
+    // 2. Restart
+    ctx.fillStyle = '#D84315';
+    ctx.fillRect(cx - btnW / 2, cy + 36, btnW, btnH);
+    ctx.strokeStyle = '#FF8A65';
+    ctx.strokeRect(cx - btnW / 2, cy + 36, btnW, btnH);
+    ctx.fillStyle = '#FFF';
+    ctx.fillText('重新開始 (R / Restart)', cx, cy + 63);
+
+    // 3. Back to Title
+    ctx.fillStyle = '#37474F';
+    ctx.fillRect(cx - btnW / 2, cy + 92, btnW, btnH);
+    ctx.strokeStyle = '#90A4AE';
+    ctx.strokeRect(cx - btnW / 2, cy + 92, btnW, btnH);
+    ctx.fillStyle = '#FFF';
+    ctx.fillText('回主選單 (M / Title)', cx, cy + 119);
+
     ctx.restore();
   }
 }
@@ -1383,6 +1728,8 @@ window.CommuterGame = {
   MONSTERS,
   BOSS_CONFIG,
   hud,
+  introCinematic,
+  styleBibleUI,
   PlatformManager,
   projectiles,
   particles,

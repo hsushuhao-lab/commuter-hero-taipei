@@ -256,16 +256,16 @@ testAssert('Monster 3D distribution across ground, high brick, and slope platfor
   }
 });
 
-// 10. Boss Arena Continuity, Projectile Clamping & v9.5 True Two-Phase Upgrade
-testAssert('Boss v9.5: P1 HP=2400, P2 HP=3200, Transform=2.8s, Arena floor continuous', () => {
+// 10. Boss Arena Continuity, Projectile Clamping & v9.6 True Two-Phase Upgrade
+testAssert('Boss v9.6: P1 HP=2800, P2 HP=3600, Transform=2.8s, Arena floor continuous', () => {
   const pm = new PlatformManager();
   const level = new Level(pm);
   assert.strictEqual(BOSS_CONFIG.arena.startX, 14800);
   assert.strictEqual(BOSS_CONFIG.arena.endX, 16500);
   assert.strictEqual(BOSS_CONFIG.arena.width, 1700);
-  // v9.5 HP checks
-  assert.strictEqual(BOSS_CONFIG.phase1Hp, 2400, `Expected phase1Hp=2400, got ${BOSS_CONFIG.phase1Hp}`);
-  assert.strictEqual(BOSS_CONFIG.phase2Hp, 3200, `Expected phase2Hp=3200, got ${BOSS_CONFIG.phase2Hp}`);
+  // v9.6 HP checks
+  assert.strictEqual(BOSS_CONFIG.phase1Hp, 2800, `Expected phase1Hp=2800, got ${BOSS_CONFIG.phase1Hp}`);
+  assert.strictEqual(BOSS_CONFIG.phase2Hp, 3600, `Expected phase2Hp=3600, got ${BOSS_CONFIG.phase2Hp}`);
   assert.strictEqual(BOSS_CONFIG.transformDuration, 2.8, `Expected transformDuration=2.8, got ${BOSS_CONFIG.transformDuration}`);
   assert(BOSS_CONFIG.antiFacetank, 'antiFacetank config must exist');
   assert.strictEqual(BOSS_CONFIG.antiFacetank.vineCleaveDamage, 18);
@@ -294,35 +294,36 @@ testAssert('Boss v9.5: P1 HP=2400, P2 HP=3200, Transform=2.8s, Arena floor conti
   }
 });
 
-// 11. 120s Timer Pause During Non-Playable Cutscenes
-testAssert('120s commute timer pauses during cut-in, boss roar, and victory run', () => {
+// 11. 180s Timer Pause During Non-Playable Cutscenes
+testAssert('180s commute timer pauses during cut-in, boss roar, and victory run', () => {
   hud.reset();
   const player = new Player('yu');
   const boss = new Boss();
   
   const initialTime = hud.timeRemaining;
-  assert.strictEqual(initialTime, 120);
+  assert.strictEqual(initialTime, 180);
 
   // When cutinActive is true
   hud.cutinActive = true;
   hud.update(1.0, player, boss);
-  assert.strictEqual(hud.timeRemaining, 120, 'Timer must pause during Cut-in');
+  assert.strictEqual(hud.timeRemaining, 180, 'Timer must pause during Cut-in');
 
   hud.cutinActive = false;
   // When boss is roaring
   boss.roarTimer = 1.5;
   hud.update(1.0, player, boss);
-  assert.strictEqual(hud.timeRemaining, 120, 'Timer must pause during Boss roar');
+  assert.strictEqual(hud.timeRemaining, 180, 'Timer must pause during Boss roar');
 
   boss.roarTimer = 0;
   hud.update(1.0, player, boss);
-  assert(hud.timeRemaining < 120, 'Timer should tick during normal gameplay');
+  assert(hud.timeRemaining < 180, 'Timer should tick during normal gameplay');
 });
 
 // 12. v9.5 Victory Flow: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → TRIPLE PUNCH
 testAssert('v9.5 Victory sequence: BOSS_BURST → COMPANION_RUSH → DIALOGUE → GROUP_SPRINT → TRIPLE PUNCH', () => {
   const game = new Game();
   game.startGame();
+  game.levelIntroTimer = 0; // Skip level intro banner
   game.boss.isDead = true;
   game.update(0.016);
   assert.strictEqual(game.state, 'VICTORY_RUN', 'State should change to VICTORY_RUN');
@@ -370,29 +371,30 @@ testAssert('v9.5 Victory sequence: BOSS_BURST → COMPANION_RUSH → DIALOGUE �
 });
 
 // 13. Dynamic Real Clock Time (08:00:00 - remaining)
-testAssert('Punch clock calculates dynamic real time accurately based on remaining timer', () => {
+testAssert('Punch clock calculates dynamic real time accurately based on remaining timer (180s)', () => {
   hud.reset();
-  // If 23 seconds remaining (out of 120): secPassed = 97s = 1m 37s -> 07:58 + 1m37s = 07:59:37
+  // If 23 seconds remaining (out of 180): secPassed = 157s = 2m 37s -> 07:57 + 2m37s = 07:59:37
   hud.timeRemaining = 23;
   const timeStr = hud.getFormattedClockTime();
   assert.strictEqual(timeStr, '07:59:37', `Expected 07:59:37, got ${timeStr}`);
 
-  // If 120 seconds remaining (game start): 07:58:00
-  hud.timeRemaining = 120;
-  assert.strictEqual(hud.getFormattedClockTime(), '07:58:00');
+  // If 180 seconds remaining (game start): 07:57:00
+  hud.timeRemaining = 180;
+  assert.strictEqual(hud.getFormattedClockTime(), '07:57:00');
 
   // If 0 seconds remaining: 08:00:00
   hud.timeRemaining = 0;
   assert.strictEqual(hud.getFormattedClockTime(), '08:00:00');
 
-  // Scorecard check
+  // Scorecard check: v9.6 Rank S requires remaining >= 40s and fallCount <= 1
   const p = new Player('yu');
   p.coins = 50;
   p.hp = 80;
-  hud.timeRemaining = 36;
+  p.fallCount = 0;
+  hud.timeRemaining = 45;
   hud.calculateEvaluation(p, true);
   assert.strictEqual(hud.resultRank, 'Rank S');
-  assert.strictEqual(hud.punchedTimeText, '07:59:24');
+  assert.strictEqual(hud.punchedTimeText, '07:59:15');
 });
 
 // 14. Camera World Bounds (18,000px tracking)

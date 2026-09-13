@@ -33,8 +33,8 @@ export class Boss {
     this.width = this.config.width;
     this.height = this.config.height;
 
-    this.hp = 2400;
-    this.maxHp = 2400;
+    this.hp = this.config.phase1Hp || 2800;
+    this.maxHp = this.config.phase1Hp || 2800;
     this.phase = 1; // 1 or 2
     this.phase2Triggered = false;
 
@@ -346,11 +346,11 @@ export class Boss {
         this.isTransforming = false;
         this.phase = 2;
         this.phase2Triggered = true;
-        this.hp = this.config.phase2Hp || 3200;
-        this.maxHp = this.config.phase2Hp || 3200;
+        this.hp = this.config.phase2Hp || 3600;
+        this.maxHp = this.config.phase2Hp || 3600;
         this.roarTimer = 0;
         this.attackTimer = 1.2;
-        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 3200', '#FF1744');
+        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 3600', '#FF1744');
       }
       return; // 100% frozen during transform!
     }

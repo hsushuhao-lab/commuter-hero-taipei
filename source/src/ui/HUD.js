@@ -13,8 +13,8 @@ import { STAGES } from '../world/Level.js';
 
 export class HUD {
   constructor() {
-    this.totalGameTime = 120; // 120 秒倒數
-    this.timeRemaining = 120;
+    this.totalGameTime = 180; // 180 秒倒數 (3分鐘)
+    this.timeRemaining = 180;
     this.score = 0;
     
     // Anime Cut-in State
@@ -28,21 +28,31 @@ export class HUD {
     this.resultStamp = '';
     this.resultRank = '';
 
-    // Mobile virtual joystick & action buttons
+    // Mobile controls: Discrete D-Pad (◀ / ▶) + Virtual Joystick
+    this.btnLeft = { x: 30, y: 425, w: 68, h: 68, isPressed: false };
+    this.btnRight = { x: 110, y: 425, w: 68, h: 68, isPressed: false };
     this.joystick = {
-      baseX: 110,
-      baseY: 435,
-      radius: 56,
-      knobX: 110,
-      knobY: 435,
-      knobRadius: 26,
+      baseX: 104,
+      baseY: 340,
+      radius: 46,
+      knobX: 104,
+      knobY: 340,
+      knobRadius: 22,
       active: false
     };
-    this.btnJump = { x: 860, y: 430, w: 70, h: 70 };
-    this.btnSkill = { x: 770, y: 430, w: 65, h: 65 };
-    this.btnUlt = { x: 860, y: 340, w: 70, h: 70 };
-    this.btnDash = { x: 770, y: 340, w: 65, h: 65 };
-    this.btnBible = { x: 890, y: 20, w: 50, h: 32 };
+    this.btnJump = { x: 865, y: 430, w: 68, h: 68, isPressed: false };
+    this.btnSkill = { x: 775, y: 430, w: 64, h: 64, isPressed: false };
+    this.btnUlt = { x: 865, y: 345, w: 68, h: 68, isPressed: false };
+    this.btnDash = { x: 775, y: 345, w: 64, h: 64, isPressed: false };
+    this.btnPause = { x: 20, y: 18, w: 44, h: 32, isPressed: false };
+    this.btnBible = { x: 890, y: 20, w: 50, h: 32, isPressed: false };
+
+    // End screen 3 buttons (Victory & Game Over)
+    this.endButtons = {
+      retry: { x: 0, y: 0, w: 145, h: 44, label: '再玩一次 (R)' },
+      reselect: { x: 0, y: 0, w: 145, h: 44, label: '重新選角 (C)' },
+      home: { x: 0, y: 0, w: 145, h: 44, label: '回主畫面 (M)' }
+    };
   }
 
   updateJoystick(touchX, touchY, active) {
@@ -92,12 +102,22 @@ export class HUD {
     this.cutinDuration = duration;
     this.cutinTimer = duration;
     this.cutinChar = charConfig;
+    if (charConfig) {
+      if (!charConfig._windupCutinImg && charConfig.windupCutin) {
+        charConfig._windupCutinImg = new Image();
+        charConfig._windupCutinImg.src = charConfig.windupCutin;
+      }
+      if (!charConfig._ultCardImg && charConfig.ultCard) {
+        charConfig._ultCardImg = new Image();
+        charConfig._ultCardImg.src = charConfig.ultCard;
+      }
+    }
   }
 
   getFormattedClockTime() {
     const timeFormatted = Math.max(0, this.timeRemaining);
-    const secPassed = Math.max(0, 120 - Math.ceil(timeFormatted));
-    const displayMin = 58 + Math.floor(secPassed / 60);
+    const secPassed = Math.max(0, 180 - Math.ceil(timeFormatted));
+    const displayMin = 57 + Math.floor(secPassed / 60);
     const displaySec = secPassed % 60;
     if (displayMin >= 60) {
       return `08:${String(displayMin - 60).padStart(2, '0')}:${String(displaySec).padStart(2, '0')}`;
@@ -111,21 +131,21 @@ export class HUD {
     let stamp = 'Late';
     let rank = 'Rank B';
 
-    // v9.5 Rank Specification:
-    // S: 剩餘 >= 25s 且 Fall <= 1
-    // A: 剩餘 >= 15s
-    // B: 剩餘 >= 5s
-    // D: < 5s 或大量跌落 / 失敗
+    // v9.6 Rank Specification (180s Total Experience):
+    // S: 剩餘 >= 40s 且 Fall <= 1
+    // A: 剩餘 >= 25s
+    // B: 剩餘 >= 10s 且 Fall <= 3
+    // D: < 10s 或大量跌落 / 失敗
     if (!bossDefeated || player.isDead || timeLeft <= 0) {
       stamp = 'Late';
       rank = 'Rank D';
-    } else if (timeLeft >= 25 && falls <= 1) {
+    } else if (timeLeft >= 40 && falls <= 1) {
       stamp = 'Perfect';
       rank = 'Rank S';
-    } else if (timeLeft >= 15) {
+    } else if (timeLeft >= 25) {
       stamp = 'Great';
       rank = 'Rank A';
-    } else if (timeLeft >= 5 && falls <= 3) {
+    } else if (timeLeft >= 10 && falls <= 3) {
       stamp = 'On Time';
       rank = 'Rank B';
     } else {
@@ -400,26 +420,28 @@ export class HUD {
     ctx.fillRect(-vw, bannerH / 2 - 18, slideX, 8);
     ctx.restore();
 
-    // Character portrait image (ultCard) — slides in from left
+    // Character portrait / wind-up storyboard cut-in — slides in from left
     const portraitSlide = Math.max(0, Math.min(1, (progress - 0.05) * 4));
-    const portraitX = -300 + portraitSlide * 290;
-    if (char.ultCard) {
-      const ultImg = char._ultCardImg;
-      if (ultImg && ultImg.complete && ultImg.naturalWidth > 0) {
-        ctx.save();
-        ctx.globalAlpha = portraitSlide;
-        ctx.drawImage(ultImg, portraitX, vh / 2 - 180, 240, 320);
-        ctx.restore();
-      }
-    }
-    // Fallback: draw colored glow box where portrait would be
-    if (!char._ultCardImg || !char._ultCardImg.complete) {
+    const portraitX = -320 + portraitSlide * 350;
+    const cutinImg = (char._windupCutinImg && char._windupCutinImg.complete && char._windupCutinImg.naturalWidth > 0)
+      ? char._windupCutinImg
+      : (char._ultCardImg && char._ultCardImg.complete && char._ultCardImg.naturalWidth > 0 ? char._ultCardImg : null);
+
+    if (cutinImg) {
+      ctx.save();
+      ctx.globalAlpha = portraitSlide;
+      ctx.shadowColor = char.colors.accent;
+      ctx.shadowBlur = 24;
+      ctx.drawImage(cutinImg, portraitX, vh / 2 - 190, 320, 380);
+      ctx.restore();
+    } else {
+      // Fallback: draw colored glow box where portrait would be
       ctx.save();
       ctx.globalAlpha = portraitSlide * 0.8;
       ctx.fillStyle = char.colors.primary;
       ctx.shadowColor = char.colors.accent;
       ctx.shadowBlur = 30;
-      ctx.fillRect(portraitX, vh / 2 - 160, 200, 280);
+      ctx.fillRect(portraitX, vh / 2 - 160, 240, 300);
       ctx.restore();
     }
 
@@ -507,22 +529,89 @@ export class HUD {
     ctx.arc(j.knobX, j.knobY, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+    // 1. Left D-Pad (◀ / ▶) + Analog Joystick
+    const drawDPadBtn = (btn, label, isRight) => {
+      ctx.save();
+      const pressed = btn.isPressed;
+      const bx = btn.x + btn.w / 2;
+      const by = btn.y + btn.h / 2;
+      ctx.translate(bx, by);
+      if (pressed) ctx.scale(0.92, 0.92);
+
+      ctx.fillStyle = pressed ? 'rgba(0, 229, 255, 0.55)' : 'rgba(10, 25, 45, 0.65)';
+      ctx.strokeStyle = pressed ? '#00E5FF' : 'rgba(255, 255, 255, 0.55)';
+      ctx.lineWidth = pressed ? 3 : 2;
+      if (pressed) {
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur = 14;
+      }
+      ctx.beginPath();
+      ctx.roundRect(-btn.w / 2, -btn.h / 2, btn.w, btn.h, 12);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = pressed ? '#FFF' : '#CFD8DC';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, 0, -1);
+      ctx.restore();
+    };
+
+    drawDPadBtn(this.btnLeft, '◀', false);
+    drawDPadBtn(this.btnRight, '▶', true);
+
+    // Virtual Joystick (top of D-pad)
+    ctx.save();
+    ctx.strokeStyle = j.active ? '#00E5FF' : 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.beginPath();
+    ctx.arc(j.baseX, j.baseY, j.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Joystick Knob
+    ctx.fillStyle = j.active ? '#00E5FF' : 'rgba(255, 255, 255, 0.65)';
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    if (j.active) {
+      ctx.shadowColor = '#00E5FF';
+      ctx.shadowBlur = 10;
+    }
+    ctx.beginPath();
+    ctx.arc(j.knobX, j.knobY, j.knobRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
 
     // 2. Action Buttons (Right Hand)
-    const drawBtn = (btn, label, active) => {
-      ctx.fillStyle = active ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)';
-      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-      ctx.lineWidth = 2;
+    const drawBtn = (btn, label, active, themeColor = '#FFF') => {
+      ctx.save();
+      const pressed = btn.isPressed || active;
+      const bx = btn.x + btn.w / 2;
+      const by = btn.y + btn.h / 2;
+      ctx.translate(bx, by);
+      if (pressed) ctx.scale(0.92, 0.92);
+
+      ctx.fillStyle = pressed ? 'rgba(255, 215, 0, 0.45)' : 'rgba(15, 23, 42, 0.65)';
+      ctx.strokeStyle = pressed ? '#FFD700' : 'rgba(255, 255, 255, 0.65)';
+      ctx.lineWidth = pressed ? 3 : 2;
+      if (pressed) {
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 12;
+      }
       ctx.beginPath();
-      ctx.arc(btn.x + btn.w / 2, btn.y + btn.h / 2, btn.w / 2, 0, Math.PI * 2);
+      ctx.arc(0, 0, btn.w / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 18px sans-serif';
+      ctx.font = 'bold 17px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2);
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
     };
 
     drawBtn(this.btnJump, '跳躍', false);
@@ -532,11 +621,22 @@ export class HUD {
     // Ult Button with Lock / Ready / Cooldown Sweep (15 coins)
     const ub = this.btnUlt;
     const isUltUnlocked = player.hasUnlockedUlt || player.coins >= 15;
-    ctx.fillStyle = isUltUnlocked ? 'rgba(2, 136, 209, 0.6)' : 'rgba(60, 60, 60, 0.6)';
-    ctx.strokeStyle = isUltUnlocked ? '#00E5FF' : '#9E9E9E';
+    const ultReady = isUltUnlocked && player.ultCooldown <= 0;
+    ctx.save();
+    const ubx = ub.x + ub.w / 2;
+    const uby = ub.y + ub.h / 2;
+    ctx.translate(ubx, uby);
+    if (ub.isPressed) ctx.scale(0.92, 0.92);
+
+    ctx.fillStyle = isUltUnlocked ? (ultReady ? 'rgba(2, 136, 209, 0.7)' : 'rgba(30, 30, 30, 0.65)') : 'rgba(50, 50, 50, 0.65)';
+    ctx.strokeStyle = isUltUnlocked ? (ultReady ? '#00E5FF' : '#78909C') : '#9E9E9E';
     ctx.lineWidth = 3;
+    if (ultReady) {
+      ctx.shadowColor = '#00E5FF';
+      ctx.shadowBlur = 14;
+    }
     ctx.beginPath();
-    ctx.arc(ub.x + ub.w / 2, ub.y + ub.h / 2, ub.w / 2, 0, Math.PI * 2);
+    ctx.arc(0, 0, ub.w / 2, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
@@ -544,14 +644,32 @@ export class HUD {
     ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(isUltUnlocked ? '大招' : '🔒', ub.x + ub.w / 2, ub.y + ub.h / 2);
+    ctx.fillText(isUltUnlocked ? (ultReady ? '大招' : 'CD') : '🔒', 0, 0);
+    ctx.restore();
+
+    // Top-Left Pause Button
+    const pb = this.btnPause;
+    ctx.save();
+    ctx.fillStyle = pb.isPressed ? 'rgba(255, 215, 0, 0.4)' : 'rgba(0, 0, 0, 0.45)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(pb.x, pb.y, pb.w, pb.h, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⏸ 暫停', pb.x + pb.w / 2, pb.y + pb.h / 2);
+    ctx.restore();
 
     ctx.restore();
   }
 
   renderVictoryScreen(ctx, player, vw, vh) {
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.82)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
     ctx.fillRect(0, 0, vw, vh);
 
     const cx = vw / 2;
@@ -574,23 +692,22 @@ export class HUD {
 
     // Victory Window
     ctx.fillStyle = '#1A237E';
-    ctx.fillRect(cx - 280, cy - 200, 560, 400);
+    ctx.fillRect(cx - 280, cy - 205, 560, 410);
     ctx.strokeStyle = '#FFD700';
     ctx.lineWidth = 3;
-    ctx.strokeRect(cx - 280, cy - 200, 560, 400);
+    ctx.strokeRect(cx - 280, cy - 205, 560, 410);
 
     // Inner accent border
     ctx.strokeStyle = 'rgba(255,215,0,0.3)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(cx - 272, cy - 192, 544, 384);
+    ctx.strokeRect(cx - 272, cy - 197, 544, 394);
 
-    // Chibi portrait on left side (accessible via window.activeGame.chibiImages)
+    // Chibi portrait on left side
     const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
     const chibImg = chibiImages && chibiImages[player.id];
     if (chibImg && chibImg.complete && chibImg.naturalWidth > 0) {
       ctx.save();
       ctx.drawImage(chibImg, cx - 258, cy - 185, 110, 143);
-      // Character color glow
       ctx.globalAlpha = 0.3;
       ctx.fillStyle = player.charConfig ? player.charConfig.colors.theme : '#FFD700';
       ctx.fillRect(cx - 258, cy - 185, 110, 143);
@@ -598,25 +715,25 @@ export class HUD {
     }
 
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 26px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.font = 'bold 24px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🎉 準時抵達松德院區！上班大成功！', cx + 55, cy - 155);
+    ctx.fillText('🎉 準時抵達松德院區！上班大成功！', cx + 55, cy - 160);
 
     // Punch Stamp
     ctx.save();
-    ctx.translate(cx + 160, cy - 40);
+    ctx.translate(cx + 160, cy - 45);
     ctx.rotate(-0.15);
     ctx.strokeStyle = '#4CAF50';
     ctx.lineWidth = 4;
-    ctx.strokeRect(-80, -40, 160, 80);
+    ctx.strokeRect(-80, -38, 160, 76);
     ctx.fillStyle = 'rgba(76,175,80,0.15)';
-    ctx.fillRect(-80, -40, 160, 80);
+    ctx.fillRect(-80, -38, 160, 76);
     ctx.fillStyle = '#4CAF50';
     ctx.font = 'bold 22px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(this.punchedTimeText || this.getFormattedClockTime(), 0, -5);
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('ON TIME PUNCHED ✓', 0, 20);
+    ctx.fillText(this.punchedTimeText || this.getFormattedClockTime(), 0, -4);
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('ON TIME PUNCHED ✓', 0, 18);
     ctx.restore();
 
     // Stats
@@ -624,57 +741,109 @@ export class HUD {
     ctx.font = '13px "PingFang SC", "Microsoft JhengHei", sans-serif';
     ctx.textAlign = 'left';
     const statsX = cx - 140;
-    ctx.fillText(`英雄：${player.name}${player.form2Active ? '【覺醒 II】' : ''}`, statsX, cy - 90);
-    ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 68);
-    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 | 剩餘體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 46);
-    ctx.fillText(`收集金幣：${player.coins} 枚 | 墜崖失誤：${player.fallCount || 0} 次`, statsX, cy - 24);
-    ctx.fillText(`雙階巨花王：完整討伐確認 (Phase 1 2400 + Phase 2 3200)`, statsX, cy - 2);
+    ctx.fillText(`英雄：${player.name}${player.form2Active ? '【覺醒 II】' : ''}`, statsX, cy - 95);
+    ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 73);
+    ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 (3分滿載) | 體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 51);
+    ctx.fillText(`收集金幣：${player.coins} 枚 | 墜崖失誤：${player.fallCount || 0} 次`, statsX, cy - 29);
+    ctx.fillText(`雙階巨花王：夢境安撫態(2800) + 狂暴盛開態(3600) 討伐確認`, statsX, cy - 7);
 
-    // Rank — large centered
+    // Rank — centered
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 42px monospace';
+    ctx.font = 'bold 38px monospace';
     ctx.textAlign = 'center';
     ctx.shadowColor = '#FF6F00';
     ctx.shadowBlur = 16;
-    ctx.fillText(this.resultRank, cx + 55, cy + 80);
+    ctx.fillText(this.resultRank, cx + 55, cy + 65);
     ctx.shadowBlur = 0;
 
-    // Restart instruction
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.font = '14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('按 [Space] 或 點擊此處 再次挑戰', cx, cy + 165);
+    // ── 3 Replay Buttons: Retry, Reselect, Home ──
+    const btnW = 150;
+    const btnH = 42;
+    const btnY = cy + 135;
+
+    this.endButtons.retry = { x: cx - 240, y: btnY, w: btnW, h: btnH, label: '再玩一次 (R)' };
+    this.endButtons.reselect = { x: cx - 75, y: btnY, w: btnW, h: btnH, label: '重新選角 (C)' };
+    this.endButtons.home = { x: cx + 90, y: btnY, w: btnW, h: btnH, label: '回主畫面 (M)' };
+
+    const drawEndBtn = (b, bgColor, borderColor) => {
+      ctx.save();
+      ctx.fillStyle = bgColor;
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(b.x, b.y, b.w, b.h, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2);
+      ctx.restore();
+    };
+
+    drawEndBtn(this.endButtons.retry, '#2E7D32', '#66BB6A');
+    drawEndBtn(this.endButtons.reselect, '#1565C0', '#42A5F5');
+    drawEndBtn(this.endButtons.home, '#455A64', '#90A4AE');
 
     ctx.restore();
   }
 
   renderGameOverScreen(ctx, vw, vh) {
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
     ctx.fillRect(0, 0, vw, vh);
 
     const cx = vw / 2;
     const cy = vh / 2;
 
     ctx.fillStyle = '#B71C1C';
-    ctx.fillRect(cx - 200, cy - 120, 400, 240);
+    ctx.fillRect(cx - 240, cy - 130, 480, 260);
     ctx.strokeStyle = '#FF5252';
     ctx.lineWidth = 3;
-    ctx.strokeRect(cx - 200, cy - 120, 400, 240);
+    ctx.strokeRect(cx - 240, cy - 130, 480, 260);
 
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('上班遲到！打卡失敗', cx, cy - 60);
+    ctx.fillText('上班遲到！打卡失敗', cx, cy - 70);
 
-    ctx.font = '16px sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    ctx.fillText('08:00:01 - 超過上班時限或體力耗盡', cx, cy - 15);
-    ctx.fillText('不要氣餒，明天再戰！', cx, cy + 15);
+    ctx.font = '15px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText('08:00:01 - 超過 3 分鐘上班時限或體力耗盡', cx, cy - 30);
+    ctx.fillText('通勤路上險象環生，調整策略再次出發！', cx, cy - 5);
 
-    ctx.fillStyle = '#FFEB3B';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('按 [Space] 或 點擊此處 重試', cx, cy + 75);
+    // ── 3 Replay Buttons: Retry, Reselect, Home ──
+    const btnW = 135;
+    const btnH = 42;
+    const btnY = cy + 50;
+
+    this.endButtons.retry = { x: cx - 215, y: btnY, w: btnW, h: btnH, label: '再玩一次 (R)' };
+    this.endButtons.reselect = { x: cx - 68, y: btnY, w: btnW, h: btnH, label: '重新選角 (C)' };
+    this.endButtons.home = { x: cx + 80, y: btnY, w: btnW, h: btnH, label: '回主畫面 (M)' };
+
+    const drawEndBtn = (b, bgColor, borderColor) => {
+      ctx.save();
+      ctx.fillStyle = bgColor;
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(b.x, b.y, b.w, b.h, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2);
+      ctx.restore();
+    };
+
+    drawEndBtn(this.endButtons.retry, '#C62828', '#FF5252');
+    drawEndBtn(this.endButtons.reselect, '#1565C0', '#42A5F5');
+    drawEndBtn(this.endButtons.home, '#455A64', '#90A4AE');
 
     ctx.restore();
   }

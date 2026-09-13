@@ -29,7 +29,8 @@ export class Monster {
     this.speed = this.config.speed;
     this.attackDamage = this.config.attackDamage;
     this.attackCooldown = this.config.attackCooldown;
-    this.isPhase2 = false;
+    this.attackPhase = 1;
+    this.isPhase2 = false; // Backward-compatible alias
     this.name = this.config.name;
 
     this.width = 54;
@@ -41,7 +42,7 @@ export class Monster {
     this.attackCooldownTimer = Math.random() * 1.2; // Staggered first attack
     this.isTelegraphing = false;
     this.telegraphTimer = 0;
-    this.telegraphDuration = this.config.telegraphDuration || 0.32;
+    this.telegraphDuration = this.config.telegraphDuration || 0.40;
     this.delayedSpawns = [];
     this.turnaroundTimer = 0;
 
@@ -50,34 +51,36 @@ export class Monster {
     this.hitTimer = 0;
     this.bobTimer = Math.random() * Math.PI * 2;
 
-    // Preload P1 and P2 images
+    // v9.6: Cancel cosmetic transformation - All monsters strictly retain imageP1!
     this.imageP1 = new Image();
     this.imageP1.src = this.config.asset;
-    this.imageP2 = new Image();
-    if (this.config.phase2 && this.config.phase2.asset) {
-      this.imageP2.src = this.config.phase2.asset;
-    } else {
-      this.imageP2 = this.imageP1;
-    }
+    this.imageP2 = this.imageP1; // Keep alias pointing to same image
     this.image = this.imageP1;
   }
 
-  evolveToPhase2() {
-    if (this.isPhase2 || this.isDead) return;
-    this.isPhase2 = true;
+  triggerAttackPhase2() {
+    if (this.attackPhase === 2 || this.isDead) return;
+    this.attackPhase = 2;
+    this.isPhase2 = true; // alias
+    // Strict requirement: DO NOT CHANGE IMAGE!
+    this.image = this.imageP1;
+
     if (this.config.phase2) {
-      const p2 = this.config.phase2;
-      this.name = p2.name;
-      const hpDiff = p2.hp - this.config.hp;
-      this.hp = Math.min(p2.hp, this.hp + hpDiff);
-      this.maxHp = p2.hp;
-      this.image = this.imageP2;
-      this.speed = p2.speed;
-      this.attackDamage = p2.attackDamage;
-      this.attackCooldown = p2.attackCooldown;
+      this.attackDamage = this.config.phase2.attackDamage || Math.round(this.config.attackDamage * 1.45);
+      this.attackCooldown = this.config.phase2.attackCooldown || (this.config.attackCooldown * 0.78);
+    } else {
+      this.attackDamage = Math.round(this.config.attackDamage * 1.45);
+      this.attackCooldown = this.config.attackCooldown * 0.78;
     }
+    this.telegraphDuration = Math.max(0.32, (this.config.telegraphDuration || 0.40) * 0.85);
+
     particles.emitHitSparks(this.x, this.y - 20, '#FFD700', 16);
-    particles.emitHitSparks(this.x, this.y - 20, this.config.color, 12);
+    particles.emitHitSparks(this.x, this.y - 20, this.config.color, 14);
+    particles.emitFloatingText(this.x, this.y - 45, '⚡ ATK PHASE 2', this.config.color);
+  }
+
+  evolveToPhase2() {
+    this.triggerAttackPhase2();
   }
 
   takeDamage(amount) {
@@ -225,241 +228,268 @@ export class Monster {
     const dir = this.facing;
     const spawnX = this.x + dir * 25;
     const spawnY = this.y - 25;
+    const isP2 = this.attackPhase === 2;
 
     if (this.typeKey === 'red') {
-      // Screen-spanning rapid piercing red lance
+      // 尖鼻小紅苗:
+      // Phase 1: 直線發射紅色種子 (中等傷害)
+      // Phase 2: 連續高速種子彈幕 (高傷害, 3連發)
       projectiles.spawn({
         isPlayer: false,
         type: 'petal',
         x: spawnX,
         y: spawnY,
-        vx: dir * 520,
+        vx: dir * (isP2 ? 620 : 520),
         vy: 0,
-        maxDistance: 600,
-        width: 32,
+        maxDistance: 650,
+        width: isP2 ? 36 : 32,
         height: 14,
         color: '#FF5252',
         damage: this.attackDamage,
         life: 1.5
       });
+      if (isP2) {
+        [0.08, 0.16].forEach((delay, idx) => {
+          this.delayedSpawns.push({
+            delay,
+            spawn: () => {
+              projectiles.spawn({
+                isPlayer: false,
+                type: 'petal',
+                x: spawnX,
+                y: spawnY + (idx % 2 === 0 ? -8 : 8),
+                vx: dir * 650,
+                vy: (idx % 2 === 0 ? -15 : 15),
+                maxDistance: 650,
+                width: 34,
+                height: 14,
+                color: '#FF1744',
+                damage: this.attackDamage,
+                life: 1.5
+              });
+            }
+          });
+        });
+      }
     } 
     else if (this.typeKey === 'ice') {
-      // Dual bi-directional ground frost shockwaves
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'pan_wave',
-        x: spawnX,
-        y: this.y,
-        vx: dir * 340,
-        vy: 0,
-        maxDistance: 450,
-        width: 42,
-        height: 28,
-        color: '#40C4FF',
-        damage: this.attackDamage,
-        life: 1.3
-      });
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'pan_wave',
-        x: spawnX,
-        y: this.y,
-        vx: -dir * 340,
-        vy: 0,
-        maxDistance: 450,
-        width: 42,
-        height: 28,
-        color: '#40C4FF',
-        damage: this.attackDamage,
-        life: 1.3
-      });
+      // 稜角冰晶怪:
+      // Phase 1: 發射冰晶碎片 (雙向滾動冰霜波，中等傷害，附減速)
+      // Phase 2: 大範圍冰晶風暴 (5向廣角冰晶風暴，高傷害，強力減速)
+      if (!isP2) {
+        [-1, 1].forEach(d => {
+          projectiles.spawn({
+            isPlayer: false,
+            type: 'pan_wave',
+            x: spawnX,
+            y: this.y,
+            vx: d * 340,
+            vy: 0,
+            maxDistance: 450,
+            width: 42,
+            height: 28,
+            color: '#40C4FF',
+            damage: this.attackDamage,
+            life: 1.3
+          });
+        });
+      } else {
+        for (let i = -2; i <= 2; i++) {
+          projectiles.spawn({
+            isPlayer: false,
+            type: 'pan_wave',
+            x: spawnX,
+            y: spawnY,
+            vx: dir * 360,
+            vy: i * 65,
+            maxDistance: 500,
+            width: 46,
+            height: 32,
+            color: '#00E5FF',
+            damage: this.attackDamage,
+            life: 1.4
+          });
+        }
+      }
     }
     else if (this.typeKey === 'grape') {
-      // Triple toxic lob bubbles covering high, medium and low arcs
-      const angles = [
-        { vx: dir * 220, vy: -180 },
-        { vx: dir * 300, vy: -140 },
-        { vx: dir * 160, vy: -230 }
-      ];
-      angles.forEach(a => {
+      // 紫葡花結毒姬:
+      // Phase 1: 發射毒氣花球 (3連拋物線，中等傷害，附中毒)
+      // Phase 2: 大範圍毒霧爆發 (5連多向毒霧，高傷害，持續中毒)
+      const spread = isP2 ? [-220, -170, -120, -70, -20] : [-180, -140, -230];
+      spread.forEach((vy, idx) => {
         projectiles.spawn({
           isPlayer: false,
           type: 'petal',
           x: spawnX,
           y: spawnY - 10,
-          vx: a.vx,
-          vy: a.vy,
-          maxDistance: 500,
-          width: 22,
-          height: 22,
-          color: '#BA68C8',
+          vx: dir * (180 + idx * 35),
+          vy: vy,
+          maxDistance: 520,
+          width: isP2 ? 26 : 22,
+          height: isP2 ? 26 : 22,
+          color: isP2 ? '#7B1FA2' : '#BA68C8',
           damage: this.attackDamage,
-          life: 1.6,
+          life: 1.7,
           rotates: true,
           vRot: 4
         });
       });
     }
     else if (this.typeKey === 'blue') {
-      // Twin ultra-fast hydro cutters
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'wind_blade',
-        x: spawnX,
-        y: spawnY - 8,
-        vx: dir * 550,
-        vy: -25,
-        maxDistance: 550,
-        width: 32,
-        height: 22,
-        color: '#00E5FF',
-        damage: this.attackDamage,
-        life: 1.4
-      });
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'wind_blade',
-        x: spawnX,
-        y: spawnY + 8,
-        vx: dir * 550,
-        vy: 25,
-        maxDistance: 550,
-        width: 32,
-        height: 22,
-        color: '#00E5FF',
-        damage: this.attackDamage,
-        life: 1.4
-      });
-    }
-    else if (this.typeKey === 'yellow') {
-      // 5-Way wide golden petal fan covering 75 degrees
-      for (let i = -2; i <= 2; i++) {
+      // 藍滴芽精:
+      // Phase 1: 發射追蹤水滴 (雙重高速穿梭水刃，中等傷害)
+      // Phase 2: 旋轉水流漩渦 (3連高速水刃 + 漩渦彈，高傷害，大範圍)
+      const yOffsets = isP2 ? [-12, 0, 12] : [-8, 8];
+      yOffsets.forEach((yo) => {
         projectiles.spawn({
           isPlayer: false,
-          type: 'petal',
+          type: 'wind_blade',
           x: spawnX,
-          y: spawnY,
-          vx: dir * 340,
-          vy: i * 80,
-          maxDistance: 500,
-          width: 24,
-          height: 16,
-          color: '#FFD700',
+          y: spawnY + yo,
+          vx: dir * (isP2 ? 620 : 550),
+          vy: yo * 2,
+          maxDistance: 580,
+          width: isP2 ? 38 : 32,
+          height: 24,
+          color: '#00E5FF',
           damage: this.attackDamage,
-          life: 1.5,
-          rotates: true,
-          vRot: 3
+          life: 1.4
         });
-      }
-    }
-    else if (this.typeKey === 'obsidian') {
-      // Giant seismic shockwave + rising ground stone spike
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'pan_wave',
-        x: spawnX,
-        y: this.y,
-        vx: dir * 260,
-        vy: 0,
-        maxDistance: 450,
-        width: 56,
-        height: 44,
-        color: '#3949AB',
-        damage: this.attackDamage,
-        life: 1.6
       });
-      this.delayedSpawns.push({
-        delay: 0.15,
-        spawn: () => {
-          projectiles.spawn({
-            isPlayer: false,
-            type: 'vine',
-            x: this.x + dir * 140,
-            y: this.y,
-            vx: 0,
-            vy: -350,
-            maxDistance: 280,
-            width: 34,
-            height: 70,
-            color: '#3949AB',
-            damage: this.attackDamage,
-            life: 0.38
-          });
-        }
-      });
-    }
-    else if (this.typeKey === 'transit') {
-      // 捷運幽靈 / 悠遊卡寄靈 瞬移雷射
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'transit_beam',
-        x: spawnX,
-        y: spawnY,
-        vx: dir * (this.isPhase2 ? 600 : 500),
-        vy: 0,
-        maxDistance: 550,
-        width: 40,
-        height: 18,
-        color: '#00E676',
-        damage: this.attackDamage,
-        life: 1.4
-      });
-      if (this.isPhase2) {
+      if (isP2) {
         this.delayedSpawns.push({
           delay: 0.12,
           spawn: () => {
             projectiles.spawn({
               isPlayer: false,
-              type: 'transit_beam',
+              type: 'pan_wave',
               x: spawnX,
-              y: spawnY - 14,
-              vx: dir * 600,
+              y: spawnY,
+              vx: dir * 420,
               vy: 0,
-              maxDistance: 550,
-              width: 40,
-              height: 18,
-              color: '#00E676',
+              maxDistance: 500,
+              width: 48,
+              height: 48,
+              color: '#0288D1',
               damage: this.attackDamage,
-              life: 1.4
+              life: 1.5,
+              rotates: true,
+              vRot: 6
             });
           }
         });
       }
     }
-    else {
-      // Pink aerial dive swoop + dual flower bomb drop
+    else if (this.typeKey === 'yellow') {
+      // 金花瓣使:
+      // Phase 1: 發射追蹤花瓣 (5向扇形花瓣，中等傷害)
+      // Phase 2: 花瓣光環大爆發 (8向360°圓環大爆發，高傷害，大範圍)
+      if (!isP2) {
+        for (let i = -2; i <= 2; i++) {
+          projectiles.spawn({
+            isPlayer: false,
+            type: 'petal',
+            x: spawnX,
+            y: spawnY,
+            vx: dir * 340,
+            vy: i * 80,
+            maxDistance: 500,
+            width: 24,
+            height: 16,
+            color: '#FFD700',
+            damage: this.attackDamage,
+            life: 1.5,
+            rotates: true,
+            vRot: 3
+          });
+        }
+      } else {
+        for (let i = 0; i < 8; i++) {
+          const ang = i * (Math.PI * 2 / 8);
+          projectiles.spawn({
+            isPlayer: false,
+            type: 'petal',
+            x: spawnX,
+            y: spawnY,
+            vx: Math.cos(ang) * 360,
+            vy: Math.sin(ang) * 360,
+            maxDistance: 520,
+            width: 28,
+            height: 20,
+            color: '#FFEA00',
+            damage: this.attackDamage,
+            life: 1.6,
+            rotates: true,
+            vRot: 5
+          });
+        }
+      }
+    }
+    else if (this.typeKey === 'obsidian') {
+      // 玄晶葉衛:
+      // Phase 1: 地面晶刺突起 (地面震波 + 1道突刺地刺，中等傷害)
+      // Phase 2: 密集晶刺陣 (大範圍強烈地震波 + 3道前進突刺晶刺陣，高傷害)
       projectiles.spawn({
         isPlayer: false,
-        type: 'petal',
+        type: 'pan_wave',
         x: spawnX,
-        y: spawnY,
-        vx: dir * 240,
-        vy: 320,
-        maxDistance: 450,
-        width: 26,
-        height: 26,
-        color: '#FF80AB',
+        y: this.y,
+        vx: dir * (isP2 ? 320 : 260),
+        vy: 0,
+        maxDistance: isP2 ? 520 : 450,
+        width: isP2 ? 68 : 56,
+        height: 48,
+        color: '#3949AB',
         damage: this.attackDamage,
-        life: 1.3,
-        rotates: true,
-        vRot: 5
+        life: 1.6
       });
-      projectiles.spawn({
-        isPlayer: false,
-        type: 'petal',
-        x: spawnX - dir * 24,
-        y: spawnY - 10,
-        vx: dir * 180,
-        vy: 340,
-        maxDistance: 450,
-        width: 26,
-        height: 26,
-        color: '#FF80AB',
-        damage: this.attackDamage,
-        life: 1.3,
-        rotates: true,
-        vRot: -5
+      const spikeDistances = isP2 ? [110, 200, 290] : [140];
+      spikeDistances.forEach((dist, idx) => {
+        this.delayedSpawns.push({
+          delay: 0.12 * (idx + 1),
+          spawn: () => {
+            projectiles.spawn({
+              isPlayer: false,
+              type: 'vine',
+              x: this.x + dir * dist,
+              y: this.y,
+              vx: 0,
+              vy: -360,
+              maxDistance: 300,
+              width: 36,
+              height: 75,
+              color: '#283593',
+              damage: this.attackDamage,
+              life: 0.42
+            });
+          }
+        });
       });
+    }
+    else {
+      // 粉翼花靈 (pink):
+      // Phase 1: 發射花粉光彈 (雙發俯衝花粉重爆彈，中等傷害)
+      // Phase 2: 旋轉花瓣風暴 (4連發高空俯衝光彈 + 旋轉花瓣風暴大擴散，高傷害)
+      const count = isP2 ? 4 : 2;
+      for (let i = 0; i < count; i++) {
+        projectiles.spawn({
+          isPlayer: false,
+          type: 'petal',
+          x: spawnX - dir * i * 20,
+          y: spawnY + i * 8,
+          vx: dir * (240 + i * 40),
+          vy: 300 + i * 20,
+          maxDistance: 480,
+          width: isP2 ? 30 : 26,
+          height: isP2 ? 30 : 26,
+          color: isP2 ? '#F50057' : '#FF80AB',
+          damage: this.attackDamage,
+          life: 1.4,
+          rotates: true,
+          vRot: 5
+        });
+      }
     }
   }
 
@@ -486,21 +516,39 @@ export class Monster {
     ctx.ellipse(0, 0, 22, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Phase 2 Evolution Aura
-    if (this.isPhase2) {
+    // Attack Phase 2 Energy Pulse & Aura (Consistent appearance, powerful aura)
+    if (this.attackPhase === 2) {
       ctx.save();
+      const pulse = Math.sin(Date.now() * 0.008) * 3;
+      const rot = (Date.now() * 0.003) % (Math.PI * 2);
+      
+      // Outer rotating dashed energy ring
+      ctx.save();
+      ctx.rotate(rot);
       ctx.strokeStyle = '#FFD700';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([5, 4]);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
       ctx.beginPath();
-      ctx.arc(0, -28, 38, 0, Math.PI * 2);
+      ctx.arc(0, 0, 36 + pulse, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.restore();
+
+      // Inner glowing color pulse
+      ctx.save();
+      ctx.strokeStyle = this.config.color;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.01) * 0.3;
+      ctx.beginPath();
+      ctx.arc(0, -28, 30 + pulse * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
       ctx.restore();
     }
 
-    // Monster Sprite
+    // Monster Sprite - Strictly single appearance
     if (this.image.complete && this.image.naturalWidth > 0) {
-      const drawSize = this.isPhase2 ? 72 : 64;
+      const drawSize = 64; // Same size and appearance in both phases
       ctx.drawImage(this.image, -drawSize / 2, -drawSize, drawSize, drawSize);
     } else {
       // Fallback
@@ -608,18 +656,43 @@ export class Monster {
   }
 
   renderHpBar(ctx) {
-    if (this.hp >= this.maxHp) return;
-    const barW = 44;
+    if (this.hp >= this.maxHp && this.attackPhase !== 2) return;
+    const barW = 48;
     const barH = 5;
     const x = this.x - barW / 2;
-    const y = this.y - 68;
+    const y = this.y - 70;
 
     ctx.save();
+    // Phase 2 Badge
+    if (this.attackPhase === 2) {
+      ctx.font = 'bold 9px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      
+      // Badge background pill
+      const badgeW = 44;
+      const badgeH = 13;
+      ctx.fillStyle = 'rgba(20, 15, 30, 0.85)';
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(this.x - badgeW / 2, y - 16, badgeW, badgeH, 4);
+      } else {
+        ctx.rect(this.x - badgeW / 2, y - 16, badgeW, badgeH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFD700';
+      ctx.fillText('⚡ ATK II', this.x, y - 5);
+    }
+
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillRect(x - 1, y - 1, barW + 2, barH + 2);
 
     const ratio = Math.max(0, this.hp / this.maxHp);
-    ctx.fillStyle = this.config.color;
+    ctx.fillStyle = this.attackPhase === 2 ? '#FFB300' : this.config.color;
     ctx.fillRect(x, y, barW * ratio, barH);
     ctx.restore();
   }

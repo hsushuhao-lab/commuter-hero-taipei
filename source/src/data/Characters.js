@@ -16,6 +16,7 @@ export const CHARACTERS = {
     cleanChibi: 'assets/chibi_yu_clean.png',
     skillCard: 'assets/yu_skill_card.png',
     ultCard: 'assets/yu_ult_card.png',
+    windupCutin: 'assets/cutin_windup_yu.png',
     colors: {
       primary: '#0288D1',
       secondary: '#4FC3F7',
@@ -77,6 +78,7 @@ export const CHARACTERS = {
     cleanChibi: 'assets/chibi_shakira_clean.png',
     skillCard: 'assets/sh_skill_card.png',
     ultCard: 'assets/sh_ult_card.png',
+    windupCutin: 'assets/cutin_windup_shakira.png',
     colors: {
       primary: '#8E24AA',
       secondary: '#CE93D8',
@@ -138,6 +140,7 @@ export const CHARACTERS = {
     cleanChibi: 'assets/chibi_sandra_clean.png',
     skillCard: 'assets/sa_skill_card.png',
     ultCard: 'assets/sa_ult_card.png',
+    windupCutin: 'assets/cutin_windup_sandra.png',
     colors: {
       primary: '#D84315',
       secondary: '#FF7043',
@@ -148,7 +151,7 @@ export const CHARACTERS = {
     stats: {
       maxHp: 120,
       speed: 320,
-      jumpForce: -610,
+      jumpForce: -635,
       gravity: 1450,
       skillCooldown: 0.45, // v9.5: 0.45s
       ultCooldown: 8.2     // v9.5: 8.2s

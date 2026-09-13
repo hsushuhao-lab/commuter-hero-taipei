@@ -238,12 +238,16 @@ export const BOSS_CONFIG = {
   id: 'boss_flower_king',
   name: '夢影巨花王',
   title: '晨霧夢境的支配者',
-  maxHp: 2400,          // Phase 1 Max HP = 2400
-  phase1Hp: 2400,       // v9.5: Phase 1 獨立血條
-  phase2Hp: 3200,       // v9.5: Phase 2 獨立血條 (3200 HP)
+  maxHp: 2800,          // Phase 1 Max HP = 2800
+  phase1Hp: 2800,       // v9.6: Phase 1 獨立血條 (2800 HP)
+  phase2Hp: 3600,       // v9.6: Phase 2 獨立血條 (3600 HP)
   transformDuration: 2.8, // 2.8s 變身無敵
   width: 260,
   height: 280,
+  voiceLines: {
+    p1Sleep: '再睡一下……就……一下下……',
+    p2Transform: '現在……沒有人能逃離我的夢境！！'
+  },
   // Anti-Facetank: vine cleave triggers after 1.2s of continuous close-range fighting
   antiFacetank: {
     distThreshold: 120,     // px - "in your face" distance
@@ -260,35 +264,35 @@ export const BOSS_CONFIG = {
     wallRight: 16500
   },
   phase1: {
-    name: '夢影巨花王・晨霧守護態',
-    bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就一下下……」',
+    name: '夢影巨花王・夢境安撫態',
+    bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就……一下下……」',
     attackCooldown: 1.35,   // 9-way spiral petals
-    petalDamage: 15,
+    petalDamage: 16,
     petalCount: 9,          // 9-way interlaced spiral
-    petalSpeed: 320,        // px/s
-    vineDamage: 19,
+    petalSpeed: 330,        // px/s
+    vineDamage: 20,
     groundSpikeCount: 3,    // 3~4 consecutive ground spikes
-    sporeDamage: 10,        // sleep spore damage
+    sporeDamage: 11,        // sleep spore damage
     sporeSlowDuration: 1.5, // seconds of slow on hit
     summonCooldown: 5.5,
-    bulletSpeed: 320,
+    bulletSpeed: 330,
     colorTheme: '#E91E63'
   },
   phase2: {
     name: '夢影巨花王・狂暴盛開態',
-    bannerText: 'PHASE 2：夢境狂暴盛開！「既然不讓我睡，那你也別想上班！」',
-    attackCooldown: 0.85,
-    petalDamage: 20,
+    bannerText: 'PHASE 2：夢境徹底綻放！「現在……沒有人能逃離我的夢境！！」',
+    attackCooldown: 0.82,
+    petalDamage: 22,
     petalCount: 16,         // 360° 16-way crimson petal storm
-    petalSpeed: 360,        // px/s
-    targetedDamage: 26,
-    vineDamage: 26,
-    summonCooldown: 4.2,
-    bulletSpeed: 360,
-    chomperDamage: 22,      // Venus Flytrap chomp
-    scytheDamage: 22,       // 死神鐮刀
-    thornsDamage: 18,       // 旋刺龍卷
-    miasmaDamage: 12,       // 暗影瘴氣
+    petalSpeed: 375,        // px/s
+    targetedDamage: 28,
+    vineDamage: 28,
+    summonCooldown: 4.0,
+    bulletSpeed: 375,
+    chomperDamage: 24,      // Venus Flytrap chomp
+    scytheDamage: 24,       // 追擊藤蔓尖刺
+    thornsDamage: 20,       // 旋刺龍卷
+    miasmaDamage: 14,       // 夢幻花粉毒霧
     colorTheme: '#880E4F'
   }
 };

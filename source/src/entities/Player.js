@@ -79,6 +79,8 @@ export class Player {
     // v9.5: Sandra 2-Stage Combo Tracking
     this.comboStage = 0; // 0 = idle, 1 = stage 1 active (ready for stage 2)
     this.comboTimer = 0; // 0.32s combo window
+    this.meleeDashCancelTimer = 0;
+    this.hitConfirmArmorTimer = 0;
 
     // v9.5: Shakira Fixed Zone Ult
     this.ultZoneCenterX = 0;
@@ -189,8 +191,13 @@ export class Player {
 
   performDash() {
     if (this.dashCooldown > 0 || this.isDead) return false;
+    if (this.id === 'sandra' && this.meleeDashCancelTimer > 0) {
+      this.isAttacking = false;
+      this.attackTimer = 0;
+      this.meleeDashCancelTimer = 0;
+    }
     this.dashTimer = 0.22;
-    this.dashCooldown = 2.0;
+    this.dashCooldown = 1.0;
     this.invulnerableTimer = 0.22; // v9.7.1: strictly covers active dash movement only
     this.vx = this.facing * 850;
     audio.playPowerup();
@@ -211,8 +218,8 @@ export class Player {
     return true;
   }
 
-  takeDamage(amount) {
-    if (this.invulnerableTimer > 0 || (this.isUlting && (this.ultPhase === 'RELEASE' || this.ultPhase === 'CUTIN')) || this.isDead || this.dashTimer > 0 || this.fallRecoveryTimer > 0) return false;
+  takeDamage(amount, hitContext = null) {
+    if (this.invulnerableTimer > 0 || (this.isUlting && (this.ultPhase === 'RELEASE' || this.ultPhase === 'CUTIN')) || this.isDead || this.dashTimer > 0 || this.fallRecoveryTimer > 0 || this.hitConfirmArmorTimer > 0) return false;
 
     // v9.5: Wind-up provides 50% damage reduction
     if (this.isUlting && this.ultPhase === 'WINDUP') {
@@ -230,7 +237,8 @@ export class Player {
     this.hp -= amount;
     audio.playHit();
     this.hitstopTimer = 0.06; // 60ms Hitstop
-    this.invulnerableTimer = 0.5; // v9.7.1: 0.5s iframe (reduced from 1.2s to maintain danger without stun-lock)
+    this.invulnerableTimer = 0.5;
+    this.lastDamageContext = hitContext;
     this.animState = 'hit';
     this.animTimer = 0;
     particles.emitHitSparks(this.x, this.y - 30, '#FF5252', 10);
@@ -281,7 +289,6 @@ export class Player {
 
       // 2. Spawn rapid umbrella needle bullet
       projectiles.spawn({
-        id: 'yu_mg_' + Date.now() + Math.random(),
         isPlayer: true,
         type: 'umbrella_bullet',
         x: spawnX,
@@ -328,7 +335,6 @@ export class Player {
       const offsets = [-16, 16]; // 上下分離，無近戰判定
       offsets.forEach((offsetY, idx) => {
         projectiles.spawn({
-          id: 'sh_egg_' + Date.now() + '_' + idx,
           isPlayer: true,
           type: 'egg',
           x: spawnX,
@@ -362,7 +368,6 @@ export class Player {
       audio.playSkill(this.id);
 
       projectiles.spawn({
-        id: 'sa_swing_' + Date.now(),
         isPlayer: true,
         type: 'pan_wave',
         x: spawnX,
@@ -425,7 +430,6 @@ export class Player {
       const bladeDmg = 38; // 8 * 38 = 304 dmg
       for (let i = 0; i < bladeCount; i++) {
         projectiles.spawn({
-          id: 'yu_ult_' + i + '_' + Date.now(),
           isPlayer: true,
           type: 'wind_blade',
           x: this.x + i * 40 * this.facing,
@@ -455,7 +459,6 @@ export class Player {
       for (let i = 0; i < eggCount; i++) {
         const spawnOffsetX = (Math.random() - 0.5) * 960; // 500px 半徑固定戰區
         projectiles.spawn({
-          id: 'sh_ult_' + i + '_' + Date.now(),
           isPlayer: true,
           type: 'egg',
           x: this.ultZoneCenterX + spawnOffsetX,
@@ -484,7 +487,6 @@ export class Player {
       for (let i = 0; i < waveCount; i++) {
         const ang = i * (Math.PI * 2 / waveCount);
         projectiles.spawn({
-          id: 'sa_ult_' + i + '_' + Date.now(),
           isPlayer: true,
           type: 'pan_wave',
           x: this.x,
@@ -629,6 +631,8 @@ export class Player {
     if (this.dashTimer > 0) this.dashTimer -= dt;
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.shieldTimer > 0) this.shieldTimer -= dt;
+    if (this.meleeDashCancelTimer > 0) this.meleeDashCancelTimer -= dt;
+    if (this.hitConfirmArmorTimer > 0) this.hitConfirmArmorTimer -= dt;
 
     // Sandra Combo Window Countdown
     if (this.comboTimer > 0) {
@@ -778,12 +782,27 @@ export class Player {
       } else if (typeof window !== 'undefined' && window.hud && window.hud.timeRemaining) {
         window.hud.timeRemaining = Math.max(0, window.hud.timeRemaining - 1.0);
       }
-      this.fallRecoveryTimer = 0.45; // 0.45s fade
+      this.fallRecoveryTimer = 0.8;
       this.x = this.safeCheckpointX || 220;
       this.y = this.safeCheckpointY || 520;
       this.vx = 0;
       this.vy = 0;
       this.invulnerableTimer = 1.0; // 1.0s invulnerability after recovery
+      for (let i = projectiles.projectiles.length - 1; i >= 0; i--) {
+        const projectile = projectiles.projectiles[i];
+        if (!projectile.isPlayer && Math.abs(projectile.x - this.x) <= 250) {
+          projectiles.projectiles.splice(i, 1);
+        }
+      }
+      const activeGame = typeof window !== 'undefined' ? window.activeGame : null;
+      if (activeGame?.level?.monsters) {
+        for (const monster of activeGame.level.monsters) {
+          if (Math.abs(monster.x - this.x) > 500) continue;
+          monster.isTelegraphing = false;
+          monster.telegraphTimer = 0;
+          monster.attackCooldownTimer = Math.max(monster.attackCooldownTimer, 0.5);
+        }
+      }
       audio.playHit();
       particles.emitFloatingText(this.x, this.y - 50, '⚠️ 掉落重置！-18 HP / -1s', '#FF5252');
       particles.emitDust(this.x, this.y, 16);

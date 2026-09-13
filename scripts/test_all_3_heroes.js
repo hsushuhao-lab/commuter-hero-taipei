@@ -38,8 +38,15 @@ global.document = {
 };
 global.Image = class { constructor() { this.complete = true; this.naturalWidth = 256; this.naturalHeight = 256; } };
 global.navigator = { maxTouchPoints: 0 };
-global.requestAnimationFrame = (cb) => setTimeout(cb, 16);
-global.performance = { now: () => Date.now() };
+global.requestAnimationFrame = () => 0;
+let simulatedMilliseconds = 1000;
+global.performance = { now: () => simulatedMilliseconds };
+
+let randomState = 0;
+Math.random = () => {
+  randomState = (1664525 * randomState + 1013904223) >>> 0;
+  return randomState / 0x100000000;
+};
 
 eval(scriptMatch[1]);
 const CG = window.CommuterGame;
@@ -51,6 +58,20 @@ console.log('================================================================\n'
 
 const heroes = ['yu', 'shakira', 'sandra'];
 const results = {};
+const allDamageEvents = [];
+
+function csvValue(value) {
+  const text = String(value ?? '');
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function sceneAt(x) {
+  if (x < 3500) return 'Scene 1';
+  if (x < 7000) return 'Scene 2';
+  if (x < 10500) return 'Scene 3';
+  if (x < 14000) return 'Scene 4';
+  return 'Scene 5';
+}
 
 heroes.forEach(charId => {
   // CRITICAL: Full state isolation between characters
@@ -58,10 +79,13 @@ heroes.forEach(charId => {
   projectiles.reset();
   particles.reset();
   hud.reset();
+  randomState = ({ yu: 101, shakira: 202, sandra: 303 }[charId]);
+  simulatedMilliseconds = 1000;
 
   const game = new Game();
   game.selectedCharId = charId;
   game.startGame();
+  window.activeGame = game;
   game.levelIntroTimer = 0;
 
   // Initial assertions
@@ -75,11 +99,39 @@ heroes.forEach(charId => {
   let bossFightStartTime = 0;
   let bossFightEndTime = 0;
   let coffeesCollected = 0;
-  let midRouteHealDone = false; // One-time Phase 2 entry heal (represents a skilled run)
+  const damageEvents = [];
 
-  // Extend timer for bot simulation (real players play ~90-120s but bot is slower)
-  hud.totalGameTime = 600;
-  hud.timeRemaining = 600;
+  const origTakeDamage = game.player.takeDamage.bind(game.player);
+  game.player.takeDamage = function(amount, context = null) {
+    const before = this.hp;
+    const iframeActive = this.invulnerableTimer > 0 || this.dashTimer > 0 || this.fallRecoveryTimer > 0;
+    const accepted = origTakeDamage(amount, context);
+    if (accepted) {
+      const event = {
+        hero: charId,
+        time: simTime.toFixed(2),
+        x: Math.round(this.x),
+        scene: sceneAt(this.x),
+        source_monster: context?.sourceMonster || 'unknown',
+        attack_type: context?.attackType || context?.kind || 'unknown',
+        attack_phase: context?.attackPhase || 0,
+        raw_damage: amount,
+        final_damage: before - this.hp,
+        hp_before: before,
+        hp_after: this.hp,
+        iframe_active: iframeActive,
+        projectile_id: context?.projectileId || '',
+        distance: Number(context?.distance || 0).toFixed(1),
+        telegraph_shown: Boolean(context?.telegraphShown),
+        avoidable: Boolean(context?.telegraphShown),
+        active_attackers: game.level.monsters.filter(m => m.isTelegraphing || m.delayedSpawns.length > 0).length,
+        hostile_projectiles: projectiles.projectiles.filter(p => !p.isPlayer).length
+      };
+      damageEvents.push(event);
+      allDamageEvents.push(event);
+    }
+    return accepted;
+  };
 
   const origAddCoffee = game.player.addCoffee.bind(game.player);
   game.player.addCoffee = function() {
@@ -90,13 +142,13 @@ heroes.forEach(charId => {
   const botSkillRange = { yu: 480, shakira: 600, sandra: 150 }[charId];
   const bossCombatDist = { yu: 260, shakira: 320, sandra: 140 }[charId];
 
-  let maxSteps = 25000;  // 500s of simulated time
+  let maxSteps = 10000;  // 200s watchdog; the game timer remains 180s
   let step = 0;
 
   while (step < maxSteps && game.state !== 'VICTORY' && game.state !== 'GAMEOVER') {
     step++;
     simTime += dt;
-    const prevState = game.state;
+    simulatedMilliseconds += dt * 1000;
 
     if (game.state === 'PLAYING') {
       if (game.player.x < 14800) {
@@ -104,73 +156,8 @@ heroes.forEach(charId => {
         input.keys['ArrowRight'] = true;
         input.keys['ArrowLeft'] = false;
 
-        // Phase 2 entry heal: represents a skilled player who conserved HP
-        // Checkpoint 0.25: Mid-route (x >= 5000) - partial heal to 65%
-        if (!game._midRouteHealDone && game.player.x >= 5000) {
-          game._midRouteHealDone = true;
-          const healTarget = Math.round(game.player.maxHp * 0.65);
-          if (game.player.hp < healTarget) {
-            game.player.hp = healTarget;
-          }
-        }
-        // Phase 2 entry heal (coins >= 30)
-        if (!game._earlyP2HealDone && game.player.coins >= 30) {
-          game._earlyP2HealDone = true;
-          game.player.hp = game.player.maxHp;
-        }
-        // Rolling P2 HP floor: skilled player keeps above 40% HP (also revive from fall-deaths)
-        if (game._earlyP2HealDone && game.player.hp < Math.round(game.player.maxHp * 0.40)) {
-          game.player.hp = Math.round(game.player.maxHp * 0.40);
-        }
-        // Revive from fall-death: the bot represents a skilled player who recovers after falls
-        if (game.player.isDead) {
-          game.player.isDead = false;
-          game.player.hp = Math.round(game.player.maxHp * 0.40);
-          // Stay at current X (or safe fallback), revive at ground level
-          if (game.player.y > 620) {
-            game.player.y = 500;
-          }
-          game.player.vx = 0;
-          game.player.vy = 0;
-        }
-        // Rolling minimum HP: always keep above 25% to prevent stun-locked death
-        if (game.player.hp < Math.round(game.player.maxHp * 0.25)) {
-          game.player.hp = Math.round(game.player.maxHp * 0.25);
-        }
-        if (hud.isGameOver) {
-          hud.isGameOver = false; // Un-trigger game over set by fall
-        }
-        
-        // Checkpoint 1: Scene 4 entry (x >= 10500) - full heal (P2 transition = danger zone)
-        if (!midRouteHealDone && game.player.x >= 10500 && game.player.coins >= 30) {
-          midRouteHealDone = true;
-          game.player.hp = game.player.maxHp; // Full heal at Phase 2 entry
-        }
-        // Checkpoint 1.5: Mid-S4 gauntlet (x >= 12000) - partial heal if critically low
-        if (midRouteHealDone && !game._midGauntletHealDone && game.player.x >= 12000) {
-          game._midGauntletHealDone = true;
-          const healTarget = Math.round(game.player.maxHp * 0.50);
-          if (game.player.hp < healTarget) {
-            game.player.hp = healTarget;
-          }
-        }
-        // Checkpoint 1.8: Late S4 / pre-boss gap (x >= 13500) - heal to 70% if below
-        if (midRouteHealDone && !game._lateS4HealDone && game.player.x >= 13500) {
-          game._lateS4HealDone = true;
-          const healTarget = Math.round(game.player.maxHp * 0.70);
-          if (game.player.hp < healTarget) {
-            game.player.hp = healTarget;
-          }
-        }
-        // Checkpoint 2: Pre-boss corridor (x >= 14000) - full heal to survive Scene 5.1 gauntlet
-        // This represents collecting the coffee at x=14480 ahead + skilled play through pre-boss area
-        if (midRouteHealDone && !game._preArenaHealDone && game.player.x >= 14000) {
-          game._preArenaHealDone = true;
-          game.player.hp = game.player.maxHp; // Full heal - represents pre-boss recovery
-        }
-
         // Pit detection with calibrated lookAhead
-        const lookAheadX = game.player.x + 50;
+        const lookAheadX = game.player.x + ({ yu: 170, shakira: 170, sandra: 90 }[charId]);
         const groundAhead = game.pm.platforms.some(p => p.type === 'stone' && p.x <= lookAheadX && (p.x + p.w) >= lookAheadX && p.y >= 540);
         if (!groundAhead && game.player.onGround && game.player.y >= 520) {
           input.justPressedKeys['Space'] = true;
@@ -179,22 +166,30 @@ heroes.forEach(charId => {
           input.keys['Space'] = false;
         }
 
-        // Mid-air gap air dash on descent over pit
-        if (!game.player.onGround && game.player.dashCooldown <= 0 && game.player.vy > 0 && !groundAhead) {
-          input.justPressedKeys['ShiftLeft'] = true;
-        }
-
         // Enemy & bullet awareness (check both sides)
         const frontEnemy = game.level.monsters.find(m => !m.isDead && (m.x - game.player.x) > 0 && (m.x - game.player.x) < botSkillRange);
         const rearEnemy = game.level.monsters.find(m => !m.isDead && (game.player.x - m.x) > 0 && (game.player.x - m.x) < botSkillRange);
         const closeFrontEnemy = game.level.monsters.find(m => !m.isDead && (m.x - game.player.x) > 0 && (m.x - game.player.x) < 140 && m.y >= 490);
         const closeRearEnemy = game.level.monsters.find(m => !m.isDead && (game.player.x - m.x) > 0 && (game.player.x - m.x) < 140 && m.y >= 490);
         const bulletNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.abs(p.x - game.player.x) < 280);
+        const nearbyBullet = projectiles.projectiles.some(p => !p.isPlayer && Math.abs(p.x - game.player.x) < 100 && Math.abs(p.y - (game.player.y - 35)) < 60);
+        const threateningBullet = projectiles.projectiles.some(p => !p.isPlayer && Math.abs(p.x - game.player.x) < 220 && Math.abs(p.y - (game.player.y - 35)) < 110);
+        const phase2Active = game.level.monsters.some(m => !m.isDead && m.attackPhase === 2);
+        const visibleTelegraph = game.level.monsters.find(m => !m.isDead && m.isTelegraphing && Math.abs(m.x - game.player.x) < 650);
+        const evadeLandingX = game.player.x + 220;
+        const safeEvadeGround = game.pm.platforms.some(platform =>
+          evadeLandingX >= platform.x && evadeLandingX <= platform.x + platform.w && platform.y >= 500
+        );
+        const continuousEvadeGround = safeEvadeGround && [40, 80, 120, 160, 200, 240].every(offset =>
+          game.pm.platforms.some(platform =>
+            game.player.x + offset >= platform.x && game.player.x + offset <= platform.x + platform.w && platform.y >= 500
+          )
+        );
 
         // Movement & Evasion logic - always push forward, attack from current facing direction
 
         // Proactive skill firing
-        if (frontEnemy || rearEnemy) {
+        if (game.player.coins >= 15 || frontEnemy || rearEnemy) {
           input.keys['KeyS'] = true; // S = attack (uses 'S' in simulation input mapping)
         } else {
           input.keys['KeyS'] = false;
@@ -210,9 +205,18 @@ heroes.forEach(charId => {
         if ((closeFrontEnemy || closeRearEnemy) && game.player.hp < 70 && game.player.dashCooldown <= 0 && game.player.onGround) {
           input.justPressedKeys['ShiftLeft'] = true;
         }
+        if (threateningBullet && continuousEvadeGround && game.player.dashCooldown <= 0) {
+          input.justPressedKeys['ShiftLeft'] = true;
+        }
+        if (phase2Active && visibleTelegraph && continuousEvadeGround && game.player.dashCooldown <= 0) {
+          input.justPressedKeys['ShiftLeft'] = true;
+        }
+        if (game.player.id === 'sandra' && game.player.meleeDashCancelTimer > 0 && continuousEvadeGround && game.player.dashCooldown <= 0) {
+          input.justPressedKeys['ShiftLeft'] = true;
+        }
 
         // Ultimate usage when unlocked (>= 15 coins)
-        if (game.player.coins >= 15 && game.player.ultCooldown <= 0 && (frontEnemy || rearEnemy || bulletNearby)) {
+        if (game.player.coins >= 15 && game.player.ultCooldown <= 0 && (game.player.coins >= 30 || frontEnemy || rearEnemy || bulletNearby)) {
           input.justPressedKeys['KeyF'] = true;
         }
 
@@ -221,31 +225,9 @@ heroes.forEach(charId => {
         if (!enteredArena) {
           enteredArena = true;
           bossFightStartTime = simTime;
-          game.player.hp = game.player.maxHp;
-          // Kill all leftover route monsters so they don't interfere
-          game.level.monsters.forEach(m => { m.isDead = true; m.hp = 0; });
-          projectiles.projectiles.forEach(p => { if(!p.isPlayer) p.isDead = true; });
           console.log('[' + charId.toUpperCase() + '] Entered Boss Arena at t=' + simTime.toFixed(1) + 's (player HP=' + game.player.hp + ', boss HP=' + game.boss.hp + ')');
         }
         
-        // Boss arena HP floor: player must survive long enough to fight (represents skilled dodging)
-        if (game.player.hp < Math.round(game.player.maxHp * 0.20)) {
-          game.player.hp = Math.round(game.player.maxHp * 0.20);
-        }
-        // Revive from death in boss arena (represents the hero being more resilient than the bot simulates)
-        if (game.player.isDead) {
-          game.player.isDead = false;
-          game.player.hp = Math.round(game.player.maxHp * 0.30);
-          game.player.y = 500;
-          game.player.vx = 0;
-          game.player.vy = 0;
-        }
-        if (hud.isGameOver) hud.isGameOver = false;
-        if (game.boss.isTransforming && !game._bossP2Healed) {
-          game._bossP2Healed = true;
-          game.player.hp = game.player.maxHp;
-        }
-
         // Spacing relative to Boss
         const currentDist = game.boss.x - game.player.x;
         if (currentDist > bossCombatDist + 20) {
@@ -270,7 +252,7 @@ heroes.forEach(charId => {
         const bossProjNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.hypot(p.x - game.player.x, p.y - game.player.y) < 140);
         const bossLunging = game.boss.isLunging && Math.abs(game.boss.x - game.player.x) < 200;
         const trackingPollenNear = game.boss.trackingPollen && game.boss.trackingPollen.some(p => Math.hypot(p.x - game.player.x, p.y - game.player.y) < 120);
-        if ((bossSpikeNearby || bossProjNearby || bossLunging || trackingPollenNear) && game.player.onGround) {
+        if ((bossSpikeNearby || bossProjNearby || bossLunging || trackingPollenNear || (game.player.onGround && simTime % 1.4 < dt)) && game.player.onGround) {
           input.justPressedKeys['Space'] = true;
           input.keys['Space'] = true;
         }
@@ -291,7 +273,8 @@ heroes.forEach(charId => {
   const completionTime = simTime;
   const bossDuration = bossFightEndTime ? (bossFightEndTime - bossFightStartTime) : 0;
 
-  console.log('[' + charId.toUpperCase() + '] Final: State=' + game.state + ' X=' + Math.round(game.player.x) + ' HP=' + game.player.hp + '/' + game.player.maxHp + ' Coins=' + game.player.coins + ' Coffees=' + coffeesCollected + ' TotalTime=' + completionTime.toFixed(1) + 's BossDuration=' + bossDuration.toFixed(1) + 's Punched=' + game.pm.clockInMachine.punched + ' Rank=' + hud.resultRank);
+  console.log('[' + charId.toUpperCase() + '] Final: State=' + game.state + ' X=' + Math.round(game.player.x) + ' Y=' + Math.round(game.player.y) + ' HP=' + game.player.hp + '/' + game.player.maxHp + ' Coins=' + game.player.coins + ' Coffees=' + coffeesCollected + ' TotalTime=' + completionTime.toFixed(1) + 's BossDuration=' + bossDuration.toFixed(1) + 's Punched=' + game.pm.clockInMachine.punched + ' Rank=' + hud.resultRank + ' DamageEvents=' + damageEvents.length + ' Falls=' + game.player.fallCount);
+  if (damageEvents.length) console.log('[' + charId.toUpperCase() + '] Last damage events:', damageEvents.slice(-8));
 
   results[charId] = {
     hero: charId.toUpperCase(),
@@ -304,6 +287,11 @@ heroes.forEach(charId => {
     totalTime: completionTime.toFixed(1) + 's',
     bossFightTime: bossDuration.toFixed(1) + 's',
     rank: hud.resultRank
+    ,falls: game.player.fallCount,
+    damageEvents,
+    punchedCount: game.punchedCount,
+    watchdogTriggerCount: game.watchdogTriggerCount,
+    bossDuration
   };
 });
 
@@ -311,3 +299,18 @@ console.log('\n================================================================'
 console.log('=== TEST RESULTS SUMMARY ===');
 console.log('================================================================');
 console.table(results);
+
+const traceColumns = ['hero', 'time', 'x', 'scene', 'source_monster', 'attack_type', 'attack_phase', 'raw_damage', 'final_damage', 'hp_before', 'hp_after', 'iframe_active', 'projectile_id', 'distance', 'telegraph_shown', 'avoidable', 'active_attackers', 'hostile_projectiles'];
+const traceCsv = [traceColumns.join(','), ...allDamageEvents.map(event => traceColumns.map(column => csvValue(event[column])).join(','))].join('\n') + '\n';
+fs.writeFileSync('FULL_ROUTE_DAMAGE_TRACE.csv', traceCsv, 'utf8');
+
+for (const hero of heroes) {
+  const result = results[hero];
+  assert.strictEqual(result.state, 'VICTORY', `${hero} must finish in VICTORY, got ${result.state} at x=${result.finalX}`);
+  assert.strictEqual(result.punched, true, `${hero} must punch the clock`);
+  assert.strictEqual(result.punchedCount, 3, `${hero} must complete all three clock punches`);
+  assert(result.finalX >= 17620, `${hero} must reach the clock-in route, got x=${result.finalX}`);
+  assert.strictEqual(result.watchdogTriggerCount, 0, `${hero} must not use watchdog recovery`);
+  assert(result.bossDuration >= 25 && result.bossDuration <= 45, `${hero} Boss duration must be 25-45s, got ${result.bossDuration.toFixed(1)}s`);
+}
+console.log('PASS: all three heroes completed the real route and Boss pacing gate.');

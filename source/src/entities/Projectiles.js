@@ -19,8 +19,21 @@ export class ProjectileManager {
     this.reset();
   }
 
+  setSourceContext(context) {
+    this.sourceContext = context;
+  }
+
+  clearSourceContext() {
+    this.sourceContext = null;
+  }
+
   spawn(p) {
-    this.projectiles.push({
+    const source = this.sourceContext || {};
+    if (!p.isPlayer && (source.attackPhase === 1 || source.attackPhase === 2)) {
+      const pressureLimit = 3;
+      if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) return null;
+    }
+    const projectile = {
       id: p.id || `proj_${this.nextProjId++}`,
       isPlayer: p.isPlayer || false,
       x: p.x || 0,
@@ -47,8 +60,14 @@ export class ProjectileManager {
       splashDamage: p.splashDamage || 0,
       isMeleeArc: p.isMeleeArc || false,
       zoneCenterX: p.zoneCenterX || null,
-      zoneRadius: p.zoneRadius || null
-    });
+      zoneRadius: p.zoneRadius || null,
+      sourceMonster: p.sourceMonster || source.sourceMonster || '',
+      attackPhase: p.attackPhase || source.attackPhase || 0,
+      attackType: p.attackType || source.attackType || p.type || 'bullet',
+      telegraphShown: p.telegraphShown ?? source.telegraphShown ?? false
+    };
+    this.projectiles.push(projectile);
+    return projectile;
   }
 
   update(dt) {

@@ -50,6 +50,8 @@ export class Monster {
     this.telegraphDuration = this.config.telegraphDuration || 0.40;
     this.delayedSpawns = [];
     this.turnaroundTimer = 0;
+    this.attackPermission = true;
+    this.telegraphStartAllowed = true;
 
     // Visual & State
     this.isDead = false;
@@ -148,7 +150,14 @@ export class Monster {
       item.delay -= dt;
       if (item.delay <= 0) {
         if (!this.isDead) {
+          projectiles.setSourceContext({
+            sourceMonster: this.typeKey,
+            attackPhase: this.attackPhase,
+            attackType: this.typeKey,
+            telegraphShown: true
+          });
           item.spawn();
+          projectiles.clearSourceContext();
         }
         this.delayedSpawns.splice(i, 1);
       }
@@ -308,7 +317,7 @@ export class Monster {
         }
       } else {
         this.attackCooldownTimer -= dt;
-        if (this.attackCooldownTimer <= 0) {
+        if (this.attackCooldownTimer <= 0 && this.attackPermission && this.telegraphStartAllowed) {
           this.isTelegraphing = true;
           this.telegraphTimer = 0;
           audio.playTelegraph();
@@ -324,6 +333,12 @@ export class Monster {
     const spawnX = this.x + dir * 25;
     const spawnY = this.y - 25;
     const isP2 = this.attackPhase === 2;
+    projectiles.setSourceContext({
+      sourceMonster: this.typeKey,
+      attackPhase: this.attackPhase,
+      attackType: this.typeKey,
+      telegraphShown: true
+    });
 
     if (this.typeKey === 'red') {
       // 尖鼻小紅苗:
@@ -586,6 +601,7 @@ export class Monster {
         });
       }
     }
+    projectiles.clearSourceContext();
   }
 
   render(ctx) {

@@ -18,6 +18,7 @@
 
 import { particles } from '../entities/Particles.js';
 import { Monster } from '../entities/Monster.js';
+import { projectiles } from '../entities/Projectiles.js';
 
 export const STAGES = [
   { 
@@ -90,6 +91,7 @@ export class Level {
     this.monsters = [];
     this.bgImages = {};
     this.phase2PredatorTriggered = false;
+    this.telegraphStaggerTimer = 0;
 
     this.loadBackgrounds();
     this.buildLevelGeometry();
@@ -417,12 +419,35 @@ export class Level {
       this.triggerPhase2Predator(player);
     }
 
+    this.telegraphStaggerTimer = Math.max(0, this.telegraphStaggerTimer - dt);
+    const phase2 = player.coins >= 30;
+    const attackerLimit = phase2 ? 3 : 2;
+    const rangedLimit = phase2 ? 2 : 1;
+    const projectilePressureLimit = 3;
+    const hostileProjectileCount = projectiles.projectiles.filter(p => !p.isPlayer).length;
+    const visible = this.monsters
+      .filter(m => !m.isDead && m.x >= camera.x - 100 && m.x <= camera.x + camera.viewportWidth + 100)
+      .sort((a, b) => Math.abs(a.x - player.x) - Math.abs(b.x - player.x));
+    const permitted = new Set(visible.filter(m => m.isTelegraphing));
+    let rangedCount = [...permitted].filter(m => m.config.type === 'ranged' || m.config.type === 'flying').length;
+    for (const monster of visible) {
+      if (permitted.size >= attackerLimit) break;
+      const ranged = monster.config.type === 'ranged' || monster.config.type === 'flying';
+      if (ranged && (rangedCount >= rangedLimit || hostileProjectileCount >= projectilePressureLimit)) continue;
+      permitted.add(monster);
+      if (ranged) rangedCount++;
+    }
+
     // Update active monsters
     for (let m of this.monsters) {
       const nearPlayer = Math.abs(m.x - player.x) < 750;
       const rearReentry = m.attackPhase === 2 && m.isPursuer && player.x - m.x > 750 && player.x - m.x < 1400;
       if (nearPlayer || rearReentry) {
+        m.attackPermission = permitted.has(m);
+        m.telegraphStartAllowed = this.telegraphStaggerTimer <= 0;
+        const wasTelegraphing = m.isTelegraphing;
         m.update(dt, player, this.pm.platforms);
+        if (!wasTelegraphing && m.isTelegraphing) this.telegraphStaggerTimer = 0.25;
       }
     }
     

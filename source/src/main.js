@@ -1255,6 +1255,10 @@ class Game {
         if (m.isDead) continue;
         if (Math.hypot(proj.x - m.x, proj.y - (m.y - 25)) < proj.width + 25) {
           m.takeDamage(proj.damage, proj.id);
+          if (this.player.id === 'sandra' && proj.isMeleeArc) {
+            this.player.meleeDashCancelTimer = 0.22;
+            this.player.hitConfirmArmorTimer = 0.16;
+          }
           if (proj.knockback) {
             const kbDist = typeof proj.knockback === 'number' ? Math.min(260, proj.knockback) : 85;
             const kbVel = typeof proj.knockback === 'number' ? Math.min(480, proj.knockback * 1.2) : 280;
@@ -1290,7 +1294,15 @@ class Game {
     for (let proj of projectiles.projectiles) {
       if (proj.isPlayer) continue;
       if (Math.hypot(proj.x - p.x, proj.y - (p.y - 35)) < proj.width + 22) {
-        p.takeDamage(proj.damage);
+        p.takeDamage(proj.damage, {
+          kind: 'projectile',
+          sourceMonster: proj.sourceMonster || '',
+          attackType: proj.attackType || proj.type,
+          attackPhase: proj.attackPhase || 0,
+          projectileId: proj.id,
+          distance: Math.hypot(proj.x - p.x, proj.y - (p.y - 35)),
+          telegraphShown: Boolean(proj.telegraphShown)
+        });
         proj.life = 0;
       }
     }
@@ -1299,7 +1311,15 @@ class Game {
     for (let m of this.level.monsters) {
       if (m.isDead) continue;
       if (Math.hypot(m.x - p.x, (m.y - 25) - (p.y - 35)) < 36) {
-        p.takeDamage(m.config.contactDamage);
+        p.takeDamage(m.config.contactDamage, {
+          kind: 'contact',
+          sourceMonster: m.typeKey,
+          attackType: 'contact',
+          attackPhase: m.attackPhase,
+          projectileId: '',
+          distance: Math.hypot(m.x - p.x, (m.y - 25) - (p.y - 35)),
+          telegraphShown: false
+        });
       }
     }
   }

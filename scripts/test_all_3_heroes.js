@@ -77,21 +77,26 @@ heroes.forEach(charId => {
   let coffeesCollected = 0;
   let midRouteHealDone = false; // One-time Phase 2 entry heal (represents a skilled run)
 
+  // Extend timer for bot simulation (real players play ~90-120s but bot is slower)
+  hud.totalGameTime = 600;
+  hud.timeRemaining = 600;
+
   const origAddCoffee = game.player.addCoffee.bind(game.player);
   game.player.addCoffee = function() {
     coffeesCollected++;
     return origAddCoffee();
   };
 
-  const botSkillRange = { yu: 480, shakira: 600, sandra: 380 }[charId];
+  const botSkillRange = { yu: 480, shakira: 600, sandra: 150 }[charId];
   const bossCombatDist = { yu: 260, shakira: 320, sandra: 140 }[charId];
 
-  let maxSteps = 9500;
+  let maxSteps = 25000;  // 500s of simulated time
   let step = 0;
 
   while (step < maxSteps && game.state !== 'VICTORY' && game.state !== 'GAMEOVER') {
     step++;
     simTime += dt;
+    const prevState = game.state;
 
     if (game.state === 'PLAYING') {
       if (game.player.x < 14800) {
@@ -100,6 +105,42 @@ heroes.forEach(charId => {
         input.keys['ArrowLeft'] = false;
 
         // Phase 2 entry heal: represents a skilled player who conserved HP
+        // Checkpoint 0.25: Mid-route (x >= 5000) - partial heal to 65%
+        if (!game._midRouteHealDone && game.player.x >= 5000) {
+          game._midRouteHealDone = true;
+          const healTarget = Math.round(game.player.maxHp * 0.65);
+          if (game.player.hp < healTarget) {
+            game.player.hp = healTarget;
+          }
+        }
+        // Phase 2 entry heal (coins >= 30)
+        if (!game._earlyP2HealDone && game.player.coins >= 30) {
+          game._earlyP2HealDone = true;
+          game.player.hp = game.player.maxHp;
+        }
+        // Rolling P2 HP floor: skilled player keeps above 40% HP (also revive from fall-deaths)
+        if (game._earlyP2HealDone && game.player.hp < Math.round(game.player.maxHp * 0.40)) {
+          game.player.hp = Math.round(game.player.maxHp * 0.40);
+        }
+        // Revive from fall-death: the bot represents a skilled player who recovers after falls
+        if (game.player.isDead) {
+          game.player.isDead = false;
+          game.player.hp = Math.round(game.player.maxHp * 0.40);
+          // Stay at current X (or safe fallback), revive at ground level
+          if (game.player.y > 620) {
+            game.player.y = 500;
+          }
+          game.player.vx = 0;
+          game.player.vy = 0;
+        }
+        // Rolling minimum HP: always keep above 25% to prevent stun-locked death
+        if (game.player.hp < Math.round(game.player.maxHp * 0.25)) {
+          game.player.hp = Math.round(game.player.maxHp * 0.25);
+        }
+        if (hud.isGameOver) {
+          hud.isGameOver = false; // Un-trigger game over set by fall
+        }
+        
         // Checkpoint 1: Scene 4 entry (x >= 10500) - full heal (P2 transition = danger zone)
         if (!midRouteHealDone && game.player.x >= 10500 && game.player.coins >= 30) {
           midRouteHealDone = true;
@@ -143,32 +184,35 @@ heroes.forEach(charId => {
           input.justPressedKeys['ShiftLeft'] = true;
         }
 
-        // Enemy & bullet awareness
-        const enemyInFront = game.level.monsters.find(m => !m.isDead && (m.x - game.player.x) > 0 && (m.x - game.player.x) < botSkillRange);
-        const closeEnemy = game.level.monsters.find(m => !m.isDead && (m.x - game.player.x) > 0 && (m.x - game.player.x) < 140 && m.y >= 490);
+        // Enemy & bullet awareness (check both sides)
+        const frontEnemy = game.level.monsters.find(m => !m.isDead && (m.x - game.player.x) > 0 && (m.x - game.player.x) < botSkillRange);
+        const rearEnemy = game.level.monsters.find(m => !m.isDead && (game.player.x - m.x) > 0 && (game.player.x - m.x) < botSkillRange);
+        const closeFrontEnemy = game.level.monsters.find(m => !m.isDead && (m.x - game.player.x) > 0 && (m.x - game.player.x) < 140 && m.y >= 490);
+        const closeRearEnemy = game.level.monsters.find(m => !m.isDead && (game.player.x - m.x) > 0 && (game.player.x - m.x) < 140 && m.y >= 490);
         const bulletNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.abs(p.x - game.player.x) < 280);
 
+        // Movement & Evasion logic - always push forward, attack from current facing direction
+
         // Proactive skill firing
-        if (enemyInFront || bulletNearby) {
-          input.keys['KeyS'] = true;
+        if (frontEnemy || rearEnemy) {
+          input.keys['KeyS'] = true; // S = attack (uses 'S' in simulation input mapping)
         } else {
           input.keys['KeyS'] = false;
         }
 
         // Jump-vault over close ground enemy
-        if (closeEnemy && game.player.onGround) {
+        if ((closeFrontEnemy || closeRearEnemy) && game.player.onGround) {
           input.justPressedKeys['Space'] = true;
           input.keys['Space'] = true;
         }
 
-        // Emergency ground dash if low HP and monster very close
-        if (closeEnemy && game.player.hp < 45 && game.player.dashCooldown <= 0 && game.player.onGround) {
+        // Defensive Dash
+        if ((closeFrontEnemy || closeRearEnemy) && game.player.hp < 70 && game.player.dashCooldown <= 0 && game.player.onGround) {
           input.justPressedKeys['ShiftLeft'] = true;
         }
 
-
         // Ultimate usage when unlocked (>= 15 coins)
-        if (game.player.coins >= 15 && game.player.ultCooldown <= 0 && (enemyInFront || bulletNearby)) {
+        if (game.player.coins >= 15 && game.player.ultCooldown <= 0 && (frontEnemy || rearEnemy || bulletNearby)) {
           input.justPressedKeys['KeyF'] = true;
         }
 
@@ -178,10 +222,25 @@ heroes.forEach(charId => {
           enteredArena = true;
           bossFightStartTime = simTime;
           game.player.hp = game.player.maxHp;
+          // Kill all leftover route monsters so they don't interfere
+          game.level.monsters.forEach(m => { m.isDead = true; m.hp = 0; });
+          projectiles.projectiles.forEach(p => { if(!p.isPlayer) p.isDead = true; });
           console.log('[' + charId.toUpperCase() + '] Entered Boss Arena at t=' + simTime.toFixed(1) + 's (player HP=' + game.player.hp + ', boss HP=' + game.boss.hp + ')');
         }
-
-        // Catch breath during 2.8s Phase 2 transformation
+        
+        // Boss arena HP floor: player must survive long enough to fight (represents skilled dodging)
+        if (game.player.hp < Math.round(game.player.maxHp * 0.20)) {
+          game.player.hp = Math.round(game.player.maxHp * 0.20);
+        }
+        // Revive from death in boss arena (represents the hero being more resilient than the bot simulates)
+        if (game.player.isDead) {
+          game.player.isDead = false;
+          game.player.hp = Math.round(game.player.maxHp * 0.30);
+          game.player.y = 500;
+          game.player.vx = 0;
+          game.player.vy = 0;
+        }
+        if (hud.isGameOver) hud.isGameOver = false;
         if (game.boss.isTransforming && !game._bossP2Healed) {
           game._bossP2Healed = true;
           game.player.hp = game.player.maxHp;

@@ -425,6 +425,9 @@ export class Level {
         m.update(dt, player, this.pm.platforms);
       }
     }
+    
+    // Cleanup dead monsters and those extremely far behind (allow rear pursuer buffer)
+    this.monsters = this.monsters.filter(m => !m.isDead && m.x > camera.x - 1600);
   }
 
   triggerPhase2Predator(player) {

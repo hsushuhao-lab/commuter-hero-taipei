@@ -108,8 +108,24 @@ export class Monster {
     this.triggerAttackPhase2();
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, attackInstanceId = null) {
     if (this.isDead) return;
+
+    if (attackInstanceId) {
+      if (!this.multiHitGate) this.multiHitGate = new Map();
+      const now = performance.now ? performance.now() : Date.now();
+      const lastHit = this.multiHitGate.get(attackInstanceId) || 0;
+      if (now - lastHit < 250) return; // Projectiles can hit a monster once every 250ms
+      this.multiHitGate.set(attackInstanceId, now);
+      
+      // Cleanup old entries
+      if (this.multiHitGate.size > 20) {
+        for (const [id, t] of this.multiHitGate.entries()) {
+          if (now - t > 1000) this.multiHitGate.delete(id);
+        }
+      }
+    }
+
     this.hp -= amount;
     this.hitTimer = 0.15;
     audio.playHit();

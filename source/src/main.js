@@ -1254,7 +1254,7 @@ class Game {
       for (let m of this.level.monsters) {
         if (m.isDead) continue;
         if (Math.hypot(proj.x - m.x, proj.y - (m.y - 25)) < proj.width + 25) {
-          m.takeDamage(proj.damage);
+          m.takeDamage(proj.damage, proj.id);
           if (proj.knockback) {
             const kbDist = typeof proj.knockback === 'number' ? Math.min(260, proj.knockback) : 85;
             const kbVel = typeof proj.knockback === 'number' ? Math.min(480, proj.knockback * 1.2) : 280;
@@ -1280,7 +1280,7 @@ class Game {
         const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width;
         const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
-          this.boss.takeDamage(proj.damage);
+          this.boss.takeDamage(proj.damage, proj.id);
           if (!proj.penetrating) proj.life = 0;
         }
       }

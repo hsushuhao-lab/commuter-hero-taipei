@@ -7,10 +7,12 @@ import { particles } from './Particles.js';
 export class ProjectileManager {
   constructor() {
     this.projectiles = [];
+    this.nextProjId = 1;
   }
 
   reset() {
     this.projectiles = [];
+    this.nextProjId = 1;
   }
 
   clear() {
@@ -19,7 +21,7 @@ export class ProjectileManager {
 
   spawn(p) {
     this.projectiles.push({
-      id: p.id || 'proj',
+      id: p.id || `proj_${this.nextProjId++}`,
       isPlayer: p.isPlayer || false,
       x: p.x || 0,
       y: p.y || 0,

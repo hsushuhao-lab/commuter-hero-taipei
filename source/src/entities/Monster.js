@@ -37,6 +37,11 @@ export class Monster {
     this.height = 54;
     this.facing = -1;
     this.patrolBounds = null;
+    this.predatorRole = 'patroller';
+    this.flankSide = 0;
+    this.isPursuer = false;
+    this.reentryCount = 0;
+    this.reentryCooldown = 0;
 
     // AI & Attack Timers
     this.attackCooldownTimer = Math.random() * 1.2; // Staggered first attack
@@ -60,6 +65,7 @@ export class Monster {
 
   triggerAttackPhase2() {
     if (this.attackPhase === 2 || this.isDead) return;
+    if (this.predatorRole === 'patroller') this.assignPredatorRole('pursuer');
     this.attackPhase = 2;
     this.isPhase2 = true; // alias
     // Strict requirement: DO NOT CHANGE IMAGE!
@@ -77,6 +83,25 @@ export class Monster {
     particles.emitHitSparks(this.x, this.y - 20, '#FFD700', 16);
     particles.emitHitSparks(this.x, this.y - 20, this.config.color, 14);
     particles.emitFloatingText(this.x, this.y - 45, '⚡ PREDATOR HUNT', this.config.color);
+  }
+
+  assignPredatorRole(role, flankSide = 0) {
+    const validRoles = ['pursuer', 'interceptor', 'air_harasser', 'front_blocker', 'rear_pursuer', 'flanker'];
+    if (!validRoles.includes(role)) throw new Error(`Unknown predator role: ${role}`);
+    this.predatorRole = role;
+    this.flankSide = Math.sign(flankSide);
+    this.isPursuer = true;
+    return this;
+  }
+
+  getPredatorTargetX(player) {
+    const predictedLead = Math.max(-100, Math.min(180, (player.vx || 0) * 0.45));
+    if (this.predatorRole === 'rear_pursuer') return player.x - 140 + predictedLead * 0.25;
+    if (this.predatorRole === 'front_blocker') return player.x + 220 + predictedLead * 0.25;
+    if (this.predatorRole === 'air_harasser') return player.x + 150 + predictedLead * 0.4;
+    if (this.predatorRole === 'interceptor') return player.x + 220 + predictedLead;
+    if (this.predatorRole === 'flanker') return player.x + this.flankSide * 240;
+    return player.x + predictedLead * 0.35;
   }
 
   evolveToPhase2() {
@@ -141,18 +166,9 @@ export class Monster {
     // Facing direction
     if (this.turnaroundTimer <= 0) {
       if (hasAggro) {
-        // In Phase 2, interceptors predict player position
-        if (this.attackPhase === 2 && ['blue', 'red', 'pink', 'obsidian'].includes(this.typeKey)) {
-          const predictionTime = 0.45;
-          const predictedX = player.x + (player.vx || 0) * predictionTime;
-          const targetX = (this.typeKey === 'blue' || this.typeKey === 'obsidian') ? predictedX : player.x;
-          if (Math.abs(targetX - this.x) > 15) {
-            this.facing = targetX < this.x ? -1 : 1;
-          }
-        } else {
-          if (Math.abs(player.x - this.x) > 10) {
-            this.facing = player.x < this.x ? -1 : 1;
-          }
+        const targetX = this.attackPhase === 2 ? this.getPredatorTargetX(player) : player.x;
+        if (Math.abs(targetX - this.x) > 10) {
+          this.facing = targetX < this.x ? -1 : 1;
         }
       } else {
         // Return towards origin
@@ -175,13 +191,11 @@ export class Monster {
 
     // ── Phase 2 Tactical Re-entry ──
     if (this.reentryCooldown > 0) this.reentryCooldown -= dt;
-    // When active chasing predator from current encounter zone falls behind off-screen, re-enter from screen edge (max 2 times, 5s CD)
-    if (this.attackPhase === 2 && (this.isPursuer || Math.abs(this.originX - player.x) < 1400)) {
-      if ((!this.reentryCooldown || this.reentryCooldown <= 0) && (this.reentryCount || 0) < 2 && player.x - this.x > 850 && player.x - this.x < 1300) {
-        this.reentryCount = (this.reentryCount || 0) + 1;
+    // Keep a rear predator active while it is off-screen; re-entry is movement-driven, never a teleport.
+    if (this.attackPhase === 2 && this.isPursuer) {
+      if (this.reentryCooldown <= 0 && this.reentryCount < 2 && player.x - this.x > 850 && player.x - this.x < 1400) {
+        this.reentryCount += 1;
         this.reentryCooldown = 5.0;
-        this.x = player.x - 620;
-        particles.emitDust(this.x, this.y, 12, this.config.color);
       }
     }
 

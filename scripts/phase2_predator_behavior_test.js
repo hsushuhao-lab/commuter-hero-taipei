@@ -13,7 +13,7 @@ global.window = {
     constructor() { this.currentTime = 0; this.state = 'running'; this.destination = {}; }
     createGain() { return { gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, linearRampToValueAtTime: () => {}, setTargetAtTime: () => {} }, connect: () => {} }; }
     createOscillator() { return { frequency: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: () => {}, start: () => {}, stop: () => {} }; }
-    createBiquadFilter() { return { frequency: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, Q: { setValueAtTime: () => {} }, connect: () => {} }; }
+    createBiquadFilter() { return { frequency: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {}, Q: { setValueAtTime: () => {} } }, connect: () => {} }; }
     resume() {}
   }
 };
@@ -37,19 +37,35 @@ global.requestAnimationFrame = callback => setTimeout(callback, 16);
 global.performance = { now: () => Date.now() };
 
 eval(scriptMatch[1]);
-const { Game } = window.CommuterGame;
+const { Game, Monster } = window.CommuterGame;
+
+const player = { x: 2000, y: 560, vx: 320, coins: 30, isDead: false };
+const interceptor = new Monster('red', 1000, 560);
+assert.strictEqual(typeof interceptor.assignPredatorRole, 'function', 'Predator role assignment must be explicit');
+interceptor.assignPredatorRole('interceptor');
+assert.strictEqual(interceptor.predatorRole, 'interceptor');
+assert(interceptor.getPredatorTargetX(player) > player.x, 'Interceptor target must lead the player');
+
+interceptor.triggerAttackPhase2();
+const beforeX = interceptor.x;
+interceptor.update(0.016, player, [{ x: 0, y: 560, w: 3000 }]);
+const maxOneFrameTravel = interceptor.speed * 1.45 * 0.016 + 2;
+assert(interceptor.x - beforeX <= maxOneFrameTravel, 'Predator catch-up must not teleport during re-entry');
+assert(interceptor.x < player.x, 'Predator must remain a pursuer until it naturally catches up');
+
 const game = new Game();
 game.startGame();
+game.player.x = 3000;
 game.player.coins = 30;
 game.level.triggerPhase2Predator(game.player);
+const roles = new Set(game.level.monsters.map(monster => monster.predatorRole));
+assert(roles.has('rear_pursuer'), 'Phase 2 must contain an explicit rear ground pursuer');
+assert(roles.has('front_blocker'), 'Phase 2 must contain an explicit front ground blocker');
+assert(roles.has('air_harasser'), 'Phase 2 must contain an explicit air harasser');
+assert(roles.has('flanker'), 'Phase 2 must contain an explicit flank role');
+assert(game.level.monsters.some(monster => monster.x < game.player.x && monster.predatorRole === 'rear_pursuer'));
+assert(game.level.monsters.some(monster => monster.x > game.player.x && monster.predatorRole === 'front_blocker'));
+assert(game.level.monsters.some(monster => monster.predatorRole === 'flanker' && Math.abs(monster.getPredatorTargetX(game.player) - game.player.x) === 240));
 
-assert(game.level.monsters.length > 0, 'Phase 2 must have active monsters');
-for (const monster of game.level.monsters) {
-  assert.strictEqual(monster.attackPhase, 2, `${monster.typeKey} attackPhase must be 2`);
-  assert.strictEqual(monster.isPhase2, true, `${monster.typeKey} isPhase2 must be true`);
-  assert.strictEqual(monster.attackDamage, monster.config.phase2.attackDamage, `${monster.typeKey} damage must be Phase 2 damage`);
-  assert.strictEqual(monster.attackCooldown, monster.config.phase2.attackCooldown, `${monster.typeKey} cooldown must be Phase 2 cooldown`);
-}
-
-console.log(`PASS: atomic Phase 2 transition synchronized ${game.level.monsters.length} monsters across attackPhase, isPhase2, damage, and cooldown.`);
+console.log(`PASS: Predator roles and no-teleport pursuit validated across ${game.level.monsters.length} Phase 2 monsters.`);
 process.exit(0);

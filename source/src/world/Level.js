@@ -119,6 +119,7 @@ export class Level {
       m.patrolBounds = { minX: plat.x + 30, maxX: plat.x + plat.w - 30 };
     }
     this.monsters.push(m);
+    return m;
   }
 
   spawnMonsterOnPlatform(type, x, fallbackY = 420) {
@@ -130,6 +131,7 @@ export class Level {
       m.patrolBounds = { minX: plat.x + 25, maxX: plat.x + plat.w - 25 };
     }
     this.monsters.push(m);
+    return m;
   }
 
   spawnMonsterOnSlope(type, x, terraceY = 440) {
@@ -141,11 +143,14 @@ export class Level {
       m.patrolBounds = { minX: plat.x + 25, maxX: plat.x + plat.w - 25 };
     }
     this.monsters.push(m);
+    return m;
   }
 
   spawnFlyingMonster(type, x, altitude = 240) {
     // Airborne swooping monster
-    this.monsters.push(new Monster(type, x, altitude, true));
+    const monster = new Monster(type, x, altitude, true);
+    this.monsters.push(monster);
+    return monster;
   }
 
   buildLevelGeometry() {
@@ -414,7 +419,9 @@ export class Level {
 
     // Update active monsters
     for (let m of this.monsters) {
-      if (Math.abs(m.x - player.x) < 750) {
+      const nearPlayer = Math.abs(m.x - player.x) < 750;
+      const rearReentry = m.attackPhase === 2 && m.isPursuer && player.x - m.x > 750 && player.x - m.x < 1400;
+      if (nearPlayer || rearReentry) {
         m.update(dt, player, this.pm.platforms);
       }
     }
@@ -423,13 +430,14 @@ export class Level {
   triggerPhase2Predator(player) {
     this.phase2PredatorTriggered = true;
 
-    // Spawn Phase 2 Predator Reinforcements (Flanking, Rear, Air, Snipers, Interceptors)
+    // Spawn Phase 2 Predator Reinforcements (rear, front, air, and intercept pressure)
     // Rear pursuers: spawn behind player to prevent easy continuous retreat
     const rearX = Math.max(100, player.x - 420);
     this.spawnMonsterOnGround('obsidian', rearX);
     this.spawnFlyingMonster('grape', Math.max(100, player.x - 300), 220);
 
-    // Front aerial harassment
+    // Front ground blocker and aerial harassment
+    this.spawnMonsterOnGround('blue', player.x + 420);
     this.spawnFlyingMonster('pink', player.x + 450, 210);
 
     // S3 Reinforcements (7000 ~ 10500)
@@ -453,9 +461,21 @@ export class Level {
     this.spawnMonsterOnGround('ice', 14500);
     this.spawnFlyingMonster('grape', 14650, 210);
 
-    // Apply one authoritative transition after all existing and reinforcement monsters exist.
+    // Assign a tactical role and apply one authoritative transition after all monsters exist.
+    let flankSide = -1;
     for (let m of this.monsters) {
-      if (!m.isDead) m.triggerAttackPhase2();
+      if (m.isDead) continue;
+      if (m.config.type === 'flying') {
+        m.assignPredatorRole('air_harasser');
+      } else if (m.x < player.x - 180) {
+        m.assignPredatorRole('rear_pursuer');
+      } else if (m.x > player.x + 180) {
+        m.assignPredatorRole('front_blocker');
+      } else {
+        m.assignPredatorRole('flanker', flankSide);
+        flankSide *= -1;
+      }
+      m.triggerAttackPhase2();
     }
   }
 

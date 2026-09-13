@@ -1324,6 +1324,39 @@ class Game {
         });
       }
     }
+
+    // 5. Boss Body Contact vs Player. Entrance, roar, transform, death and victory
+    // states are cinematic-safe; Player.takeDamage supplies the existing iframe.
+    const boss = this.boss;
+    const bossContactActive = this.state === 'PLAYING'
+      && p.x >= 14700
+      && boss.entranceDone
+      && !boss.isDead
+      && !boss.isTransforming
+      && boss.roarTimer <= 0
+      && !p.isDead;
+    if (bossContactActive) {
+      const bossCenterY = boss.y - boss.height * 0.45;
+      const playerCenterY = p.y - 35;
+      const bodyHalfWidth = 100;
+      const bodyHalfHeight = 125;
+      if (Math.abs(p.x - boss.x) < bodyHalfWidth && Math.abs(playerCenterY - bossCenterY) < bodyHalfHeight) {
+        const damage = boss.phase === 2 ? 28 * (boss.resonanceEnraged ? 1.10 : 1.0) : 18;
+        const hit = p.takeDamage(damage, {
+          kind: 'boss_contact',
+          sourceMonster: boss.config.id,
+          attackType: 'boss_body_contact',
+          attackPhase: boss.phase,
+          telegraphShown: false
+        });
+        if (hit) {
+          p.knockback(p.x < boss.x ? -460 : 460);
+          p.vy = -170;
+          particles.emitHitSparks(p.x, p.y - 35, '#FF1744', 12);
+          boss.hitTimer = Math.max(boss.hitTimer, 0.10);
+        }
+      }
+    }
   }
 
   render() {

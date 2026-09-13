@@ -21,6 +21,7 @@ export class HUD {
     this.cutinActive = false;
     this.cutinTimer = 0;
     this.cutinChar = null;
+    this.cutinUltName = '';
 
     // GTA-style Attack Phase II Cinematic Banner
     this.phase2CinematicTimer = 0;
@@ -100,11 +101,14 @@ export class HUD {
     this.resultRank = '';
   }
 
-  triggerCutin(charConfig, duration = 0.65) {
+  triggerCutin(charConfig, duration = 0.65, resonancePhase = 1) {
     this.cutinActive = true;
     this.cutinDuration = duration;
     this.cutinTimer = duration;
     this.cutinChar = charConfig;
+    this.cutinUltName = resonancePhase === 2 && charConfig?.ult?.phase2Name
+      ? charConfig.ult.phase2Name
+      : (charConfig?.ult?.name || '');
     if (charConfig) {
       if (!charConfig._windupCutinImg && charConfig.windupCutin) {
         charConfig._windupCutinImg = new Image();
@@ -479,7 +483,7 @@ export class HUD {
     ctx.fillStyle = '#FFD54F';
     ctx.font = `bold 26px "PingFang SC", sans-serif`;
     ctx.shadowBlur = 10;
-    ctx.fillText(`【${char.ult.name}】`, 20, 14);
+    ctx.fillText(`【${this.cutinUltName || char.ult.name}】`, 20, 14);
 
     ctx.font = '14px sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.9)';

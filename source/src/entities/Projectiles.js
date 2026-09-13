@@ -50,7 +50,7 @@ export class ProjectileManager {
       life: p.life || 2.0,
       maxLife: p.life || 2.0,
       color: p.color || '#fff',
-      type: p.type || 'bullet', // wind_blade, egg, pan_wave, petal, vine, laser
+      type: p.type || 'bullet', // wind_blade, egg, pan_wave, flying_pan, petal, vine, laser
       penetrating: p.penetrating || false,
       rotates: p.rotates || false,
       rotation: p.rotation || 0,
@@ -110,6 +110,18 @@ export class ProjectileManager {
           color: '#B3E5FC',
           life: 0.2,
           shape: 'circle'
+        });
+      }
+      if (p.isPlayer && p.type === 'flying_pan' && Math.random() < 0.85) {
+        particles.emit({
+          x: p.x - p.vx * 0.035,
+          y: p.y - p.vy * 0.035,
+          vx: -p.vx * 0.06,
+          vy: -p.vy * 0.06 + (Math.random() - 0.5) * 35,
+          size: 4 + Math.random() * 3,
+          color: Math.random() < 0.5 ? '#FF5722' : '#FFA726',
+          life: 0.22,
+          shape: 'spark'
         });
       }
     }
@@ -183,6 +195,30 @@ export class ProjectileManager {
         ctx.arc(0, 0, p.width, -Math.PI * 0.35, Math.PI * 0.35);
         ctx.lineTo(-p.width * 0.4, 0);
         ctx.closePath();
+        ctx.fill();
+      }
+      else if (p.type === 'flying_pan') {
+        // Sandra Phase II: a readable spinning cast-iron pan, not a generic orb.
+        ctx.rotate(p.rotation);
+        ctx.shadowColor = '#FF5722';
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = '#FF7043';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.width * 0.72, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#263238';
+        ctx.beginPath();
+        ctx.arc(0, 0, p.width * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#90A4AE';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#455A64';
+        ctx.fillRect(p.width * 0.38, -p.height * 0.15, p.width * 0.85, p.height * 0.3);
+        ctx.fillStyle = '#FFB300';
+        ctx.beginPath();
+        ctx.arc(-p.width * 0.12, -p.height * 0.14, p.width * 0.12, 0, Math.PI * 2);
         ctx.fill();
       }
       else if (p.type === 'petal') {

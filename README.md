@@ -1,14 +1,21 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德 (v9.7.1 Predator Boss Release) ——
+## —— 象山晨衝・奔向松德 (v9.7.3 Sandra Flying Pan Contact Fix) ——
 
 一款結合台北在地晨間通勤、雙向同步進化與日系魔法花系怪獸的高完成度 2D 橫向卷軸動作冒險遊戲。
 
-> **🌐 即時公開試玩網址 (Live URL)**：[https://hsushuhao-lab.github.io/commuter-hero-taipei/](https://hsushuhao-lab.github.io/commuter-hero-taipei/)  
+> **🌐 即時公開正式版 (Live URL)**：[https://hsushuhao-lab.github.io/commuter-hero-taipei/](https://hsushuhao-lab.github.io/commuter-hero-taipei/)
 > **📦 GitHub 開放倉庫**：[https://github.com/hsushuhao-lab/commuter-hero-taipei](https://github.com/hsushuhao-lab/commuter-hero-taipei)
 
 ---
 
-## 🌟 遊戲核心特色與重大升級 (v9.7.1)
+## 🌟 遊戲核心特色與重大升級 (v9.7.3)
+
+### v9.7.3 更新重點
+
+- **Sandra Phase II 狂焰飛鍋陣**：14 枚真正的旋轉平底鍋投射物，單枚 60 傷害、700px 射程、0.70 秒 stagger 發射，總名目傷害 840。
+- **Boss 身體接觸修正**：P1 造成 18 傷害、P2 造成 28 傷害（60 幣共振時 30.8），附帶擊退與既有 iframe；登場、咆哮、變身、死亡演出期間不扣血。
+- **Boss 新形象**：採用 `美術設計_new_13.png` 更新 Boss 視覺，並以雨夜場景相容的合成方式呈現。
+- **完整路線驗證腳本**：保留 v9.7.2 的 Hero Resonance HP ×2、Threat Budget、180 秒倒數與三人打卡流程；v9.7.3 的新版本 trace 與通關穩定性仍以實測結果為準。
 
 1. **4階段盛大 Opening 電影級開場序幕 & 關卡進場演出**：
    - **Act 1 (0.0~4.0s)**：黑幕晨光 ➔ 晨霧散開 ➔ 金色標題浮現 ➔ 07:57:00 打卡警報。

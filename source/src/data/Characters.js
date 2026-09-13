@@ -113,7 +113,7 @@ export const CHARACTERS = {
     id: 'sandra',
     name: '珊卓澎',
     title: '熱血主廚・平底鍋戰神',
-    role: '極速游擊 / 平底鍋火氣 (Hit-and-Run)',
+    role: '極速游擊 / Phase II 遠程飛鍋爆發',
     desc: '圍著滿版海鸚鵡 (Puffin) 圍裙的霸氣料理達人。手持厚重鑄鐵平底鍋，以狂暴的熱炒鍋氣與新鮮番茄、青花菜擊飛一切通勤阻礙。',
     quote: '「上班打卡如同熱鍋搶秒，火候到位，沒人能擋我的路！」',
     portrait: 'assets/hero_sandra_portrait.png',
@@ -146,7 +146,7 @@ export const CHARACTERS = {
       meleeRange: 160,      // 前方 160px
       fanAngle: 110,        // 扇形 110 度
       knockback: 380,       // 擊退 380px
-      desc: '揮動厚重平底鍋斬出前方 160px 弧形火氣與料理火星（CD 0.38s，34傷），擊退前方敵人，靠極速游擊穿梭戰場！'
+      desc: 'Phase I 以高速近戰游擊斬出前方 160px 弧形火氣（CD 0.38s），擊退前方敵人。'
     },
     ult: {
       name: '主廚旋風鍋・料理風暴',
@@ -156,9 +156,16 @@ export const CHARACTERS = {
       duration: 2.0,
       coreRadius: 350,      // 核心吸附半徑 350px
       gustRange: 420,       // 14 道鍋氣射程 420px
+      phase2Name: '主廚旋風鍋・狂焰飛鍋陣',
+      phase2UltDamageMultiplier: 2.0,
+      phase2ProjectileType: 'flying_pan',
+      phase2ProjectileCount: 14,
+      phase2ProjectileSpeed: 700,
+      phase2MaxDistance: 700,
+      phase2StaggerDuration: 0.70,
       windupDuration: 0.50,
       cutinDuration: 0.65,
-      desc: '蓄火展開法紋後旋起 350px 吸附料理旋風，釋放 14 道 420px 鍋氣烈焰！'
+      desc: 'Phase I 釋放 14 道鍋氣；Phase II 升級為 14 枚高速遠程旋轉火焰平底鍋。'
     }
   }
 };

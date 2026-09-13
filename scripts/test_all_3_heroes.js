@@ -241,10 +241,15 @@ heroes.forEach(charId => {
           input.keys['ArrowRight'] = false;
           input.keys['ArrowLeft'] = false;
         }
-        if (Math.abs(currentDist) <= bossAttackRange && Math.abs(currentDist) < bossCombatDist) {
+        if (Math.abs(currentDist) <= bossAttackRange && Math.abs(currentDist) >= 120 && Math.abs(currentDist) < bossCombatDist) {
           input.keys['ArrowRight'] = false;
           input.keys['ArrowLeft'] = false;
           game.player.facing = currentDist >= 0 ? 1 : -1;
+        } else if (Math.abs(currentDist) < 120) {
+          // The v9.7.3 Boss body is a real hazard: immediately retreat from overlap.
+          input.keys['ArrowRight'] = currentDist < 0;
+          input.keys['ArrowLeft'] = currentDist >= 0;
+          game.player.facing = currentDist >= 0 ? -1 : 1;
         }
 
         // Relentless skill & ult barrage

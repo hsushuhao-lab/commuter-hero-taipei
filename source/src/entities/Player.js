@@ -76,6 +76,7 @@ export class Player {
     this.ultWindupTimer = 0;
     this.ultWindupMax = 0;
     this.ultRecoveryTimer = 0;
+    this.sandraUltRelease = null;
 
     // v9.5: Sandra 2-Stage Combo Tracking
     this.comboStage = 0; // 0 = idle, 1 = stage 1 active (ready for stage 2)
@@ -426,7 +427,7 @@ export class Player {
     this.animState = 'ultimate';
     this.animTimer = 0;
 
-    hud.triggerCutin(this.charConfig, this.ultCutinTimer);
+    hud.triggerCutin(this.charConfig, this.ultCutinTimer, this.resonancePhase);
     audio.playUltCutin();
   }
 
@@ -493,11 +494,23 @@ export class Player {
     } 
     else {
       // ═════════════════════════════════════════════════════════════════════════
-      // 珊卓澎大招：主廚旋風鍋，核心吸附 350px，14 道鍋氣 max range 420px (各 30 dmg = 420 dmg)
+      // 珊卓澎 Phase I：主廚旋風鍋，14 道鍋氣 (各 30 dmg = 420 dmg)
       // ═════════════════════════════════════════════════════════════════════════
       this.pullEnemiesInZone(350);
       const waveCount = 14;
-      const waveDmg = this.phaseDamage(30, 1.15);
+      if (this.resonancePhase === 2) {
+        const staggerDuration = this.charConfig.ult.phase2StaggerDuration || 0.70;
+        this.sandraUltRelease = {
+          elapsed: 0,
+          nextReleaseAt: staggerDuration / 13,
+          released: 1,
+          count: this.charConfig.ult.phase2ProjectileCount || 14,
+          interval: staggerDuration / 13
+        };
+        this.releaseSandraFlyingPan(0);
+        return;
+      }
+      const waveDmg = 30;
       for (let i = 0; i < waveCount; i++) {
         const ang = i * (Math.PI * 2 / waveCount);
         projectiles.spawn({
@@ -516,6 +529,51 @@ export class Player {
         });
       }
     }
+  }
+
+  releaseSandraFlyingPan(index) {
+    const cfg = this.charConfig.ult;
+    const count = cfg.phase2ProjectileCount || 14;
+    const spread = (35 * Math.PI) / 180;
+    const centered = count <= 1 ? 0 : index / (count - 1) - 0.5;
+    const angle = this.facing === 1 ? centered * spread * 2 : Math.PI - centered * spread * 2;
+    const speed = cfg.phase2ProjectileSpeed || 700;
+    const pan = projectiles.spawn({
+      isPlayer: true,
+      type: cfg.phase2ProjectileType || 'flying_pan',
+      x: this.x + this.facing * 26,
+      y: this.y - 62,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      maxDistance: cfg.phase2MaxDistance || 700,
+      width: 34,
+      height: 28,
+      damage: 30 * (cfg.phase2UltDamageMultiplier || 2.0),
+      life: 1.2,
+      penetrating: true,
+      rotates: true,
+      rotation: angle,
+      vRot: 10,
+      attackType: 'sandra_phase2_ultimate'
+    });
+    if (index === 0) {
+      const activeGame = typeof window !== 'undefined' ? window.activeGame : null;
+      if (activeGame?.camera) activeGame.camera.shake(5, 0.10);
+      particles.emitHitSparks(this.x + this.facing * 35, this.y - 62, '#FFD54F', 12);
+    }
+    return pan;
+  }
+
+  updateSandraUltRelease(dt) {
+    const release = this.sandraUltRelease;
+    if (!release) return;
+    release.elapsed += dt;
+    while (release.released < release.count && release.elapsed >= release.nextReleaseAt) {
+      this.releaseSandraFlyingPan(release.released);
+      release.released++;
+      release.nextReleaseAt += release.interval;
+    }
+    if (release.released >= release.count) this.sandraUltRelease = null;
   }
 
   pullEnemiesInZone(radius) {
@@ -623,6 +681,7 @@ export class Player {
         }
         return; // Movement locked during wind-up
       } else if (this.ultPhase === 'RELEASE') {
+        if (this.id === 'sandra' && this.resonancePhase === 2) this.updateSandraUltRelease(dt);
         this.ultTimer -= dt;
         if (this.ultTimer <= 0) {
           this.ultPhase = 'RECOVERY';
@@ -1031,6 +1090,26 @@ export class Player {
           ctx.moveTo(flameX - 8, -4);
           ctx.quadraticCurveTo(flameX, -4 - flameH, flameX + 8, -4);
           ctx.fill();
+        }
+        if (this.resonancePhase === 2) {
+          // Phase II wind-up preview: three readable pan silhouettes orbit Sandra.
+          for (let i = 0; i < 3; i++) {
+            const orbit = now * 0.004 + i * Math.PI * 2 / 3;
+            ctx.save();
+            ctx.globalAlpha = 0.35 + progress * 0.35;
+            ctx.translate(Math.cos(orbit) * 58, -52 + Math.sin(orbit) * 28);
+            ctx.rotate(orbit + Math.PI / 2);
+            ctx.fillStyle = '#263238';
+            ctx.strokeStyle = '#FFD54F';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#FF7043';
+            ctx.fillRect(11, -3, 22, 6);
+            ctx.restore();
+          }
         }
       }
 

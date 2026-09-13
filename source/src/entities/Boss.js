@@ -105,9 +105,9 @@ export class Boss {
 
     // Assets
     this.imgPhase1 = new Image();
-    this.imgPhase1.src = 'assets/boss_flower_v9_7_3.png';
+    this.imgPhase1.src = 'assets/boss_flower_phase1_v9_7_4.png';
     this.imgPhase2 = new Image();
-    this.imgPhase2.src = 'assets/boss_flower_v9_7_3.png';
+    this.imgPhase2.src = 'assets/boss_flower_phase2_v9_7_4.png';
 
     // Minions array passed from level
     this.minions = [];
@@ -1332,10 +1332,7 @@ export class Boss {
     if (activeImg.complete && activeImg.naturalWidth > 0) {
       const dw = this.width * transformScale;
       const dh = this.height * transformScale;
-      const isV973BossArt = activeImg === this.imgPhase1 || activeImg === this.imgPhase2;
-      if (isV973BossArt) ctx.globalCompositeOperation = 'multiply';
       ctx.drawImage(activeImg, -dw / 2, -dh, dw, dh);
-      if (isV973BossArt) ctx.globalCompositeOperation = 'source-over';
     } else {
       // Fallback
       ctx.save();

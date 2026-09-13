@@ -293,7 +293,7 @@ export class Player {
           const dx = p.x - this.x;
           const dy = p.y - spawnY;
           const dist = Math.hypot(dx, dy);
-          if (dist <= 180 && dx * this.facing > 0) {
+          if (dist <= 180) {
             particles.emitHitSparks(p.x, p.y, '#00E5FF', 6);
             projectiles.projectiles.splice(i, 1);
           }
@@ -391,7 +391,7 @@ export class Player {
         maxDistance: 160,
         width: 54,
         height: 54,
-        damage: this.phaseDamage(40),
+        damage: this.phaseDamage(56),
         knockback: 380,
         life: 0.16,
         penetrating: true,

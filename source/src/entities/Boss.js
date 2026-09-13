@@ -259,6 +259,13 @@ export class Boss {
       return;
     }
 
+    projectiles.setSourceContext({
+      sourceMonster: 'boss_flower',
+      attackPhase: this.phase,
+      attackType: 'boss',
+      telegraphShown: true
+    });
+    try {
     // v9.5: 60 金幣不再跳過 Phase 1，只提供共振強化難度 (Commuter Resonance Buff)
     if (player && player.coins >= (this.config.coinsEnrageThreshold || 60) && !this.resonanceEnraged) {
       this.resonanceEnraged = true;
@@ -569,6 +576,9 @@ export class Boss {
     this._updateSpores(dt, player);
     this._updateSpinningThorns(dt, player);
     this._updateTrackingPollen(dt, player);
+    } finally {
+      projectiles.clearSourceContext();
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════

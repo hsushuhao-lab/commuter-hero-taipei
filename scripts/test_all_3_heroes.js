@@ -140,7 +140,8 @@ heroes.forEach(charId => {
   };
 
   const botSkillRange = { yu: 480, shakira: 600, sandra: 150 }[charId];
-  const bossCombatDist = { yu: 260, shakira: 320, sandra: 140 }[charId];
+  const bossCombatDist = { yu: 440, shakira: 500, sandra: 170 }[charId];
+  const bossAttackRange = { yu: 480, shakira: 600, sandra: 160 }[charId];
 
   let maxSteps = 10000;  // 200s watchdog; the game timer remains 180s
   let step = 0;
@@ -157,9 +158,9 @@ heroes.forEach(charId => {
         input.keys['ArrowLeft'] = false;
 
         // Pit detection with calibrated lookAhead
-        const lookAheadX = game.player.x + ({ yu: 170, shakira: 170, sandra: 90 }[charId]);
-        const groundAhead = game.pm.platforms.some(p => p.type === 'stone' && p.x <= lookAheadX && (p.x + p.w) >= lookAheadX && p.y >= 540);
-        if (!groundAhead && game.player.onGround && game.player.y >= 520) {
+        const gapStarts = [1800, 4850, 6250, 8200, 9750, 11950];
+        const gapAhead = gapStarts.some(gapStart => game.player.x < gapStart && gapStart - game.player.x <= 60);
+        if (gapAhead && game.player.onGround) {
           input.justPressedKeys['Space'] = true;
           input.keys['Space'] = true;
         } else if (game.player.onGround) {
@@ -202,7 +203,7 @@ heroes.forEach(charId => {
         }
 
         // Defensive Dash
-        if ((closeFrontEnemy || closeRearEnemy) && game.player.hp < 70 && game.player.dashCooldown <= 0 && game.player.onGround) {
+        if ((closeFrontEnemy || closeRearEnemy) && game.player.dashCooldown <= 0 && game.player.onGround) {
           input.justPressedKeys['ShiftLeft'] = true;
         }
         if (threateningBullet && continuousEvadeGround && game.player.dashCooldown <= 0) {
@@ -240,6 +241,11 @@ heroes.forEach(charId => {
           input.keys['ArrowRight'] = false;
           input.keys['ArrowLeft'] = false;
         }
+        if (Math.abs(currentDist) <= bossAttackRange && Math.abs(currentDist) < bossCombatDist) {
+          input.keys['ArrowRight'] = false;
+          input.keys['ArrowLeft'] = false;
+          game.player.facing = currentDist >= 0 ? 1 : -1;
+        }
 
         // Relentless skill & ult barrage
         input.keys['KeyS'] = true;
@@ -248,13 +254,20 @@ heroes.forEach(charId => {
         }
 
         // Jump over boss spikes / ground attacks / lunge
-        const bossSpikeNearby = game.boss.activeSpikeQueue && game.boss.activeSpikeQueue.some(s => Math.abs(s.x - game.player.x) < 80);
-        const bossProjNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.hypot(p.x - game.player.x, p.y - game.player.y) < 140);
+        const bossSpikeNearby = game.boss.activeSpikeQueue && game.boss.activeSpikeQueue.some(s => Math.abs(s.x - game.player.x) < 180);
+        const bossProjNearby = projectiles.projectiles.some(p => !p.isPlayer && Math.hypot(p.x - game.player.x, p.y - game.player.y) < 420);
         const bossLunging = game.boss.isLunging && Math.abs(game.boss.x - game.player.x) < 200;
-        const trackingPollenNear = game.boss.trackingPollen && game.boss.trackingPollen.some(p => Math.hypot(p.x - game.player.x, p.y - game.player.y) < 120);
-        if ((bossSpikeNearby || bossProjNearby || bossLunging || trackingPollenNear || (game.player.onGround && simTime % 1.4 < dt)) && game.player.onGround) {
+        const trackingPollenNear = game.boss.trackingPollen && game.boss.trackingPollen.some(p => Math.hypot(p.x - game.player.x, p.y - game.player.y) < 350);
+        const bossThreat = bossSpikeNearby || bossProjNearby || bossLunging || trackingPollenNear;
+        if (bossThreat && game.player.dashCooldown <= 0 && game.player.onGround) {
+          game.player.facing = currentDist >= 0 ? -1 : 1;
+          input.justPressedKeys['ShiftLeft'] = true;
+        }
+        if (bossThreat || game.player.onGround) {
+          if (game.player.onGround) {
           input.justPressedKeys['Space'] = true;
           input.keys['Space'] = true;
+          }
         }
       }
     } else if (game.state === 'VICTORY_RUN') {
@@ -273,7 +286,7 @@ heroes.forEach(charId => {
   const completionTime = simTime;
   const bossDuration = bossFightEndTime ? (bossFightEndTime - bossFightStartTime) : 0;
 
-  console.log('[' + charId.toUpperCase() + '] Final: State=' + game.state + ' X=' + Math.round(game.player.x) + ' Y=' + Math.round(game.player.y) + ' HP=' + game.player.hp + '/' + game.player.maxHp + ' Coins=' + game.player.coins + ' Coffees=' + coffeesCollected + ' TotalTime=' + completionTime.toFixed(1) + 's BossDuration=' + bossDuration.toFixed(1) + 's Punched=' + game.pm.clockInMachine.punched + ' Rank=' + hud.resultRank + ' DamageEvents=' + damageEvents.length + ' Falls=' + game.player.fallCount);
+  console.log('[' + charId.toUpperCase() + '] Final: State=' + game.state + ' X=' + Math.round(game.player.x) + ' Y=' + Math.round(game.player.y) + ' HP=' + game.player.hp + '/' + game.player.maxHp + ' Coins=' + game.player.coins + ' Coffees=' + coffeesCollected + ' TotalTime=' + completionTime.toFixed(1) + 's BossHP=' + game.boss.hp + ' BossDuration=' + bossDuration.toFixed(1) + 's Punched=' + game.pm.clockInMachine.punched + ' Rank=' + hud.resultRank + ' DamageEvents=' + damageEvents.length + ' Falls=' + game.player.fallCount);
   if (damageEvents.length) console.log('[' + charId.toUpperCase() + '] Last damage events:', damageEvents.slice(-8));
 
   results[charId] = {

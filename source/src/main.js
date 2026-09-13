@@ -1283,6 +1283,10 @@ class Game {
         const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
           this.boss.takeDamage(proj.damage, proj.id);
+          if (this.player.id === 'sandra' && proj.isMeleeArc) {
+            this.player.meleeDashCancelTimer = 0.22;
+            this.player.hitConfirmArmorTimer = 0.16;
+          }
           if (!proj.penetrating) proj.life = 0;
         }
       }

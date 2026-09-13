@@ -240,7 +240,7 @@ export const BOSS_CONFIG = {
   title: '晨霧夢境的支配者',
   maxHp: 3600,          // Phase 1 Max HP = 3600 (v9.7.1)
   phase1Hp: 3600,       // v9.7.1: Phase 1 獨立血條 (3600 HP, 2800 * 1.28)
-  phase2Hp: 5200,       // v9.7.1: Phase 2 獨立血條 (5200 HP, 3600 * 1.44, Total = 8800 HP)
+  phase2Hp: 3050,       // v9.7.2: Phase 2 clear-time recovery target (Total = 6650 HP)
   transformDuration: 2.8, // 2.8s 變身無敵
   width: 260,
   height: 280,
@@ -267,10 +267,10 @@ export const BOSS_CONFIG = {
     name: '夢影巨花王・夢境安撫態',
     bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就……一下下……」',
     attackCooldown: 1.40,   // 9-way spiral petals
-    petalDamage: 20,        // v9.7.1: 16 * 1.25 = 20
+    petalDamage: 12,        // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
     petalCount: 9,          // 9-way interlaced spiral
     petalSpeed: 330,        // px/s
-    vineDamage: 25,         // v9.7.1: 20 * 1.25 = 25
+    vineDamage: 18,         // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
     groundSpikeCount: 3,    // 3~4 consecutive ground spikes
     sporeDamage: 14,        // sleep spore damage (11 * 1.27 = 14)
     sporeSlowDuration: 1.5, // seconds of slow on hit

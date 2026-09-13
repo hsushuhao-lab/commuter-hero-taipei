@@ -141,7 +141,7 @@ export const CHARACTERS = {
       name: '平底鍋揮舞・怒火鍋氣',
       key: 'S / J',
       cooldown: 0.38,
-      damage: 40,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
+      damage: 56,           // v9.7.2: melee DPS recovery; Phase II 再乘 1.25
       range: 160,           // 前方 160px
       meleeRange: 160,      // 前方 160px
       fanAngle: 110,        // 扇形 110 度

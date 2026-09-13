@@ -593,10 +593,8 @@ class Game {
         this.milestoneBannerTimer = 3.2;
       } else if (c >= 30 && !this.announcedMilestones[30]) {
         this.announcedMilestones[30] = true;
-        this.milestoneBanner = '⚠️ ATTACK PHASE II：怪獸開始追你了。';
-        this.milestoneBannerTimer = 3.2;
-        this.camera.shake(10, 0.8);
-        hud.triggerPhase2Cinematic();
+        this.milestoneBanner = '⚡ 通勤共振 II：雙方進入高強度戰鬥！';
+        this.milestoneBannerTimer = 2.0;
       } else if (c >= 60 && !this.announcedMilestones[60]) {
         this.announcedMilestones[60] = true;
         this.milestoneBanner = '🔥 通勤共振 60 幣：夢影巨花王狂暴共振！難度提升！';

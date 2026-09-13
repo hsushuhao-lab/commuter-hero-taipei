@@ -36,7 +36,7 @@ export const CHARACTERS = {
       name: '雨傘機關槍',
       key: 'S / J',
       cooldown: 0.16,
-      damage: 16,           // v9.7.1: 單發低傷害 (16 dmg)，超高射速 suppression fire
+      damage: 18,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
       range: 480,           // 射程 480px
       bulletSpeed: 750,
       deflectRadius: 180,   // 傘尖偏轉近身敵彈
@@ -88,10 +88,10 @@ export const CHARACTERS = {
       name: '蛋能雙彈',
       key: 'S / J',
       cooldown: 0.42,
-      damage: 38,           // v9.7.1: 三人最高小招傷害 (38 dmg 直擊 + 20 濺射)
+      damage: 42,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
       range: 600,           // 射程 600px
       splashRadius: 90,     // 濺射半徑 90px
-      splashDamage: 20,     // 濺射傷害 20 dmg
+      splashDamage: 22,     // v9.7.2: Phase I 微升；Phase II 再乘 1.25
       lifetime: 1.1,
       desc: '雙發分離半熟蛋彈（CD 0.42s，直擊 38 傷，三人最高小招傷害），射程 600px，命中激發 90px 範圍濺射 (20傷)！'
     },
@@ -141,7 +141,7 @@ export const CHARACTERS = {
       name: '平底鍋揮舞・怒火鍋氣',
       key: 'S / J',
       cooldown: 0.38,
-      damage: 34,           // v9.7.1: 低傷害 (34 dmg)，靠極速游擊與擊退生存
+      damage: 40,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
       range: 160,           // 前方 160px
       meleeRange: 160,      // 前方 160px
       fanAngle: 110,        // 扇形 110 度

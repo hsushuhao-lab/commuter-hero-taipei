@@ -293,7 +293,7 @@ export class HUD {
     // Milestone text
     let milestoneText = '🔒 15幣 大招解鎖';
     if (player.coins >= 60) milestoneText = '🔥 魔王狂暴 (雙倍掉落)';
-    else if (player.coins >= 30) milestoneText = '👹 怪獸二階段 (烈焰紅苗等)';
+    else if (player.coins >= 30) milestoneText = '⚡ 共振 II｜英雄強化 × 怪獸攻勢提升';
     else if (player.coins >= 15) milestoneText = '⚔️ 大招已永久解鎖！';
 
     ctx.fillStyle = '#81D4FA';

@@ -54,6 +54,7 @@ export class Player {
     // Collectibles & Evolution (Commuter Resonance)
     this.coins = 0;
     this.hasUnlockedUlt = false; // 15 金幣永久解鎖
+    this.resonancePhase = 1;
 
     // Dash (E / touch button)
     this.dashTimer = 0;
@@ -138,6 +139,18 @@ export class Player {
       audio.playPowerup();
       particles.emitCoinSparkle(this.x, this.y - 40);
     }
+    if (this.coins >= 30 && this.resonancePhase === 1) this.triggerHeroPhase2();
+  }
+
+  triggerHeroPhase2() {
+    const oldMaxHp = this.maxHp;
+    this.resonancePhase = 2;
+    this.maxHp = oldMaxHp * 2;
+    this.hp = Math.min(this.maxHp, this.hp + oldMaxHp);
+  }
+
+  phaseDamage(baseDamage, multiplier = 1.25) {
+    return this.resonancePhase === 2 ? baseDamage * multiplier : baseDamage;
   }
 
   addHp(amount) {
@@ -298,7 +311,7 @@ export class Player {
         maxDistance: 480,
         width: 32,
         height: 18,
-        damage: 16,
+        damage: this.phaseDamage(18),
         life: 0.65,
         knockback: true,
         penetrating: false
@@ -330,8 +343,9 @@ export class Player {
       this.animTimer = 0;
       audio.playSkill(this.id);
 
-      const directDmg = 38;
+      const directDmg = this.phaseDamage(42);
       const splashRad = 90;
+      const splashDmg = this.phaseDamage(22);
       const offsets = [-16, 16]; // 上下分離，無近戰判定
       offsets.forEach((offsetY, idx) => {
         projectiles.spawn({
@@ -346,7 +360,7 @@ export class Player {
           height: 22,
           damage: directDmg,
           splashRadius: splashRad,
-          splashDamage: 20,
+          splashDamage: splashDmg,
           life: 1.1,
           isMeleeArc: false,
           knockback: true
@@ -377,7 +391,7 @@ export class Player {
         maxDistance: 160,
         width: 54,
         height: 54,
-        damage: 34,
+        damage: this.phaseDamage(40),
         knockback: 380,
         life: 0.16,
         penetrating: true,
@@ -427,7 +441,7 @@ export class Player {
       this.vx = this.facing * 850;
       const corridorLength = 760;
       const bladeCount = 8;
-      const bladeDmg = 38; // 8 * 38 = 304 dmg
+      const bladeDmg = this.phaseDamage(38, 1.15); // Phase II: 1.15x ultimate damage
       for (let i = 0; i < bladeCount; i++) {
         projectiles.spawn({
           isPlayer: true,
@@ -451,11 +465,11 @@ export class Player {
       // ═════════════════════════════════════════════════════════════════════════
       // 夏奇拉大招：半徑 500px 固定戰區，14 顆流星蛋雨 (各 30 dmg = 420 dmg)，回復 30 HP
       // ═════════════════════════════════════════════════════════════════════════
-      this.addHp(30);
+      this.addHp(this.resonancePhase === 2 ? 45 : 30);
       this.shieldTimer = 3.0;
       this.ultZoneCenterX = this.x; // 鎖定當前施放戰區中心
       const eggCount = 14;
-      const eggDmg = 30;
+      const eggDmg = this.phaseDamage(30, 1.15);
       for (let i = 0; i < eggCount; i++) {
         const spawnOffsetX = (Math.random() - 0.5) * 960; // 500px 半徑固定戰區
         projectiles.spawn({
@@ -483,7 +497,7 @@ export class Player {
       // ═════════════════════════════════════════════════════════════════════════
       this.pullEnemiesInZone(350);
       const waveCount = 14;
-      const waveDmg = 30;
+      const waveDmg = this.phaseDamage(30, 1.15);
       for (let i = 0; i < waveCount; i++) {
         const ang = i * (Math.PI * 2 / waveCount);
         projectiles.spawn({

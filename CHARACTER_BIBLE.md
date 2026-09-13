@@ -1,5 +1,7 @@
 # 《08點上班大作戰：通勤英雄篇》角色與怪獸全設定誌 (CHARACTER BIBLE)
-**專案版本：v9.1.0 Route & Art Fidelity Edition**
+**專案版本：v9.1.0 Route & Art Fidelity Edition（歷史設定檔）**
+
+> **v9.7.1 runtime notice:** this file preserves historical art/design proposals for provenance. Any older Form 2, awakening, or obsolete attack values below are non-runtime historical material. The active v9.7.1 hero contract is documented in `README.md` and `PI_DIRECTIVE_v9_7_1.md`.
 
 ---
 

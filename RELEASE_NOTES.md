@@ -3,6 +3,8 @@
 **發行日期：2026-09-13**  
 **專案狀態：COMMERCIAL_GOLD_RELEASE**
 
+> **Historical archive notice:** the v9.6.0 and earlier sections below are retained for provenance and are not the v9.7.1 runtime specification. In particular, any Form 2, awakening, or obsolete attack claims are historical/non-runtime only. The active release record is `RELEASE_NOTES_v9_7_1.md`.
+
 ---
 
 ## 🌟 v9.6.0 重大更新亮點 (3-Minute Full Experience Edition)

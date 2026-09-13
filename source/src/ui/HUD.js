@@ -284,7 +284,7 @@ export class HUD {
     ctx.font = 'bold 9px monospace';
     ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, hpX + 42, hpY + 8);
 
-    // 2. Commute Resonance & Coins (🪙 x / 15 / 30 / 45 / 60)
+    // 2. Commute Resonance & Coins (🪙 x / 15 / 30 / 60)
     const coinX = 275;
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 14px sans-serif';
@@ -293,7 +293,6 @@ export class HUD {
     // Milestone text
     let milestoneText = '🔒 15幣 大招解鎖';
     if (player.coins >= 60) milestoneText = '🔥 魔王狂暴 (雙倍掉落)';
-    else if (player.coins >= 45) milestoneText = '🌟 英雄覺醒II (戰力全面強化)';
     else if (player.coins >= 30) milestoneText = '👹 怪獸二階段 (烈焰紅苗等)';
     else if (player.coins >= 15) milestoneText = '⚔️ 大招已永久解鎖！';
 

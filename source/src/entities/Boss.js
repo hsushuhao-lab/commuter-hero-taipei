@@ -1316,9 +1316,8 @@ export class Boss {
     }
 
     // ── Boss Image (with transform scale anim) ────────────────────────
-    const activeImg = (this.phase === 2 && this.imgPhase2.complete && this.imgPhase2.naturalWidth > 0)
-      ? this.imgPhase2
-      : this.imgPhase1;
+    const hasP2Image = this.imgPhase2.complete && this.imgPhase2.naturalWidth > 0;
+    const activeImg = (this.phase === 2 && hasP2Image) ? this.imgPhase2 : this.imgPhase1;
 
     // Compute transform scale: sinusoidal 0.5→1.3→1.0 over phase2TransformTimer
     let transformScale = 1.0;
@@ -1329,7 +1328,17 @@ export class Boss {
       transformScale += Math.sin(this.bobTimer * 6) * 0.15;
     }
 
-    if (activeImg.complete && activeImg.naturalWidth > 0) {
+    if (this.phase2TransformTimer > 0 && this.imgPhase1.complete && this.imgPhase1.naturalWidth > 0 && hasP2Image) {
+      const progress = Math.max(0, Math.min(1, this.phase2ScaleAnim));
+      const dw = this.width * transformScale;
+      const dh = this.height * transformScale;
+      ctx.save();
+      ctx.globalAlpha = 1 - progress;
+      ctx.drawImage(this.imgPhase1, -dw / 2, -dh, dw, dh);
+      ctx.globalAlpha = progress;
+      ctx.drawImage(this.imgPhase2, -dw / 2, -dh, dw, dh);
+      ctx.restore();
+    } else if (activeImg.complete && activeImg.naturalWidth > 0) {
       const dw = this.width * transformScale;
       const dh = this.height * transformScale;
       ctx.drawImage(activeImg, -dw / 2, -dh, dw, dh);

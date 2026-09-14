@@ -5,7 +5,7 @@
 - Current release: v9.7.4 Final Boss Art Runtime; base main `8be8949`.
 - Boss assets: `source/assets/boss_flower_phase1_v9_7_4.png` and `source/assets/boss_flower_phase2_v9_7_4.png`.
 - Boss runtime references independent P1/P2 paths and no longer uses multiply compositing.
-- Required next step: build and publish this change, then record the resulting main SHA and Pages state here.
+- P1/P2 已依原稿裁切、去白底並重建；下一位 Agent 應以目前發布 SHA 與 Pages 狀態為準。
 
 你是下一位接手此專案的 coding agent。請在完成證據 gates 前不要 push、merge 或部署；不要把舊 commit message、舊 README、模擬無敵或人工回血結果當成 PASS。
 

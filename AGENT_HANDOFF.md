@@ -1,8 +1,9 @@
-# Agent Handoff Prompt — v9.7.8 Character Art & Mobile Controls
+# Agent Handoff Prompt — v9.7.9 Opening Cinematic & Articulated Chibi
 
-## v9.7.4 current handoff
+## v9.7.9 current handoff
 
-- Current release: v9.7.8 Character Art & Mobile Controls; base main `8be8949`.
+- Current release candidate: v9.7.9 Opening Cinematic & Articulated Chibi, based on v9.7.8 commit `7794801`.
+- Opening is now a 13.5-second six-shot Taipei dawn sequence with no hero/monster stat cards; Q01/Q02/Q03 drive both Opening and gameplay spritesheets with local limb articulation.
 - Boss assets: `source/assets/boss_flower_phase1_v9_7_4.png` and `source/assets/boss_flower_phase2_v9_7_7.png`.
 - Boss runtime references independent P1/P2 paths and no longer uses multiply compositing.
 - P1/P2 已依原稿裁切、去白底並重建；下一位 Agent 應以目前發布 SHA 與 Pages 狀態為準。
@@ -16,13 +17,13 @@
 
 並在所有 release gates 真正通過後：commit、push GitHub branch、merge `main`、push `origin/main`、部署並驗證 GitHub Pages。
 
-本次交班目標：以最簡單、可重現、有限 token 的方式完成 v9.7.1；先盤點，後執行，最後發布。附加的 Recovery Master Prompt 是規格與驗收清單，不是可直接信任的結果報告。
+本次交班目標：以最簡單、可重現、有限 token 的方式完成 v9.7.9；先盤點，後執行，最後發布。附加的 Recovery Master Prompt 是規格與驗收清單，不是可直接信任的結果報告。
 
 ## Repository state
 
 - Canonical repo: `C:\Users\Asher\Documents\game\08workbattle-v8_0-COMMUTER-HERO`
 - Branch: `codex/v9.7.1-predator-boss-release`
-- Current committed HEAD: `11a7c8c3e8ae2df2be96cdbec6acb69dc767c6bc`
+- Current committed HEAD before this release: `7794801b726af1c8b3b166de191cb05d7c1ca9d2`
 - HEAD message claims a verified three-hero route, but the clean real-combat rerun below disproves that claim.
 - Baseline production: `19c2296c004ed14a0335b149cca1a94113ca9aeb` (`origin/main`, v9.6.0)
 - Recovery checkpoint branch/commit: `21b08ae`

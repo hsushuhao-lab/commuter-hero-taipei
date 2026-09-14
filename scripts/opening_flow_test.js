@@ -2,7 +2,7 @@
  * Dedicated Opening Cinematic Flow Test (opening_flow_test.js)
  * Validates:
  * 1. Default initial game state is OPENING
- * 2. IntroCinematic 4-stage progression across 17 seconds
+ * 2. IntroCinematic 6-shot progression across 13.5 seconds
  * 3. nextAct() steps through stages sequentially
  * 4. Skip via button click or Keyboard (SPACE / ESC / ENTER)
  * 5. On completion or skip, state transitions to MENU
@@ -76,30 +76,38 @@ test('Initial Game state is OPENING', () => {
   assert.strictEqual(game.state, 'OPENING', `Expected state OPENING, got ${game.state}`);
 });
 
-test('IntroCinematic has 4 acts and 17.0s total duration', () => {
+test('IntroCinematic has 6 shots and 13.5s total duration', () => {
   assert(introCinematic, 'introCinematic singleton must exist');
-  assert.strictEqual(introCinematic.duration, 17.0, `Expected duration 17.0, got ${introCinematic.duration}`);
+  assert.strictEqual(introCinematic.duration, 13.5, `Expected duration 13.5, got ${introCinematic.duration}`);
 });
 
-test('nextAct() advances through the 4 stages sequentially', () => {
+test('nextAct() advances through the 6 shots sequentially', () => {
   let completed = false;
   introCinematic.start(() => { completed = true; });
   assert.strictEqual(introCinematic.isActive, true);
   assert.strictEqual(introCinematic.time, 0);
 
-  // Stage 1 -> Stage 2
+  // Shot 1 -> Shot 2
   introCinematic.nextAct();
-  assert.strictEqual(introCinematic.time, 4.0);
+  assert.strictEqual(introCinematic.time, 1.8);
 
-  // Stage 2 -> Stage 3
+  // Shot 2 -> Shot 3
   introCinematic.nextAct();
-  assert.strictEqual(introCinematic.time, 8.0);
+  assert.strictEqual(introCinematic.time, 4.3);
 
-  // Stage 3 -> Stage 4
+  // Shot 3 -> Shot 4
   introCinematic.nextAct();
-  assert.strictEqual(introCinematic.time, 12.5);
+  assert.strictEqual(introCinematic.time, 6.5);
 
-  // Stage 4 -> Finish / Skip
+  // Shot 4 -> Shot 5
+  introCinematic.nextAct();
+  assert.strictEqual(introCinematic.time, 8.8);
+
+  // Shot 5 -> Shot 6
+  introCinematic.nextAct();
+  assert.strictEqual(introCinematic.time, 10.6);
+
+  // Shot 6 -> Finish / Skip
   introCinematic.nextAct();
   assert.strictEqual(introCinematic.isActive, false);
   assert.strictEqual(completed, true, 'onComplete callback must be called');

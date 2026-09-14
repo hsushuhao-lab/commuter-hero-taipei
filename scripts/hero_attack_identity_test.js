@@ -51,8 +51,8 @@ yu.triggerSkill();
 const enemyBulletsRemaining = projectiles.projectiles.filter(p => !p.isPlayer);
 const playerProjectiles = projectiles.projectiles.filter(p => p.isPlayer);
 assert.strictEqual(enemyBulletsRemaining.length, 0, 'Yu parry should deflect enemy bullet');
-assert(playerProjectiles.length >= 1, 'Yu parry should spawn counter wind-blade');
-assert.strictEqual(playerProjectiles[0].type, 'wind_blade');
+assert(playerProjectiles.length >= 1, 'Yu parry should spawn an umbrella counter shot');
+assert.strictEqual(playerProjectiles[0].type, 'umbrella_bullet');
 assert(yu.charConfig.stats.skillCooldown <= 0.35);
 console.log('  ✓ Yu Parry + Deflect mechanics verified.');
 
@@ -73,27 +73,20 @@ assert.strictEqual(shakiraBullets.some(p => p.isMeleeArc), false, 'Shakira proje
 console.log('  ✓ Shakira Dual Ranged Splash verified.');
 
 // 3. Sandra Peng
-console.log('\n[3/4] Testing Sandra Peng (Melee Combo / Knockback)...');
+console.log('\n[3/4] Testing Sandra Peng (Orange Drop / Long Range)...')
 const sandra = new Player('sandra');
 sandra.x = 500; sandra.y = 560; sandra.facing = 1;
 projectiles.reset();
 
 sandra.triggerSkill();
-assert.strictEqual(sandra.comboStage, 1);
 assert.strictEqual(sandra.isAttacking, true);
-assert(sandra.comboTimer > 0 && sandra.comboTimer <= 0.35);
-
-// Stage 2: Ground Shockwave追擊 (within 0.32s window)
-sandra.triggerSkill();
-const combo1 = projectiles.projectiles.find(p => p.id && p.id.startsWith('sa_combo1_'));
-assert(combo1, 'Sandra stage 1 must spawn melee arc swing');
-assert.strictEqual(combo1.damage, 72, 'Sandra stage 1 damage must be 72');
-
-const combo2 = projectiles.projectiles.find(p => p.id && p.id.startsWith('sa_combo2_'));
-assert(combo2, 'Sandra stage 2 must spawn ground shockwave');
-assert.strictEqual(combo2.damage, 48, 'Sandra stage 2 damage must be 48');
-assert(combo2.maxDistance >= 280, 'Sandra stage 2 max distance must be >= 280px');
-console.log('  ✓ Sandra 2-stage Melee Combo + Shockwave verified.');
+const sandraProjectiles = projectiles.projectiles.filter(p => p.isPlayer);
+assert.strictEqual(sandraProjectiles.length, 1, 'Sandra must spawn one orange-drop projectile');
+assert.strictEqual(sandraProjectiles[0].type, 'sandra_orange_drop');
+assert.strictEqual(sandraProjectiles[0].damage, 70, 'Sandra small skill damage must be 70');
+assert(sandraProjectiles[0].maxDistance >= 550, 'Sandra small skill range must be >= 550px');
+assert.strictEqual(sandraProjectiles[0].isMeleeArc, true);
+console.log('  ✓ Sandra orange-drop long-range attack verified.');
 
 // 4. Distinction
 console.log('\n[4/4] Verifying Distinct Attack Primitives...');

@@ -4,7 +4,10 @@ from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 
 base_dir = r'c:\Users\Asher\Documents\game\08workbattle-v8_0-COMMUTER-HERO'
 assets_dir = os.path.join(base_dir, 'assets')
+source_assets_dir = os.path.join(base_dir, 'source', 'assets')
+source_art_dir = os.path.join(os.path.dirname(base_dir), '美術設計')
 os.makedirs(assets_dir, exist_ok=True)
+os.makedirs(source_assets_dir, exist_ok=True)
 
 FRAME_SIZE = 256
 FEET_Y = 232
@@ -22,6 +25,92 @@ ANIM_MAP = {
     'victory': [22, 23, 24, 25],
     'ultimate': [26, 27, 28, 29, 30, 31]
 }
+
+# Approximate hand/foot centers in each approved Q illustration after the
+# runtime-facing horizontal flip. Local elastic deformation around these
+# points makes limbs flex while the face and torso stay recognisable.
+LIMB_CONTROL_POINTS = {
+    'yu': {'left_arm': (0.25, 0.48), 'right_arm': (0.78, 0.55), 'left_leg': (0.34, 0.80), 'right_leg': (0.67, 0.84)},
+    'shakira': {'left_arm': (0.24, 0.44), 'right_arm': (0.77, 0.48), 'left_leg': (0.40, 0.82), 'right_leg': (0.64, 0.83)},
+    'sandra': {'left_arm': (0.27, 0.47), 'right_arm': (0.73, 0.53), 'left_leg': (0.30, 0.84), 'right_leg': (0.57, 0.84)},
+}
+
+CHARACTER_Q_FILES = {
+    'yu': 'character_Q01.png',
+    'shakira': 'character_Q02.png',
+    'sandra': 'character_Q03.png',
+}
+
+
+def _bilinear_remap(image, source_x, source_y):
+    pixels = np.asarray(image, dtype=np.float32)
+    height, width = pixels.shape[:2]
+    source_x = np.clip(source_x, 0, width - 1)
+    source_y = np.clip(source_y, 0, height - 1)
+    x0 = np.floor(source_x).astype(np.int32)
+    y0 = np.floor(source_y).astype(np.int32)
+    x1 = np.minimum(x0 + 1, width - 1)
+    y1 = np.minimum(y0 + 1, height - 1)
+    wx = (source_x - x0)[..., None]
+    wy = (source_y - y0)[..., None]
+    top = pixels[y0, x0] * (1 - wx) + pixels[y0, x1] * wx
+    bottom = pixels[y1, x0] * (1 - wx) + pixels[y1, x1] * wx
+    return Image.fromarray(np.clip(top * (1 - wy) + bottom * wy, 0, 255).astype(np.uint8), 'RGBA')
+
+
+def apply_joint_motion(image, char_key, anim_name, sub_idx):
+    """Apply subtle local hand/foot motion without distorting the hero's face."""
+    if anim_name == 'idle':
+        phase = math.sin(sub_idx * math.pi / 2) * 0.25
+    elif anim_name == 'run':
+        phase = math.sin(sub_idx * math.pi / 3)
+    elif anim_name.startswith('jump'):
+        phase = 0.75
+    elif anim_name in ('attack', 'ultimate'):
+        phase = min(1.0, sub_idx / 2)
+    elif anim_name == 'victory':
+        phase = math.sin(sub_idx * math.pi / 2) * 0.8
+    else:
+        phase = 0.0
+    if abs(phase) < 0.01:
+        return image
+
+    width, height = image.size
+    yy, xx = np.indices((height, width), dtype=np.float32)
+    source_x = xx.copy()
+    source_y = yy.copy()
+    controls = LIMB_CONTROL_POINTS[char_key]
+    radius_x = max(12.0, width * 0.19)
+    radius_y = max(16.0, height * 0.15)
+    motions = {
+        'left_arm': (5.0 * phase, -4.0 * phase),
+        'right_arm': (-5.0 * phase, 4.0 * phase),
+        'left_leg': (-6.0 * phase, 5.0 * phase),
+        'right_leg': (6.0 * phase, -5.0 * phase),
+    }
+    if anim_name in ('attack', 'ultimate'):
+        motions['right_arm'] = (-10.0 * phase, -3.0 * phase)
+        motions['left_arm'] = (3.0 * phase, 3.0 * phase)
+
+    for limb, (nx, ny) in controls.items():
+        center_x, center_y = nx * width, ny * height
+        weight = np.exp(-(((xx - center_x) / radius_x) ** 2 + ((yy - center_y) / radius_y) ** 2) * 1.8)
+        dx, dy = motions[limb]
+        source_x -= dx * weight
+        source_y -= dy * weight
+    return _bilinear_remap(image, source_x, source_y)
+
+
+def prepare_character_art(char_key):
+    source_path = os.path.join(source_art_dir, CHARACTER_Q_FILES[char_key])
+    image = Image.open(source_path).convert('RGBA')
+    bbox = image.getbbox()
+    if bbox:
+        image = image.crop(bbox)
+    image.thumbnail((420, 560), Image.Resampling.LANCZOS)
+    for directory in (assets_dir, source_assets_dir):
+        image.save(os.path.join(directory, f'chibi_{char_key}_clean.png'), optimize=True)
+        image.save(os.path.join(directory, f'intro_{char_key}_chibi.png'), optimize=True)
 
 def transform_character(img, angle=0, scale_x=1.0, scale_y=1.0, flash_color=None):
     """Transforms the character with high quality bicubic resampling and optional tint."""
@@ -368,7 +457,8 @@ def build_character_sheet(char_key, base_img_path, colors):
         if draw_shadow:
             d.ellipse([cx - shadow_w, FEET_Y - 4, cx + shadow_w, FEET_Y + 4], fill=(0, 0, 0, 48))
             
-        char_transformed = transform_character(base, angle=body_angle, scale_x=scale_x, scale_y=scale_y, flash_color=flash_color)
+        articulated = apply_joint_motion(base, char_key, anim_name, sub_idx)
+        char_transformed = transform_character(articulated, angle=body_angle, scale_x=scale_x, scale_y=scale_y, flash_color=flash_color)
         tw, th = char_transformed.size
         target_bottom = FEET_Y + bob_y
         paste_x = int(cx - tw / 2)
@@ -380,10 +470,14 @@ def build_character_sheet(char_key, base_img_path, colors):
         sheet.paste(frame, (col * FRAME_SIZE, row * FRAME_SIZE), frame)
         
     out_path = os.path.join(assets_dir, f'hero_{char_key}_anim.png')
-    sheet.save(out_path)
+    optimized_sheet = sheet.quantize(colors=192, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
+    optimized_sheet.save(out_path, optimize=True)
     # Also save to source/assets
-    sheet.save(os.path.join(base_dir, 'source', 'assets', f'hero_{char_key}_anim.png'))
+    optimized_sheet.save(os.path.join(source_assets_dir, f'hero_{char_key}_anim.png'), optimize=True)
     print(f'Saved {out_path} (Facing RIGHT, 32 frames, 2048x1024)')
+
+for character_key in CHARACTER_Q_FILES:
+    prepare_character_art(character_key)
 
 build_character_sheet('yu', os.path.join(assets_dir, 'chibi_yu_clean.png'), {
     'accent': (123, 211, 255, 220),

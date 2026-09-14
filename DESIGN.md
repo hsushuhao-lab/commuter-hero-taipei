@@ -1,10 +1,12 @@
 # Commuter Hero Taipei Design System
 
-This is an extracted contract for the existing canvas-first game UI. v9.7.1 preserves the current visual language; it does not introduce a new DOM component framework or rewrite the renderer.
+This is an extracted contract for the existing canvas-first game UI. v9.7.9 adds a warm Taipei-dawn Opening variant and articulated Q-hero motion without introducing a new DOM component framework or rewriting the renderer.
 
 ## 1. Atmosphere & Identity
 
 Rain-night Taipei commute: dark navy atmosphere, cyan electrical accents, warm gold collectibles, and saturated hero/monster colors. The signature is the readable layered canvas scene—rain, fog, parallax city depth, and bright telegraphed combat effects carrying the player from a hurried run into a boss climax.
+
+The Opening is the bright counterpoint: Taipei morning sky, warm station light, Xiangshan and Taipei 101 silhouettes, drifting petals, and approved transparent Q-character art. It tells a six-shot adventure beat rather than presenting character or monster data cards.
 
 ## 2. Color
 
@@ -17,6 +19,7 @@ Rain-night Taipei commute: dark navy atmosphere, cyan electrical accents, warm g
 | Health/success | `#00E676`, `#69F0AE`, `#00C853` | health and positive state |
 | Danger/boss | `#FF5252`, `#FF1744`, `#FF4081`, `#FF80AB` | damage, boss phase and warning |
 | Hero identity | `#8E24AA`, `#D84315`, `#FFA726` | Shakira and Sandra accents |
+| Taipei dawn | `#9DD8FF`, `#EAF6FF`, `#FFD66B`, `#4E8B57`, `#F59AD7`, `#17305A` | v9.7.9 Opening sky, sunlight, foliage, petals, captions |
 
 Canvas renderer values above are existing tokens extracted from `source/src`; new visual changes must reuse them or add a named token here first.
 
@@ -55,6 +58,8 @@ The game is a fixed logical canvas with responsive CSS scaling. World layout is 
 
 Gameplay timing is state-driven: Ultimate damage is zero in CUTIN/WINDUP and begins at RELEASE; boss telegraphs precede high damage; background transitions crossfade rather than jump. Respect the existing reduced-motion path where present. New motion must use transform/opacity-style effects or renderer state, never conceal a gameplay transition.
 
+Opening and hero motion use renderer time as the single clock. Parallax, run cycles, local hand/foot deformation, wipes, and fades must remain interruptible through skip/input. Under `prefers-reduced-motion: reduce`, travel, bob, rotation, petals, and local limb movement freeze while shot progression and readable opacity changes remain.
+
 ## 7. Depth & Surface
 
 Strategy: mixed canvas layering. Atmospheric depth comes from parallax, fog, rain, stage overlap, and lighting gradients; HUD surfaces use dark tonal fills with restrained bright outlines. Boss phase change must be visible through silhouette, color, effects, and state messaging rather than a label alone.
@@ -71,4 +76,3 @@ Preserve keyboard and touch equivalence, visible state changes, readable contras
 |---|---|---|---|
 | Canvas-first renderer has limited semantic DOM structure | `source/src/main.js`, `source/src/ui/` | This release is a recovery/balance pass; a renderer rewrite would expand scope and risk frozen gameplay | Separate accessibility modernization project |
 | Existing renderer contains raw color literals | `source/src/**/*.js` | Values are established canvas tokens and broad normalization would create a noisy WIP diff | Consolidate only in a dedicated visual-system refactor |
-

@@ -1,57 +1,62 @@
 /**
- * 08點上班大作戰：通勤英雄篇 - 盛大 Opening 開場動畫 (Intro.js)
- * v9.6.0 規格：
- * - 幕一 (0.0s~4.0s)：黑幕晨光 ➔ 標題浮現 ➔ 07:57:00 打卡倒數警報
- * - 幕二 (4.0s~8.0s)：台北地標剪影 ➔ 捷運列車狂飆蒙太奇 ➔ 晨霧阻截警報
- * - 幕三 (8.0s~12.5s)：晨霧異變・七大花系阻截怪獸集結（外觀恆定 + Attack Phase 1/2 雙階彈幕強化）
- * - 幕四 (12.5s~17.0s)：三大通勤英雄集結出擊（禹志晨、夏奇拉、珊卓澎）➔ 氣勢切入主選單
- * 支援全程點擊、SPACE、ENTER、ESC 跳過，亦可於主選單隨時點擊重播。
+ * v9.7.9 Opening cinematic
+ * Taipei dawn -> hero beats -> commute montage -> ambush -> boss tease -> logo.
  */
 
-import { CHARACTERS } from '../data/Characters.js';
 import { MONSTER_TYPES } from '../data/Monsters.js';
 import { audio } from '../engine/Audio.js';
+
+const SHOT_STARTS = [0, 1.8, 4.3, 6.5, 8.8, 10.6];
+const SHOT_ENDS = [1.8, 4.3, 6.5, 8.8, 10.6, 13.5];
+const HEROES = [
+  { id: 'yu', name: '禹志晨｜通勤醫師', color: '#00B0FF' },
+  { id: 'shakira', name: '夏奇拉｜蛋醬宅男', color: '#8E24AA' },
+  { id: 'sandra', name: '珊卓澎｜海鸚廚娘', color: '#D84315' }
+];
+
+const clamp01 = value => Math.max(0, Math.min(1, value));
+const smooth = value => {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
+};
 
 export class IntroCinematic {
   constructor() {
     this.isActive = false;
     this.time = 0;
-    this.duration = 17.0; // 總時長 17 秒
+    this.duration = 13.5;
     this.onComplete = null;
+    this.reducedMotion = Boolean(
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
 
-    // Background & Asset Preload
-    this.bgStation = new Image();
-    this.bgStation.src = 'assets/bg_station.jpg';
-    this.bgHospital = new Image();
-    this.bgHospital.src = 'assets/bg_hospital.jpg';
-
-    // Hero portraits
+    this.backgrounds = {
+      station: this.loadImage('assets/bg_station.jpg'),
+      lane: this.loadImage('assets/bg_lane.jpg'),
+      park: this.loadImage('assets/bg_hulin_park.jpg'),
+      hospital: this.loadImage('assets/bg_hospital.jpg')
+    };
     this.heroImgs = {
-      yu: new Image(),
-      shakira: new Image(),
-      sandra: new Image()
+      yu: this.loadImage('assets/intro_yu_chibi.png'),
+      shakira: this.loadImage('assets/intro_shakira_chibi.png'),
+      sandra: this.loadImage('assets/intro_sandra_chibi.png')
     };
-    this.heroImgs.yu.src = 'assets/hero_yu_portrait.png';
-    this.heroImgs.shakira.src = 'assets/hero_shakira_portrait.png';
-    this.heroImgs.sandra.src = 'assets/hero_sandra_portrait.png';
-
-    // Hero Windup Cut-ins
-    this.windupImgs = {
-      yu: new Image(),
-      shakira: new Image(),
-      sandra: new Image()
+    this.bossImgs = {
+      phase1: this.loadImage('assets/boss_flower_phase1_v9_7_4.png'),
+      phase2: this.loadImage('assets/boss_flower_phase2_v9_7_7.png')
     };
-    this.windupImgs.yu.src = 'assets/cutin_windup_yu.png';
-    this.windupImgs.shakira.src = 'assets/cutin_windup_shakira.png';
-    this.windupImgs.sandra.src = 'assets/cutin_windup_sandra.png';
-
-    // Monster images
     this.monsterImgs = {};
-    for (let k of Object.keys(MONSTER_TYPES)) {
-      const img = new Image();
-      img.src = MONSTER_TYPES[k].asset;
-      this.monsterImgs[k] = img;
+    for (const key of Object.keys(MONSTER_TYPES)) {
+      this.monsterImgs[key] = this.loadImage(MONSTER_TYPES[key].asset);
     }
+  }
+
+  loadImage(src) {
+    const image = new Image();
+    image.src = src;
+    return image;
   }
 
   start(onComplete) {
@@ -64,525 +69,393 @@ export class IntroCinematic {
 
   skip() {
     this.isActive = false;
-    if (this.onComplete) {
-      const cb = this.onComplete;
-      this.onComplete = null;
-      cb();
-    }
+    if (!this.onComplete) return;
+    const callback = this.onComplete;
+    this.onComplete = null;
+    callback();
   }
 
   nextAct() {
-    if (this.time < 4.0) {
-      this.time = 4.0;
-    } else if (this.time < 8.0) {
-      this.time = 8.0;
-    } else if (this.time < 12.5) {
-      this.time = 12.5;
-    } else {
-      this.skip();
-    }
+    const next = SHOT_ENDS.find(boundary => boundary > this.time + 0.001);
+    if (next && next < this.duration) this.time = next;
+    else this.skip();
   }
 
   update(dt) {
     if (!this.isActive) return;
     this.time += dt;
-
-    if (this.time >= this.duration) {
-      this.skip();
-    }
+    if (this.time >= this.duration) this.skip();
   }
 
   render(ctx, vw, vh) {
     if (!this.isActive) return;
-
     ctx.save();
-
-    if (this.time < 4.0) {
-      this.renderAct1Title(ctx, vw, vh);
-    } else if (this.time < 8.0) {
-      this.renderAct2Montage(ctx, vw, vh);
-    } else if (this.time < 12.5) {
-      this.renderAct3Monsters(ctx, vw, vh);
-    } else {
-      this.renderAct4Heroes(ctx, vw, vh);
-    }
-
-    // Top Right Skip Button
+    if (this.time < SHOT_ENDS[0]) this.renderShot1TaipeiDawn(ctx, vw, vh);
+    else if (this.time < SHOT_ENDS[1]) this.renderShot2HeroBeats(ctx, vw, vh);
+    else if (this.time < SHOT_ENDS[2]) this.renderShot3CommuteMontage(ctx, vw, vh);
+    else if (this.time < SHOT_ENDS[3]) this.renderShot4MonsterAmbush(ctx, vw, vh);
+    else if (this.time < SHOT_ENDS[4]) this.renderShot5BossTease(ctx, vw, vh);
+    else this.renderShot6HeroRunLogo(ctx, vw, vh);
     this.renderSkipButton(ctx, vw);
-
-    // Bottom Progress Bar
     this.renderProgressBar(ctx, vw, vh);
-
     ctx.restore();
   }
 
-  // ── ACT 1: 黑幕晨光 ➔ 標題浮現 ➔ 07:57:00 倒數警報 (0.0 ~ 4.0s) ──
-  renderAct1Title(ctx, vw, vh) {
-    const t = this.time;
-    // Twilight background transitioning into warm morning golden mist
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, vh);
-    bgGrad.addColorStop(0, '#040711');
-    bgGrad.addColorStop(0.65, '#151928');
-    bgGrad.addColorStop(1, '#3B231A');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, vw, vh);
+  isCompact() {
+    return typeof window !== 'undefined' && window.innerWidth <= 480;
+  }
 
-    // Morning golden sun rays raycasting from upper center
+  motion(value) {
+    return this.reducedMotion ? 0 : value;
+  }
+
+  drawCover(ctx, image, vw, vh, pan = 0) {
+    if (!image || !image.complete || !image.naturalWidth) {
+      ctx.fillStyle = '#EAF6FF';
+      ctx.fillRect(0, 0, vw, vh);
+      return;
+    }
+    const sourceRatio = image.naturalWidth / image.naturalHeight;
+    const viewRatio = vw / vh;
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceW = image.naturalWidth;
+    let sourceH = image.naturalHeight;
+    if (sourceRatio > viewRatio) {
+      sourceW = image.naturalHeight * viewRatio;
+      sourceX = (image.naturalWidth - sourceW) / 2 + pan;
+      sourceX = Math.max(0, Math.min(image.naturalWidth - sourceW, sourceX));
+    } else {
+      sourceH = image.naturalWidth / viewRatio;
+      sourceY = (image.naturalHeight - sourceH) / 2;
+    }
+    ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, vw, vh);
+  }
+
+  drawContain(ctx, image, centerX, bottomY, maxW, maxH, alpha = 1) {
+    if (!image || !image.complete || !image.naturalWidth) return;
+    const scale = Math.min(maxW / image.naturalWidth, maxH / image.naturalHeight);
+    const width = image.naturalWidth * scale;
+    const height = image.naturalHeight * scale;
     ctx.save();
-    const rayAlpha = Math.min(0.45, t * 0.15);
-    ctx.globalAlpha = rayAlpha;
-    ctx.fillStyle = '#FFE082';
-    for (let i = 0; i < 9; i++) {
-      const angle = -Math.PI / 2 + (i - 4) * 0.22 + Math.sin(t * 0.8 + i) * 0.04;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(image, centerX - width / 2, bottomY - height, width, height);
+    ctx.restore();
+  }
+
+  drawMorningGrade(ctx, vw, vh, strength = 0.8) {
+    const sky = ctx.createLinearGradient(0, 0, 0, vh);
+    sky.addColorStop(0, `rgba(157, 216, 255, ${0.72 * strength})`);
+    sky.addColorStop(0.58, `rgba(234, 246, 255, ${0.45 * strength})`);
+    sky.addColorStop(1, `rgba(255, 214, 107, ${0.48 * strength})`);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, vw, vh);
+    const glow = ctx.createRadialGradient(vw * 0.72, vh * 0.12, 0, vw * 0.72, vh * 0.12, vh * 0.8);
+    glow.addColorStop(0, `rgba(255, 248, 210, ${0.85 * strength})`);
+    glow.addColorStop(1, 'rgba(255, 214, 107, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, vw, vh);
+  }
+
+  drawTaipeiSkyline(ctx, vw, vh, alpha = 0.75) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#17305A';
+    const horizon = vh * 0.82;
+    ctx.beginPath();
+    ctx.moveTo(0, horizon);
+    ctx.quadraticCurveTo(vw * 0.2, horizon - 90, vw * 0.4, horizon - 22);
+    ctx.quadraticCurveTo(vw * 0.62, horizon - 120, vw, horizon - 30);
+    ctx.lineTo(vw, vh);
+    ctx.lineTo(0, vh);
+    ctx.closePath();
+    ctx.fill();
+    const towerX = vw * 0.73;
+    const towerBase = horizon - 8;
+    ctx.fillRect(towerX - 13, towerBase - 185, 26, 185);
+    for (let index = 0; index < 7; index++) {
+      const width = 38 - index * 3;
+      ctx.fillRect(towerX - width / 2, towerBase - 52 - index * 19, width, 15);
+    }
+    ctx.fillRect(towerX - 2, towerBase - 220, 4, 35);
+    ctx.restore();
+  }
+
+  drawPetals(ctx, vw, vh, time, count = 18) {
+    ctx.save();
+    ctx.fillStyle = '#F59AD7';
+    for (let index = 0; index < count; index++) {
+      const drift = this.motion(time * (24 + index % 5));
+      const x = (index * 97 + drift) % (vw + 80) - 40;
+      const y = 40 + ((index * 61 + this.motion(time * 16)) % Math.max(80, vh - 90));
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(this.motion(time * 0.7 + index));
+      ctx.globalAlpha = 0.35 + (index % 4) * 0.12;
       ctx.beginPath();
-      ctx.moveTo(vw / 2, -50);
-      ctx.lineTo(vw / 2 + Math.cos(angle - 0.08) * 900, Math.sin(angle - 0.08) * 900);
-      ctx.lineTo(vw / 2 + Math.cos(angle + 0.08) * 900, Math.sin(angle + 0.08) * 900);
+      ctx.ellipse(0, 0, 7, 3, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  drawCaption(ctx, text, subtext, vw, y, color = '#17305A') {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(234, 246, 255, 0.88)';
+    const width = this.isCompact() ? 430 : 520;
+    ctx.fillRect(vw / 2 - width / 2, y - 29, width, subtext ? 61 : 48);
+    ctx.fillStyle = color;
+    ctx.font = '700 22px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText(text, vw / 2, y - (subtext ? 8 : 0));
+    if (subtext) {
+      ctx.fillStyle = '#4E5D73';
+      ctx.font = '500 12px "PingFang SC", "Microsoft JhengHei", sans-serif';
+      ctx.fillText(subtext, vw / 2, y + 18, width - 28);
+    }
+    ctx.restore();
+  }
+
+  drawHero(ctx, id, centerX, bottomY, maxW, maxH, phase = 0, alpha = 1) {
+    const bob = this.motion(Math.sin(phase * Math.PI * 2) * 5);
+    const lean = this.motion(Math.sin(phase * Math.PI * 2) * 0.035);
+    ctx.save();
+    ctx.translate(centerX, bottomY + bob);
+    ctx.rotate(lean);
+    this.drawContain(ctx, this.heroImgs[id], 0, 0, maxW, maxH, alpha);
+    ctx.restore();
+  }
+
+  renderShot1TaipeiDawn(ctx, vw, vh) {
+    const local = this.time - SHOT_STARTS[0];
+    const reveal = smooth(local / 0.65);
+    const pan = this.motion(local * 18);
+    ctx.save();
+    ctx.globalAlpha = reveal;
+    this.drawCover(ctx, this.backgrounds.station, vw, vh, pan);
+    this.drawMorningGrade(ctx, vw, vh, 0.82);
+    this.drawTaipeiSkyline(ctx, vw, vh, 0.58);
+    this.drawPetals(ctx, vw, vh, local, 14);
+    ctx.fillStyle = 'rgba(234, 246, 255, 0.82)';
+    ctx.fillRect(26, 24, 184, 43);
+    ctx.fillStyle = '#17305A';
+    ctx.font = '700 21px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('07:57:00', 42, 51);
+    ctx.font = '600 14px "PingFang SC", sans-serif';
+    ctx.fillText('07:57｜象山', 42, 84);
+    ctx.restore();
+  }
+
+  renderShot2HeroBeats(ctx, vw, vh) {
+    const local = this.time - SHOT_STARTS[1];
+    const beatLength = (SHOT_ENDS[1] - SHOT_STARTS[1]) / 3;
+    const index = Math.min(2, Math.floor(local / beatLength));
+    const beatTime = local - index * beatLength;
+    const hero = HEROES[index];
+    const backgrounds = [this.backgrounds.station, this.backgrounds.lane, this.backgrounds.park];
+    this.drawCover(ctx, backgrounds[index], vw, vh, this.motion(beatTime * 12));
+    this.drawMorningGrade(ctx, vw, vh, 0.58);
+    const enter = smooth(beatTime / 0.24);
+    const exit = 1 - smooth((beatTime - beatLength + 0.18) / 0.18);
+    const alpha = Math.min(enter, exit);
+    const travel = this.reducedMotion ? 0 : (1 - enter) * -130;
+    const heroHeight = this.isCompact() ? 350 : 390;
+    this.drawHero(ctx, hero.id, vw / 2 + travel, vh - 44, 390, heroHeight, beatTime * 2.2, alpha);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = hero.color;
+    ctx.fillRect(0, vh - 82, vw, 82);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.font = '800 24px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText(hero.name, vw / 2, vh - 35);
+    ctx.restore();
+  }
+
+  renderShot3CommuteMontage(ctx, vw, vh) {
+    const local = this.time - SHOT_STARTS[2];
+    const segment = Math.min(2, Math.floor(local / 0.74));
+    const backgrounds = [this.backgrounds.station, this.backgrounds.lane, this.backgrounds.hospital];
+    this.drawCover(ctx, backgrounds[segment], vw, vh, this.motion(local * 28));
+    this.drawMorningGrade(ctx, vw, vh, 0.36);
+    ctx.fillStyle = 'rgba(23, 48, 90, 0.22)';
+    ctx.fillRect(0, vh - 82, vw, 82);
+    const compact = this.isCompact();
+    const formation = compact ? [360, 480, 600] : [315, 480, 645];
+    HEROES.forEach((hero, index) => {
+      this.drawHero(ctx, hero.id, formation[index], vh - 42 + (index === 1 ? -14 : 0), 150, compact ? 176 : 192, local * 2.7 + index / 3);
+    });
+    for (let index = 0; index < 5; index++) {
+      const x = 90 + index * 180 - this.motion((local * 130) % 180);
+      ctx.fillStyle = '#FFD66B';
+      ctx.beginPath();
+      ctx.arc(x, vh - 155 - (index % 2) * 28, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#FFF8E1';
+    ctx.fillRect(vw - 120, vh - 165, 25, 35);
+    ctx.fillStyle = '#8D6E63';
+    ctx.fillRect(vw - 116, vh - 145, 17, 12);
+    ctx.fillStyle = '#4E8B57';
+    ctx.fillRect(55, vh - 72, 128, 16);
+  }
+
+  renderShot4MonsterAmbush(ctx, vw, vh) {
+    const local = this.time - SHOT_STARTS[3];
+    this.drawCover(ctx, this.backgrounds.park, vw, vh, this.motion(local * 8));
+    const mist = ctx.createLinearGradient(0, 0, 0, vh);
+    mist.addColorStop(0, 'rgba(234, 246, 255, 0.25)');
+    mist.addColorStop(1, 'rgba(78, 139, 87, 0.72)');
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, 0, vw, vh);
+    ctx.strokeStyle = '#4E8B57';
+    ctx.lineWidth = 4;
+    for (let index = 0; index < 18; index++) {
+      const sway = this.motion(Math.sin(local * 3 + index) * 9);
+      ctx.beginPath();
+      ctx.moveTo(index * 58, vh);
+      ctx.quadraticCurveTo(index * 58 + sway, vh - 70, index * 58 + 10, vh - 118);
+      ctx.stroke();
+    }
+    const order = ['red', 'ice', 'grape', 'blue', 'yellow', 'obsidian', 'pink'];
+    const positions = [
+      [330, 475, 142], [480, 482, 150], [630, 475, 142],
+      [385, 355, 118], [575, 355, 118],
+      [430, 255, 98], [535, 255, 98]
+    ];
+    order.forEach((key, index) => {
+      const appearance = smooth((local - 0.55 - index * 0.09) / 0.28);
+      const [x, bottom, size] = positions[index];
+      const jump = this.motion((1 - appearance) * 75);
+      this.drawContain(ctx, this.monsterImgs[key], x, bottom + jump, size, size, appearance);
+    });
+    if (local > 1.3) this.drawAmbushProjectiles(ctx, vw, vh, local - 1.3);
+    this.drawCaption(ctx, '晨霧異變', '', vw, 57, '#7A164F');
+  }
+
+  drawAmbushProjectiles(ctx, vw, vh, time) {
+    ctx.save();
+    const travel = this.motion(time * 310);
+    for (let index = 0; index < 4; index++) {
+      const x = (250 + index * 210 + travel) % (vw + 140) - 70;
+      ctx.fillStyle = '#FF5252';
+      ctx.beginPath();
+      ctx.ellipse(x, 175 + index * 30, 13, 6, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#B388FF';
+      ctx.beginPath();
+      ctx.arc(vw - x, 230 + index * 22, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#EAF6FF';
+      ctx.beginPath();
+      ctx.moveTo(x + 48, 120 + index * 25);
+      ctx.lineTo(x + 60, 140 + index * 25);
+      ctx.lineTo(x + 38, 140 + index * 25);
       ctx.closePath();
       ctx.fill();
     }
     ctx.restore();
-
-    // Digital Urgent Clock Display (07:56:58 -> 07:57:00)
-    const clockAlpha = Math.min(1.0, Math.max(0, (t - 0.4) * 2));
-    ctx.save();
-    ctx.globalAlpha = clockAlpha;
-    ctx.fillStyle = 'rgba(20, 24, 36, 0.85)';
-    ctx.strokeStyle = '#FF5252';
-    ctx.lineWidth = 2;
-    const cw = 280;
-    const ch = 52;
-    const cx = (vw - cw) / 2;
-    const cy = 110;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(cx, cy, cw, ch, 8);
-    else ctx.rect(cx, cy, cw, ch);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FF5252';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('⚠️ 通勤警戒鐘響起・距離遲到僅剩 3 分鐘！', vw / 2, cy + 20);
-
-    const clockSec = t < 2.0 ? '58' : (t < 3.0 ? '59' : '00');
-    const clockMin = clockSec === '00' ? '57' : '56';
-    ctx.fillStyle = '#FFEB3B';
-    ctx.font = 'bold 24px monospace';
-    ctx.shadowColor = '#FF5252';
-    ctx.shadowBlur = 10;
-    ctx.fillText(`07:${clockMin}:${clockSec} AM`, vw / 2, cy + 44);
-    ctx.restore();
-
-    // Main Game Title: 08點上班大作戰
-    const titleAlpha = Math.min(1.0, Math.max(0, (t - 1.0) * 1.5));
-    const titleScale = Math.min(1.0, 0.85 + (t - 1.0) * 0.15);
-    ctx.save();
-    ctx.globalAlpha = titleAlpha;
-    ctx.translate(vw / 2, vh / 2 + 35);
-    ctx.scale(titleScale, titleScale);
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Title Golden Drop Shadow
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    ctx.font = '900 62px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.fillText('08點上班大作戰', 4, 4);
-
-    // Title Main Glow
-    ctx.fillStyle = '#FFF8E1';
-    ctx.shadowColor = '#FFB300';
-    ctx.shadowBlur = 28;
-    ctx.fillText('08點上班大作戰', 0, 0);
-
-    // Subtitle Badge
-    ctx.shadowBlur = 14;
-    ctx.shadowColor = '#00E5FF';
-    ctx.fillStyle = '#80D8FF';
-    ctx.font = 'bold 24px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.fillText('【通勤英雄篇】TAIPEI COMMUTER HEROES', 0, 56);
-
-    // Punchy Tagline
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('捷運信義線狂暴通勤路・08:00:00 前抵達松德院區！', 0, 96);
-    ctx.restore();
   }
 
-  // ── ACT 2: 台北地標剪影 ➔ 捷運列車狂飆蒙太奇 (4.0 ~ 8.0s) ──
-  renderAct2Montage(ctx, vw, vh) {
-    const t = this.time - 4.0; // 0 to 4.0s
-
-    // Background Station Pan
-    if (this.bgStation.complete) {
-      ctx.save();
-      ctx.globalAlpha = 0.35;
-      const pan = (t * 40) % 150;
-      ctx.drawImage(this.bgStation, -pan, 0, vw + 200, vh);
-      ctx.restore();
-    } else {
-      ctx.fillStyle = '#0B132B';
-      ctx.fillRect(0, 0, vw, vh);
-    }
-
-    // Sky gradient with dawn glow
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, vh);
-    skyGrad.addColorStop(0, 'rgba(11, 19, 43, 0.85)');
-    skyGrad.addColorStop(0.7, 'rgba(28, 37, 65, 0.85)');
-    skyGrad.addColorStop(1, 'rgba(74, 44, 42, 0.9)');
-    ctx.fillStyle = skyGrad;
+  renderShot5BossTease(ctx, vw, vh) {
+    const local = this.time - SHOT_STARTS[4];
+    this.drawCover(ctx, this.backgrounds.hospital, vw, vh);
+    ctx.fillStyle = 'rgba(44, 18, 55, 0.58)';
     ctx.fillRect(0, 0, vw, vh);
-
-    // Taipei 101 & Xiangshan Silhouette on horizon
-    ctx.save();
-    ctx.fillStyle = 'rgba(10, 15, 30, 0.95)';
-    // Mountain ridge
-    ctx.beginPath();
-    ctx.moveTo(0, vh - 90);
-    ctx.quadraticCurveTo(180, vh - 220, 360, vh - 130);
-    ctx.quadraticCurveTo(580, vh - 260, 780, vh - 140);
-    ctx.quadraticCurveTo(890, vh - 190, vw, vh - 110);
-    ctx.lineTo(vw, vh);
-    ctx.lineTo(0, vh);
-    ctx.fill();
-
-    // Taipei 101 tower silhouette
-    const twX = 720;
-    const twBaseY = vh - 110;
-    ctx.fillRect(twX - 18, twBaseY - 260, 36, 260);
-    for (let seg = 0; seg < 7; seg++) {
-      const segY = twBaseY - 70 - seg * 24;
-      const segW = 44 - seg * 2;
-      ctx.fillRect(twX - segW / 2, segY, segW, 20);
+    const fog = ctx.createRadialGradient(vw / 2, vh * 0.55, 20, vw / 2, vh * 0.55, 380);
+    fog.addColorStop(0, 'rgba(245, 154, 215, 0.48)');
+    fog.addColorStop(1, 'rgba(122, 22, 79, 0)');
+    ctx.fillStyle = fog;
+    ctx.fillRect(0, 0, vw, vh);
+    const reveal = smooth((local - 0.18) / 0.82);
+    const bossHeight = this.isCompact() ? 365 : 420;
+    this.drawContain(ctx, this.bossImgs.phase1, vw / 2, vh + 15, 620, bossHeight, reveal);
+    if (local > 1.45 && local < 1.62) {
+      const flash = 1 - Math.abs(local - 1.535) / 0.085;
+      this.drawContain(ctx, this.bossImgs.phase2, vw / 2, vh + 15, 620, bossHeight, clamp01(flash) * 0.72);
     }
-    // Spire
-    ctx.fillRect(twX - 3, twBaseY - 290, 6, 30);
-    ctx.fillStyle = '#FF5252';
-    ctx.beginPath();
-    ctx.arc(twX, twBaseY - 290, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // Fast Commuter MRT Train Zooming Across (from left to right)
-    const trainProgress = ((t * 0.9) % 1.6);
-    const trainX = -450 + trainProgress * (vw + 800);
-    const trainY = vh - 170;
-    const trainW = 420;
-    const trainH = 75;
-
-    ctx.save();
-    // Train motion blur speed trails
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
-    ctx.fillRect(trainX - 120, trainY + 12, 120, trainH - 24);
-
-    // Train Body
-    ctx.fillStyle = '#ECEFF1';
-    ctx.strokeStyle = '#00B0FF';
-    ctx.lineWidth = 3;
-    if (ctx.roundRect) ctx.roundRect(trainX, trainY, trainW, trainH, 10);
-    else ctx.rect(trainX, trainY, trainW, trainH);
-    ctx.fill();
-    ctx.stroke();
-
-    // Blue Line Stripe
-    ctx.fillStyle = '#0288D1';
-    ctx.fillRect(trainX, trainY + trainH - 22, trainW, 14);
-
-    // Glowing Windows
-    ctx.fillStyle = '#FFF9C4';
-    ctx.shadowColor = '#FFEB3B';
-    ctx.shadowBlur = 10;
-    for (let w = 0; w < 6; w++) {
-      ctx.fillRect(trainX + 35 + w * 60, trainY + 15, 42, 28);
-    }
-
-    // High-beam Headlights
-    ctx.fillStyle = 'rgba(255, 255, 200, 0.7)';
-    ctx.beginPath();
-    ctx.moveTo(trainX + trainW, trainY + 30);
-    ctx.lineTo(trainX + trainW + 280, trainY - 20);
-    ctx.lineTo(trainX + trainW + 280, trainY + 90);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Emergency Broadcast Alert Banner (Top Center)
-    ctx.save();
-    ctx.fillStyle = 'rgba(213, 0, 0, 0.92)';
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 2.5;
-    const bannerW = 680;
-    const bannerH = 72;
-    const bx = (vw - bannerW) / 2;
-    const by = 48;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, bannerW, bannerH, 8);
-    else ctx.rect(bx, by, bannerW, bannerH);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 22px "PingFang SC", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#FF1744';
-    ctx.shadowBlur = 10;
-    ctx.fillText('🚨【台北捷運信義線・突發通勤警報】🚨', vw / 2, by + 28);
-
-    ctx.fillStyle = '#FFF9C4';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.shadowBlur = 0;
-    ctx.fillText('晨霧花系怪獸大群佔據象山至松德路廊！全體通勤英雄進入一級備戰！', vw / 2, by + 54);
-    ctx.restore();
+    this.drawPetals(ctx, vw, vh, local, 22);
+    this.drawCaption(
+      ctx,
+      '夢影巨花王',
+      '在夢的花園裡，最美的夢，也是最危險的陷阱。',
+      vw,
+      68,
+      '#7A164F'
+    );
   }
 
-  // ── ACT 3: 晨霧異變・七大花系阻截怪獸集結 (8.0 ~ 12.5s) ──
-  renderAct3Monsters(ctx, vw, vh) {
-    const t = this.time - 8.0; // 0 to 4.5s
+  renderShot6HeroRunLogo(ctx, vw, vh) {
+    const local = this.time - SHOT_STARTS[5];
+    this.drawCover(ctx, this.backgrounds.hospital, vw, vh, this.motion(local * 10));
+    this.drawMorningGrade(ctx, vw, vh, 0.7);
+    this.drawTaipeiSkyline(ctx, vw, vh, 0.42);
+    this.drawPetals(ctx, vw, vh, local, 24);
+    const compact = this.isCompact();
+    const baseY = compact ? vh - 34 : vh - 24;
+    const runIn = smooth(local / 0.55);
+    const offset = this.reducedMotion ? 0 : (1 - runIn) * -260;
+    this.drawHero(ctx, 'shakira', vw / 2 - (compact ? 120 : 170) + offset, baseY - 18, 185, compact ? 210 : 240, local * 2.4);
+    this.drawHero(ctx, 'sandra', vw / 2 + (compact ? 120 : 170) + offset, baseY - 10, 185, compact ? 210 : 240, local * 2.4 + 0.35);
+    this.drawHero(ctx, 'yu', vw / 2 + offset, baseY, 220, compact ? 260 : 290, local * 2.4 + 0.7);
+
+    const logoAlpha = smooth((local - 1.65) / 0.32);
     ctx.save();
-
-    // Dark high-tech grid backdrop
-    ctx.fillStyle = '#080C14';
-    ctx.fillRect(0, 0, vw, vh);
-
-    // Header Title
-    ctx.fillStyle = '#FF5252';
-    ctx.font = 'bold 26px "PingFang SC", sans-serif';
+    ctx.globalAlpha = logoAlpha;
+    ctx.fillStyle = 'rgba(234, 246, 255, 0.91)';
+    const logoW = compact ? 560 : 650;
+    ctx.fillRect(vw / 2 - logoW / 2, 38, logoW, 174);
     ctx.textAlign = 'center';
-    ctx.shadowColor = '#FF1744';
-    ctx.shadowBlur = 16;
-    ctx.fillText('⚠️ 晨霧異變・七大阻截怪獸全面甦醒！', vw / 2, 42);
-
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.shadowBlur = 0;
-    ctx.fillText('【外觀造型恆定】・【全面實裝 Attack Phase 1 / 2 雙階彈幕強化】', vw / 2, 70);
-
-    const monsterList = [
-      'blue', 'red', 'pink', 'ice', 'grape', 'yellow', 'obsidian'
-    ];
-
-    const cardW = 124;
-    const cardH = 345;
-    const startX = (vw - (cardW * 7 + 6 * 10)) / 2;
-    const cardY = 92;
-
-    monsterList.forEach((mKey, idx) => {
-      const cfg = MONSTER_TYPES[mKey];
-      const img = this.monsterImgs[mKey];
-      const cx = startX + idx * (cardW + 10);
-
-      // Card pop-in stagger animation
-      const appearDelay = idx * 0.12;
-      const progress = Math.min(1.0, Math.max(0, (t - appearDelay) * 3));
-      const offsetY = (1.0 - progress) * 30;
-
-      ctx.save();
-      ctx.globalAlpha = progress;
-      ctx.translate(cx, cardY + offsetY);
-
-      // Card background
-      ctx.fillStyle = 'rgba(15, 20, 32, 0.94)';
-      ctx.fillRect(0, 0, cardW, cardH);
-      ctx.strokeStyle = cfg.color;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(0, 0, cardW, cardH);
-
-      // Top color indicator tag
-      ctx.fillStyle = cfg.color;
-      ctx.fillRect(0, 0, cardW, 6);
-
-      // Monster Sprite (Single authentic appearance)
-      if (img && img.complete && img.naturalWidth > 0) {
-        ctx.save();
-        ctx.shadowColor = cfg.color;
-        ctx.shadowBlur = 12;
-        const spriteSize = 72;
-        ctx.drawImage(img, (cardW - spriteSize) / 2, 18, spriteSize, spriteSize);
-        ctx.restore();
-      }
-
-      // Name & Subtitle
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillText(cfg.name, cardW / 2, 110);
-
-      ctx.fillStyle = cfg.color;
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(cfg.role || cfg.type, cardW / 2, 128);
-
-      // Attack Phase Badges
-      ctx.textAlign = 'left';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.fillRect(8, 140, cardW - 16, 22);
-      ctx.fillStyle = '#E0E0E0';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.fillText('P1: 標準阻截模式', 12, 155);
-
-      ctx.fillStyle = 'rgba(255, 179, 0, 0.2)';
-      ctx.fillRect(8, 168, cardW - 16, 22);
-      ctx.fillStyle = '#FFD54F';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.fillText('⚡ P2: 密集狂暴彈幕', 12, 183);
-
-      // Stats
-      ctx.fillStyle = '#90A4AE';
-      ctx.font = '10px monospace';
-      ctx.fillText(`HP: ${cfg.hp}`, 12, 212);
-      ctx.fillText(`ATK: ${cfg.attackDamage}`, 12, 230);
-      ctx.fillText(`SPD: ${cfg.speed}`, 12, 248);
-
-      // Attack Feature description
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
-      ctx.font = '9px sans-serif';
-      let atkFeature = '直線連發彈幕';
-      if (mKey === 'ice') atkFeature = '5向廣角暴風雪';
-      else if (mKey === 'grape') atkFeature = '5連落點毒霧沼';
-      else if (mKey === 'blue') atkFeature = '3連水刃+漩渦';
-      else if (mKey === 'yellow') atkFeature = '8向金環大爆炸';
-      else if (mKey === 'obsidian') atkFeature = '3段破土玄晶刺';
-      else if (mKey === 'pink') atkFeature = '超音速俯衝轟炸';
-      ctx.fillText(`特色: ${atkFeature}`, 12, 275, cardW - 20);
-
-      ctx.restore();
-    });
-
-    ctx.restore();
-  }
-
-  // ── ACT 4: 三大通勤英雄集結出擊 (12.5 ~ 17.0s) ──
-  renderAct4Heroes(ctx, vw, vh) {
-    const t = this.time - 12.5; // 0 to 4.5s
-    ctx.save();
-
-    // Dark indigo backdrop with dynamic energy rays
-    ctx.fillStyle = '#060A14';
-    ctx.fillRect(0, 0, vw, vh);
-
-    // Header Title
-    ctx.fillStyle = '#00E5FF';
-    ctx.font = 'bold 26px "PingFang SC", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#00B0FF';
-    ctx.shadowBlur = 18;
-    ctx.fillText('🔥 松德院區準時特攻隊・三大通勤英雄出擊！', vw / 2, 40);
-
-    const heroes = ['yu', 'shakira', 'sandra'];
-    const cardW = 280;
-    const cardH = 375;
-    const startX = (vw - (cardW * 3 + 2 * 25)) / 2;
-    const cardY = 65;
-
-    heroes.forEach((hId, idx) => {
-      const char = CHARACTERS[hId];
-      const portrait = this.heroImgs[hId];
-      const windup = this.windupImgs[hId];
-      const cx = startX + idx * (cardW + 25);
-
-      const delay = idx * 0.15;
-      const progress = Math.min(1.0, Math.max(0, (t - delay) * 2.5));
-      const offsetY = (1.0 - progress) * 40;
-
-      ctx.save();
-      ctx.globalAlpha = progress;
-      ctx.translate(cx, cardY + offsetY);
-
-      // Hero Card Base
-      ctx.fillStyle = 'rgba(16, 22, 38, 0.94)';
-      ctx.fillRect(0, 0, cardW, cardH);
-      ctx.strokeStyle = char.colors.primary;
-      ctx.lineWidth = 2.5;
-      ctx.strokeRect(0, 0, cardW, cardH);
-
-      // Accent top banner
-      ctx.fillStyle = char.colors.primary;
-      ctx.fillRect(0, 0, cardW, 8);
-
-      // Hero Portrait / Wind-up Storyboard
-      const displayImg = (windup && windup.complete && windup.naturalWidth > 0) ? windup : portrait;
-      if (displayImg && displayImg.complete && displayImg.naturalWidth > 0) {
-        ctx.save();
-        ctx.shadowColor = char.colors.accent;
-        ctx.shadowBlur = 14;
-        ctx.drawImage(displayImg, (cardW - 190) / 2, 18, 190, 190);
-        ctx.restore();
-      }
-
-      // Name & Title
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 22px "PingFang SC", sans-serif';
-      ctx.shadowColor = char.colors.primary;
-      ctx.shadowBlur = 12;
-      ctx.fillText(char.name, cardW / 2, 232);
-
-      ctx.fillStyle = char.colors.accent;
-      ctx.font = 'bold 12px sans-serif';
-      ctx.shadowBlur = 0;
-      ctx.fillText(`【${char.title}】`, cardW / 2, 254);
-
-      // Role
-      ctx.fillStyle = '#CFD8DC';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(`定位：${char.role}`, cardW / 2, 276);
-
-      // Ult Move Highlight
-      ctx.fillStyle = char.colors.secondary;
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(`奧義：${char.ult.name}`, cardW / 2, 300);
-
-      // Catchphrase Quote
-      ctx.fillStyle = '#FFE082';
-      ctx.font = 'italic bold 11px sans-serif';
-      ctx.fillText(char.quote, cardW / 2, 335, cardW - 24);
-
-      ctx.restore();
-    });
-
-    // Bottom Final Call to Action
-    ctx.save();
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = 'bold 18px "PingFang SC", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.shadowColor = '#FF6F00';
-    ctx.shadowBlur = 12;
-    ctx.fillText('「打卡倒數計時 180 秒，全速向松德大門衝刺！！」', vw / 2, vh - 22);
-    ctx.restore();
-
+    ctx.fillStyle = '#17305A';
+    ctx.font = `${compact ? 42 : 50}px 900 "PingFang SC", "Microsoft JhengHei", sans-serif`;
+    ctx.fillText('08點上班大作戰', vw / 2, 92);
+    ctx.fillStyle = '#7A164F';
+    ctx.font = '800 23px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText('通勤英雄篇', vw / 2, 128);
+    ctx.fillStyle = '#4E8B57';
+    ctx.font = '600 14px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText('象山晨衝・奔向松德', vw / 2, 155);
+    ctx.fillStyle = '#D84315';
+    ctx.font = '800 16px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText('08:00 前，準時打卡！', vw / 2, 182);
+    ctx.fillStyle = '#17305A';
+    ctx.font = '600 13px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText('按任意鍵開始', vw / 2, 203);
     ctx.restore();
   }
 
   renderSkipButton(ctx, vw) {
     ctx.save();
-    const bx = vw - 150;
-    const by = 16;
-    const bw = 135;
-    const bh = 36;
-
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-    ctx.fillRect(bx, by, bw, bh);
-    ctx.strokeStyle = '#FFD54F';
+    const x = vw - 150;
+    ctx.fillStyle = 'rgba(23, 48, 90, 0.78)';
+    ctx.fillRect(x, 16, 135, 36);
+    ctx.strokeStyle = '#FFD66B';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(bx, by, bw, bh);
-
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = 'bold 13px sans-serif';
+    ctx.strokeRect(x, 16, 135, 36);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 12px "PingFang SC", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('略過 [SPACE/ESC] ⏩', bx + bw / 2, by + bh / 2);
+    ctx.fillText('略過  SPACE / ESC', x + 67.5, 34);
     ctx.restore();
   }
 
   renderProgressBar(ctx, vw, vh) {
-    ctx.save();
-    const ratio = Math.min(1.0, this.time / this.duration);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(0, vh - 6, vw, 6);
-    ctx.fillStyle = '#00E5FF';
-    ctx.fillRect(0, vh - 6, vw * ratio, 6);
-    ctx.restore();
+    const ratio = clamp01(this.time / this.duration);
+    ctx.fillStyle = 'rgba(23, 48, 90, 0.2)';
+    ctx.fillRect(0, vh - 5, vw, 5);
+    const gradient = ctx.createLinearGradient(0, 0, vw, 0);
+    gradient.addColorStop(0, '#9DD8FF');
+    gradient.addColorStop(0.55, '#FFD66B');
+    gradient.addColorStop(1, '#F59AD7');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, vh - 5, vw * ratio, 5);
   }
 }
 

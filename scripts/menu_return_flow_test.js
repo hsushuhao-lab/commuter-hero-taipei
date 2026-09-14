@@ -105,8 +105,8 @@ test('4. PLAYING toggles to PAUSE via btnPause and resumes via ESC', () => {
   game.levelIntroTimer = 0;
   assert.strictEqual(game.state, 'PLAYING');
 
-  // Click pause button (x: 30, y: 30)
-  game.handlePointerDown(30, 30, { pointerId: 1 });
+  // Click the current top-right HUD pause button.
+  game.handlePointerDown(hud.btnPause.x + hud.btnPause.w / 2, hud.btnPause.y + hud.btnPause.h / 2, { pointerId: 1 });
   assert.strictEqual(game.state, 'PAUSE');
 
   // Resume via ESC

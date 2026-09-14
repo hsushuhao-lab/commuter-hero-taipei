@@ -1388,6 +1388,9 @@ class Game {
   }
 
   render() {
+    if (document.body && document.body.classList) {
+      document.body.classList.toggle('opening-active', this.state === 'OPENING' || this.state === 'INTRO');
+    }
     this.ctx.clearRect(0, 0, this.vw, this.vh);
 
     if (this.state === 'OPENING' || this.state === 'INTRO') {

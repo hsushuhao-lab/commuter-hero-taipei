@@ -1,0 +1,23 @@
+{
+  "version": "v9.8.0",
+  "frameSize": 512,
+  "framesPerRow": 8,
+  "frameCount": 32,
+  "footY": 448,
+  "bodyCenterX": 256,
+  "shadowAnchorY": 448,
+  "weaponOrigins": {
+    "yu": {
+      "x": 52,
+      "y": -64
+    },
+    "shakira": {
+      "x": 42,
+      "y": -58
+    },
+    "sandra": {
+      "x": 50,
+      "y": -54
+    }
+  }
+}

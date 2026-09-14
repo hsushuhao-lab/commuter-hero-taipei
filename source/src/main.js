@@ -83,6 +83,13 @@ class Game {
       this.chibiImages[id] = img;
     });
 
+    this.heroSpriteSheets = {};
+    ['yu', 'shakira', 'sandra'].forEach(id => {
+      const img = new Image();
+      img.src = CHARACTERS[id].animSheet;
+      this.heroSpriteSheets[id] = img;
+    });
+
     // Time tracking
     this.lastTime = performance.now();
     this.animationFrameId = null;
@@ -96,6 +103,11 @@ class Game {
 
     // Global keyboard handling for state shortcuts & navigation
     window.addEventListener('keydown', (e) => {
+      if (e.code === 'F2') {
+        window.DEBUG_HITBOX = !window.DEBUG_HITBOX;
+        e.preventDefault();
+        return;
+      }
       // Shared instructions modal shortcut
       if (this.instructionsOpen) {
         if (e.code === 'Escape' || e.code === 'KeyH' || e.code === 'KeyI') this.instructionsOpen = false;
@@ -1113,6 +1125,19 @@ class Game {
     }
   }
 
+  drawRemasteredChibiFrame(ctx, sheet, frame, centerX, footY, size) {
+    if (!sheet || !sheet.complete || !sheet.naturalWidth) return;
+    const frameSize = 512;
+    const footAnchor = 448;
+    const column = frame % 8;
+    const row = Math.floor(frame / 8);
+    ctx.drawImage(
+      sheet,
+      column * frameSize, row * frameSize, frameSize, frameSize,
+      centerX - size / 2, footY - size * footAnchor / frameSize, size, size
+    );
+  }
+
   // ─── Companion Q版 Chibi render helper (uses real chibi_*_clean.png) ──
   renderCompanions(ctx) {
     if (this.companions.length === 0) return;
@@ -1146,7 +1171,14 @@ class Game {
         const bobOffset = this.victorySubState === 'VICTORY_CELEBRATE'
           ? Math.sin(performance.now() * 0.008 + comp.x * 0.01) * 6
           : 0;
-        ctx.drawImage(chibiImg, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
+        const companionSheet = this.heroSpriteSheets && this.heroSpriteSheets[comp.id];
+        if (companionSheet && companionSheet.complete && companionSheet.naturalWidth > 0) {
+          const celebrationFrame = 22 + (Math.floor(performance.now() / 150) % 4);
+          const runFrame = 8 + (Math.floor(performance.now() / 110) % 8);
+          this.drawRemasteredChibiFrame(ctx, companionSheet, this.victorySubState === 'VICTORY_CELEBRATE' ? celebrationFrame : runFrame, drawX, sy + CHIBI_H + bobOffset, CHIBI_H);
+        } else {
+          ctx.drawImage(chibiImg, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
+        }
 
         // Colored glow ring during celebration
         if (this.victorySubState === 'VICTORY_CELEBRATE') {
@@ -1201,7 +1233,13 @@ class Game {
           : 0;
         ctx.scale(p.facing, 1);
         const drawX = p.facing === 1 ? sx : -sx;
-        ctx.drawImage(pChibi, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
+        const playerSheet = this.heroSpriteSheets && this.heroSpriteSheets[p.id];
+        if (playerSheet && playerSheet.complete && playerSheet.naturalWidth > 0) {
+          const victoryFrame = 22 + (Math.floor(performance.now() / 150) % 4);
+          this.drawRemasteredChibiFrame(ctx, playerSheet, victoryFrame, drawX, sy + CHIBI_H + bobOffset, CHIBI_H);
+        } else {
+          ctx.drawImage(pChibi, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
+        }
         // Player name
         const pCfg = CHARS[p.id];
         if (pCfg) {
@@ -1626,15 +1664,10 @@ class Game {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
       ctx.strokeRect(cardX + 20, cardY + 70, cardW - 40, 130);
 
-      // Draw clean Chibi
-      if (this.player.spriteSheet && this.player.spriteSheet.complete) {
-        // Sample chibi
-        const img = new Image();
-        img.src = h.cleanChibi;
-        if (img.complete && img.naturalWidth > 0) {
-          ctx.drawImage(img, cardX + cardW / 2 - 40, cardY + 75, 80, 120);
-        }
-      }
+      // v9.8.0: Preview the same gameplay sheet with idle and small-skill beats.
+      const previewSheet = this.heroSpriteSheets[h.id];
+      const previewFrame = Math.floor(performance.now() / 800) % 2 === 0 ? 0 : 19;
+      this.drawRemasteredChibiFrame(ctx, previewSheet, previewFrame, cardX + cardW / 2, cardY + 195, 132);
 
       // Skill & Ult Summary
       ctx.font = '12px sans-serif';

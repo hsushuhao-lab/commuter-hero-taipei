@@ -1,6 +1,6 @@
 # Commuter Hero Taipei Design System
 
-This is an extracted contract for the existing canvas-first game UI. v9.7.9 adds a warm Taipei-dawn Opening variant and articulated Q-hero motion without introducing a new DOM component framework or rewriting the renderer.
+This is an extracted contract for the existing canvas-first game UI. v9.8.0 keeps the v9.7.9 Taipei-dawn Opening and moves gameplay heroes to a shared 512px Q-chibi sheet: stable foot anchor at y=448, centerline x=256, and aligned weapon origins. It does not introduce a new DOM component framework or rewrite the renderer.
 
 ## 1. Atmosphere & Identity
 

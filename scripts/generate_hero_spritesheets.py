@@ -1,3 +1,4 @@
+import json
 import os, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
@@ -12,6 +13,9 @@ os.makedirs(source_assets_dir, exist_ok=True)
 FRAME_SIZE = 256
 FEET_Y = 232
 CENTER_X = 128
+OUTPUT_FRAME_SIZE = 512
+OUTPUT_FEET_Y = 448
+OUTPUT_CENTER_X = 256
 
 ANIM_MAP = {
     'idle': [0, 1, 2, 3],
@@ -160,7 +164,7 @@ def build_character_sheet(char_key, base_img_path, colors):
     target_w = int(bw * scale)
     base = base.resize((target_w, target_h), Image.Resampling.LANCZOS)
     
-    sheet = Image.new('RGBA', (FRAME_SIZE * 8, FRAME_SIZE * 4), (0, 0, 0, 0))
+    sheet = Image.new('RGBA', (OUTPUT_FRAME_SIZE * 8, OUTPUT_FRAME_SIZE * 4), (0, 0, 0, 0))
     
     accent_rgb = colors['accent'][:3]
     theme_rgb = colors['theme'][:3]
@@ -460,24 +464,45 @@ def build_character_sheet(char_key, base_img_path, colors):
         articulated = apply_joint_motion(base, char_key, anim_name, sub_idx)
         char_transformed = transform_character(articulated, angle=body_angle, scale_x=scale_x, scale_y=scale_y, flash_color=flash_color)
         tw, th = char_transformed.size
-        target_bottom = FEET_Y + bob_y
+        target_bottom = FEET_Y + bob_y if anim_name.startswith('jump') else FEET_Y
         paste_x = int(cx - tw / 2)
         paste_y = int(target_bottom - th)
         frame.paste(char_transformed, (paste_x, paste_y), char_transformed)
         
         col = frame_idx % 8
         row = frame_idx // 8
-        sheet.paste(frame, (col * FRAME_SIZE, row * FRAME_SIZE), frame)
+        remastered_frame = Image.new('RGBA', (OUTPUT_FRAME_SIZE, OUTPUT_FRAME_SIZE), (0, 0, 0, 0))
+        scaled_frame = frame.resize((OUTPUT_FRAME_SIZE, OUTPUT_FRAME_SIZE), Image.Resampling.LANCZOS)
+        remastered_frame.alpha_composite(scaled_frame, (0, OUTPUT_FEET_Y - FEET_Y * 2))
+        sheet.paste(remastered_frame, (col * OUTPUT_FRAME_SIZE, row * OUTPUT_FRAME_SIZE), remastered_frame)
         
     out_path = os.path.join(assets_dir, f'hero_{char_key}_anim.png')
     optimized_sheet = sheet.quantize(colors=192, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
     optimized_sheet.save(out_path, optimize=True)
     # Also save to source/assets
     optimized_sheet.save(os.path.join(source_assets_dir, f'hero_{char_key}_anim.png'), optimize=True)
-    print(f'Saved {out_path} (Facing RIGHT, 32 frames, 2048x1024)')
+    print(f'Saved {out_path} (Facing RIGHT, 32 frames, 4096x2048)')
 
 for character_key in CHARACTER_Q_FILES:
     prepare_character_art(character_key)
+
+layout = {
+    'version': 'v9.8.0',
+    'frameSize': OUTPUT_FRAME_SIZE,
+    'framesPerRow': 8,
+    'frameCount': 32,
+    'footY': OUTPUT_FEET_Y,
+    'bodyCenterX': OUTPUT_CENTER_X,
+    'shadowAnchorY': OUTPUT_FEET_Y,
+    'weaponOrigins': {
+        'yu': {'x': 52, 'y': -64},
+        'shakira': {'x': 42, 'y': -58},
+        'sandra': {'x': 50, 'y': -54}
+    }
+}
+for directory in (assets_dir, source_assets_dir):
+    with open(os.path.join(directory, 'chibi_sprite_layout_v9_8_0.json'), 'w', encoding='utf-8') as file:
+        json.dump(layout, file, ensure_ascii=False, indent=2)
 
 build_character_sheet('yu', os.path.join(assets_dir, 'chibi_yu_clean.png'), {
     'accent': (123, 211, 255, 220),

@@ -15,6 +15,10 @@ import { particles } from './Particles.js';
 import { projectiles } from './Projectiles.js';
 import { hud } from '../ui/HUD.js';
 
+const SPRITE_FRAME_SIZE = 512;
+const SPRITE_FOOT_Y = 448;
+const SPRITE_FRAMES_PER_ROW = 8;
+
 export class Player {
   constructor(charId = 'yu') {
     this.charConfig = CHARACTERS[charId] || CHARACTERS.yu;
@@ -130,6 +134,16 @@ export class Player {
       w: this.sensorWidth,
       h: this.sensorHeight
     };
+  }
+
+  getWeaponOrigin() {
+    const offsets = {
+      yu: { x: 52, y: -64 },
+      shakira: { x: 42, y: -58 },
+      sandra: { x: 50, y: -54 }
+    };
+    const offset = offsets[this.id] || offsets.yu;
+    return { x: this.x + this.facing * offset.x, y: this.y + offset.y };
   }
 
   addCoins(amount = 1) {
@@ -272,6 +286,7 @@ export class Player {
     if ((this.isUlting && this.ultPhase !== 'IDLE') || this.isDead) return;
     if (this.skillCooldown > 0) return;
 
+    const weaponOrigin = this.getWeaponOrigin(); // Visual anchor only; calibrated projectile physics is unchanged.
     const spawnX = this.x + this.facing * 35;
     const spawnY = this.y - 35;
 
@@ -973,23 +988,40 @@ export class Player {
     ctx.translate(this.x, this.y);
     ctx.scale(this.facing, 1);
 
-    // Render 256x256 sprite centered at feet (FEET_Y = 232)
-    const FRAME_SIZE = 256;
-    const col = this.currentFrame % 8;
-    const row = Math.floor(this.currentFrame / 8);
-    const sx = col * FRAME_SIZE;
-    const sy = row * FRAME_SIZE;
+    const col = this.currentFrame % SPRITE_FRAMES_PER_ROW;
+    const row = Math.floor(this.currentFrame / SPRITE_FRAMES_PER_ROW);
+    const sx = col * SPRITE_FRAME_SIZE;
+    const sy = row * SPRITE_FRAME_SIZE;
 
-    const drawW = 120; // 實際顯示寬度
-    const drawH = 120; // 實際顯示高度
+    // v9.8.0: logical 512px canvas with one shared foot anchor.
+    const drawW = 180;
+    const drawH = 180;
     const offsetX = -drawW / 2;
-    const offsetY = -drawH + 10; // 腳底對齊平台頂
+    const offsetY = -(SPRITE_FOOT_Y / SPRITE_FRAME_SIZE) * drawH;
 
     ctx.drawImage(
       this.spriteSheet,
-      sx, sy, FRAME_SIZE, FRAME_SIZE,
+      sx, sy, SPRITE_FRAME_SIZE, SPRITE_FRAME_SIZE,
       offsetX, offsetY, drawW, drawH
     );
+
+    if (typeof window !== 'undefined' && window.DEBUG_HITBOX) {
+      const weaponOffset = this.getWeaponOrigin();
+      const localWeaponX = (weaponOffset.x - this.x) * this.facing;
+      ctx.save();
+      ctx.strokeStyle = '#7CFF6B';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(-this.width / 2, -this.height, this.width, this.height);
+      ctx.strokeStyle = '#00E5FF';
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = '#FFD54F';
+      ctx.beginPath();
+      ctx.arc(localWeaponX, weaponOffset.y - this.y, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Shakira active shield bubble
     if (this.shieldTimer > 0) {

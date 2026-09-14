@@ -297,7 +297,7 @@ export class HUD {
 
     if (player.spriteSheet && player.spriteSheet.complete) {
       // Idle frame 0
-      ctx.drawImage(player.spriteSheet, 0, 0, 256, 256, avatarX, avatarY, 50, 50);
+      ctx.drawImage(player.spriteSheet, 0, 0, 512, 512, avatarX, avatarY, 50, 50);
     }
 
     // Name & Title

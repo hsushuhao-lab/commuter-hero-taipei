@@ -4,7 +4,7 @@ import os
 import re
 from datetime import UTC, datetime
 
-BUILD_VERSION = "v9.8.2"
+BUILD_VERSION = "v9.8.3"
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 assets_dir = os.path.join(base_dir, 'assets')
 source_dir = os.path.join(base_dir, 'source')
@@ -75,19 +75,19 @@ bundled_code_parts.append(asset_dict_str)
 for mod_path in module_order:
     with open(mod_path, 'r', encoding='utf-8') as mf:
         content = mf.read().replace("\r\n", "\n").replace("\r", "\n")
-    
+
     # Remove import lines
     content = re.sub(r'import\s+.*?from\s+[\'"].*?[\'"];?\n?', '', content)
     # Remove export keywords
     content = re.sub(r'\bexport\s+(const|class|let|var|function)\b', r'\1', content)
     content = re.sub(r'\bexport\s+default\s+', '', content)
-    
+
     # Replace asset paths with ASSETS lookup
     # Look for 'assets/filename.ext'
     for asset_key in asset_map.keys():
         content = content.replace(f"'{asset_key}'", f"ASSETS['{asset_key}']")
         content = content.replace(f'"{asset_key}"', f"ASSETS['{asset_key}']")
-        
+
     bundled_code_parts.append(f'// --- Module: {os.path.basename(mod_path)} ---\n' + content + '\n')
 
 combined_js = '(function() {\n"use strict";\n\n' + '\n'.join(bundled_code_parts) + '\n})();'
@@ -101,7 +101,7 @@ html_content = f"""<!DOCTYPE html>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta name="game-build" content="{BUILD_VERSION}">
-  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 ({BUILD_VERSION} Runtime Recovery)</title>
+  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 ({BUILD_VERSION} Gameplay Polish)</title>
   <style>
     * {{
       box-sizing: border-box;

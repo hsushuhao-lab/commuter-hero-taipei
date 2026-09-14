@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.8.2";
+const GAME_BUILD_VERSION = "v9.8.3";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -314,13 +314,6 @@ class Game {
       return;
     }
 
-    // Top Right TAB button in HUD
-    if (mx >= hud.btnBible.x && mx <= hud.btnBible.x + hud.btnBible.w &&
-        my >= hud.btnBible.y && my <= hud.btnBible.y + hud.btnBible.h) {
-      styleBibleUI.toggle();
-      return;
-    }
-
     // Opening / Intro Flow
     if (this.state === 'OPENING' || this.state === 'INTRO') {
       if (mx >= this.vw - 150 && mx <= this.vw - 15 && my >= 16 && my <= 52) {
@@ -355,7 +348,7 @@ class Game {
         styleBibleUI.toggle();
       }
       return;
-    } 
+    }
 
     // Character Select Flow
     if (this.state === 'SELECT') {
@@ -385,7 +378,7 @@ class Game {
         this.startGame();
       }
       return;
-    } 
+    }
 
     // Pause Menu Flow
     if (this.state === 'PAUSE') {
@@ -674,8 +667,7 @@ class Game {
             this.pm.clockInMachine.punchedCount = 3;
             this.pm.clockInMachine.punchedTimeText = hud.getFormattedClockTime();
           }
-          this.state = 'VICTORY';
-          hud.triggerVictory(this.player);
+          this._finishVictory();
           return;
         }
       }
@@ -704,7 +696,29 @@ class Game {
     }
   }
 
+  _prepareVictoryCompanions() {
+    const allIds = ['yu', 'shakira', 'sandra'];
+    const companionIds = allIds.filter(id => id !== this.player.id);
+    console.assert(companionIds.length === 2);
+    console.assert(!companionIds.includes(this.player.id));
+    console.assert(new Set([this.player.id, ...companionIds]).size === 3);
+    this.companions = companionIds.map((id, index) => ({ id, x: this.player.x - 320 - index * 80, y: 520, vx: 1400 + index * 80, facing: 1, animPhase: 'run', dialogueSent: false }));
+    window.__VISIBLE_HERO_IDS__ = [this.player.id, ...companionIds];
+  }
+
+  _finishVictory() {
+    this.state = 'VICTORY';
+    this.victorySubState = '';
+    this.dialogueBubbles = [];
+    this.milestoneBanner = null;
+    this.milestoneBannerTimer = 0;
+    this.companions = [];
+    window.__VISIBLE_HERO_IDS__ = [];
+    hud.triggerVictory(this.player);
+  }
+
   updateVictoryRun(dt) {
+    if (this.companions.length !== 2) this._prepareVictoryCompanions();
     this.victoryTimer += dt;
     this.bossDeadTimer += dt;
 
@@ -717,8 +731,7 @@ class Game {
         this.pm.clockInMachine.punched = true;
         this.pm.clockInMachine.punchedTimeText = hud.getFormattedClockTime();
       }
-      this.state = 'VICTORY';
-      hud.triggerVictory(this.player);
+      this._finishVictory();
       return;
     }
 
@@ -746,19 +759,6 @@ class Game {
         this.pm.arenaGateActive = false;
         this.victorySubState = 'COMPANION_RUSH';
         this.victoryTimer = 0;
-
-        // Determine which companions should appear (the two NOT selected)
-        const allIds = ['yu', 'shakira', 'sandra'];
-        const companionIds = allIds.filter(id => id !== this.player.id);
-        this.companions = companionIds.map((id, idx) => ({
-          id,
-          x: this.player.x - 320 - idx * 80, // Spawn 300-400px behind player for dramatic run-up
-          y: 520,
-          vx: 1400 + idx * 80, // Fast rush speed
-          facing: 1,
-          animPhase: 'run',
-          dialogueSent: false
-        }));
 
         this.milestoneBanner = '🎉 擊破巨花王！夥伴們趕來會合！衝入松德大廳打卡！';
         this.milestoneBannerTimer = 4.0;
@@ -1108,7 +1108,7 @@ class Game {
           sandra: '收鍋擦汗：「火侯抓得剛剛好！今日便當準時上菜！」'
         };
         const cheerColors = { yu: '#29B6F6', shakira: '#AB47BC', sandra: '#FF5722' };
-        
+
         particles.emitFloatingText(this.player.x, 390, cheerQuotes[this.player.id], cheerColors[this.player.id]);
         this.companions.forEach(c => {
           particles.emitFloatingText(c.x, 340, cheerQuotes[c.id], cheerColors[c.id]);
@@ -1122,12 +1122,7 @@ class Game {
 
       // Transition to final victory score screen at 5.0s
       if (this.celebrationTimer >= 5.0) {
-        this.state = 'VICTORY';
-        hud.triggerVictory(this.player, {
-          punchedCount: this.punchedCount,
-          falls: this.player.fallCount || 0,
-          bossClearTime: this.boss.clearTime || 0
-        });
+        this._finishVictory();
       }
     }
   }
@@ -1319,7 +1314,7 @@ class Game {
 
     // 1. Player Projectiles vs Monsters & Boss
     for (let proj of projectiles.projectiles) {
-      if (!proj.isPlayer) continue;
+      if (!proj.isPlayer || proj.armedAfter > 0 || proj.releaseAfter > 0) continue;
 
       // vs Monsters
       for (let m of this.level.monsters) {
@@ -1352,11 +1347,11 @@ class Game {
       if (this.player.x >= 14600 && !this.boss.isDead) {
         const bossCenterX = this.boss.x;
         const bossCenterY = this.boss.y - (this.boss.height ? this.boss.height / 2 : 120);
-        const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width;
+        const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width + (proj.bossTargetAssist ? 70 : 0);
         const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
-          if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop') && proj.hitTargets.has('boss')) continue;
-          if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop') proj.hitTargets.add('boss');
+          if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade') && proj.hitTargets.has('boss')) continue;
+          if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade') proj.hitTargets.add('boss');
           const bossHpBefore = this.boss.hp;
           const bossHitAccepted = this.boss.takeDamage(proj.damage, proj.id);
           const bossHpAfter = this.boss.hp;
@@ -1469,7 +1464,14 @@ class Game {
     } else if (this.state === 'SELECT') {
       this.renderSelect();
     } else {
-      // PLAYING, PAUSE, VICTORY_RUN, VICTORY, GAMEOVER
+      if (this.state === 'VICTORY') {
+        window.__VISIBLE_HERO_IDS__ = [];
+        hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
+        if (this.instructionsOpen) this.renderInstructionsOverlay();
+        styleBibleUI.render(this.ctx, this.vw, this.vh);
+        return;
+      }
+      // PLAYING, PAUSE, VICTORY_RUN, GAMEOVER
       // 1. Parallax Backgrounds
       this.level.renderBackgrounds(this.ctx, this.camera);
 
@@ -1557,6 +1559,7 @@ class Game {
   }
 
   renderVictoryBanner(text) {
+    if (this.state !== 'VICTORY_RUN' || hud.isVictory) return;
     const ctx = this.ctx;
     ctx.save();
     ctx.fillStyle = 'rgba(10, 20, 40, 0.85)';
@@ -1880,7 +1883,7 @@ class Game {
     // 4 Buttons
     const btnW = 260;
     const btnH = 40;
-    
+
     // 1. Resume
     ctx.fillStyle = '#0288D1';
     ctx.fillRect(cx - btnW / 2, cy - 55, btnW, btnH);
@@ -1946,7 +1949,7 @@ function debugRuntime() {
     if (BOSS_CONFIG.phase2Hp !== 3050) failures.push("Boss phase2Hp");
     for (const name of bossMethods) if (typeof Boss.prototype[name] !== "function") failures.push("Boss." + name);
     if (failures.length) console.error("RUNTIME_VERSION_SKEW_DETECTED", failures, result);
-    else console.info("[RUNTIME QA] v9.8.2 contract PASS", result);
+    else console.info("[RUNTIME QA] v9.8.3 contract PASS", result);
   }
   return result;
 }

@@ -11,6 +11,13 @@
 
 ## 🌟 遊戲核心特色與重大升級 (v9.8.2)
 
+## v9.8.3 Gameplay Polish
+
+- 夏奇拉奔跑改為獨立六幀 Q 版 keyframe 動畫，不再以共用姿勢做正弦變形。
+- 勝利衝刺全程固定為選角英雄加兩位隊友；最後結算清除世界跑者與 VICTORY banner。
+- 遊戲 HUD 保留「暫停」，移除畫面上的 TAB 設定按鈕；鍵盤 TAB 仍可使用。
+- Yu／夏奇拉 Phase II 大招對 Boss 的實測傷害分別為 520／550；Boss P1／P2 彈幕密度提升但保留 telegraph 與安全空檔。
+
 ### v9.8.2 更新重點
 
 - Yu 移動朝向依角色生成器 right-facing convention 修正，保持原有物理與操作。

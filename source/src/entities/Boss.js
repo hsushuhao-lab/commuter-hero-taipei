@@ -504,14 +504,14 @@ export class Boss {
         if (step === 0 || step === 2) this.firePetalBarrage(player);
         else if (step === 1) this.launchDreamBubbles(player);
         else this.queueVineWhip(player);
-        this.patternTimer = 1.15;
+        this.patternTimer = this.phase === 2 ? 0.44 : 0.95;
       } else {
         if (step === 0) this.firePetalBarrage(player);
         else if (step === 1) this.launchDreamBubbles(player);
         else if (step === 2) this.queueVineWhip(player);
         else if (step === 3) this.fireCrossfire(player);
         else { this.activeTelegraphs.push({ type: 'bloom_burst', x: this.x, y: this.y - 120, angle: Math.atan2(player.y - (this.y - 120), player.x - this.x), timer: 0.55, maxTimer: 0.55, onExecute: () => this.triggerBloomBurst(player) }); audio.playTelegraph(); }
-        this.patternTimer = 0.56;
+        this.patternTimer = 0.44;
       }
       this.patternStep++;
     }
@@ -683,7 +683,7 @@ export class Boss {
 
     if (this.phase === 1) {
       // 9-way interlaced spiral petals at 320 px/s with safe angle gap
-      const count = this.config.phase1.petalCount || 9;
+      const count = 13;
       const spiralOffset = this.bobTimer * 0.5;
       const speed = (this.config.phase1.petalSpeed || 345) * (this.resonanceEnraged ? 1.08 : 1.0);
 
@@ -712,12 +712,13 @@ export class Boss {
       }
     } else {
       // Phase 2: 16-way 360° crimson petal storm with 35° safe cone
+      const count = 22;
       const speed = (this.config.phase2.petalSpeed || 405) * (this.resonanceEnraged ? 1.10 : 1.0);
       const safeHalfAngle = 0.32; // ~36 degree safe cone
       const dmg = (this.config.phase2.petalDamage || 20) * (this.resonanceEnraged ? 1.10 : 1.0);
 
-      for (let i = 0; i < (this.config.phase2.petalCount || 18); i++) {
-        const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / (this.config.phase2.petalCount || 18));
+      for (let i = 0; i < count; i++) {
+        const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / count);
         if (Math.abs(normalizeAngle(ang - directAngle)) < safeHalfAngle) continue;
 
         projectiles.spawn({
@@ -806,13 +807,13 @@ export class Boss {
   launchDreamBubbles(player) {
     this._recordPattern("dream_bubbles");
     const phase2 = this.phase === 2;
-    const count = phase2 ? 8 : 5;
+    const count = phase2 ? 10 : 6;
     const speed = phase2 ? 145 : 115;
     const damage = phase2 ? 20 : 12;
     const arenaB = { minX: this.config.arena.startX - 60, maxX: this.config.arena.endX + 60 };
     for (let i = 0; i < count; i++) {
       const angle = Math.PI + (i - (count - 1) * 0.5) * 0.22;
-      projectiles.spawn({ isPlayer: false, type: 'dream_bubble', x: this.x + Math.cos(angle) * 42, y: this.y - 300 + (i % 4) * 22, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * 0.35, width: phase2 && i < 2 ? 48 : 38, height: phase2 && i < 2 ? 48 : 38, damage, life: phase2 ? 2.8 : 3.0, burstTimer: phase2 && i < 2 ? 1.4 : null, wobble: 1.0, large: phase2 && i < 2, arenaBounds: arenaB, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: phase2 ? 'bubble_bloom' : 'dream_bubble' });
+      projectiles.spawn({ isPlayer: false, type: 'dream_bubble', x: this.x + Math.cos(angle) * 42, y: this.y - 300 + (i % 4) * 22, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * 0.35, width: phase2 && i < 3 ? 48 : 38, height: phase2 && i < 3 ? 48 : 38, damage, life: phase2 ? 2.8 : 3.0, burstTimer: phase2 && i < 3 ? 1.4 : null, wobble: 1.0, large: phase2 && i < 3, arenaBounds: arenaB, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: phase2 ? 'bubble_bloom' : 'dream_bubble' });
     }
     audio.playTelegraph();
   }
@@ -843,8 +844,8 @@ export class Boss {
     this._recordPattern("bloom_burst");
     const directAngle = Math.atan2(player.y - (this.y - 120), player.x - this.x);
     const safeHalfAngle = 0.32;
-    for (let i = 0; i < 24; i++) {
-      const angle = i * Math.PI * 2 / 24;
+    for (let i = 0; i < 28; i++) {
+      const angle = i * Math.PI * 2 / 28;
       if (Math.abs(normalizeAngle(angle - directAngle)) < safeHalfAngle || Math.abs(normalizeAngle(angle - directAngle - Math.PI)) < safeHalfAngle) continue;
       projectiles.spawn({ isPlayer: false, type: 'petal', x: this.x, y: this.y - 120, vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400, width: 26, height: 18, damage: 34, life: 2.0, armedAfter: 0.12, rotates: true, vRot: 5, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: 2, attackType: 'bloom_burst' });
     }

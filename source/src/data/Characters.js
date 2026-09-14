@@ -36,7 +36,7 @@ export const CHARACTERS = {
       name: '雨傘機關槍',
       key: 'S / J',
       cooldown: 0.16,
-      damage: 18,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
+      damage: 18,           // Boss-zone runtime raises this to 22; Phase II retains 1.25x
       range: 480,           // 射程 480px
       bulletSpeed: 750,
       deflectRadius: 180,   // 傘尖偏轉近身敵彈

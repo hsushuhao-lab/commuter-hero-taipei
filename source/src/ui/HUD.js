@@ -16,7 +16,7 @@ export class HUD {
     this.totalGameTime = 180; // 180 秒倒數 (3分鐘)
     this.timeRemaining = 180;
     this.score = 0;
-    
+
     // Anime Cut-in State
     this.cutinActive = false;
     this.cutinTimer = 0;
@@ -202,9 +202,9 @@ export class HUD {
     if (this.isVictory || this.isGameOver) return;
 
     // Pause timer during cutscenes, intro, boss roar, and cut-in
-    const isCutscenePaused = this.cutinActive || 
-                             (boss && boss.roarTimer > 0) || 
-                             window.gameCutsceneActive || 
+    const isCutscenePaused = this.cutinActive ||
+                             (boss && boss.roarTimer > 0) ||
+                             window.gameCutsceneActive ||
                              window.gamePaused;
 
     if (!isCutscenePaused) {
@@ -387,17 +387,7 @@ export class HUD {
     ctx.fillStyle = '#4FC3F7';
     ctx.fillRect(stageX, 42, 120 * progressRatio, 8);
 
-    // 5. QA / Style Bible Button
-    const btn = this.btnBible;
-    ctx.fillStyle = 'rgba(255,255,255,0.15)';
-    ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-    ctx.strokeStyle = '#fff';
-    ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('TAB 設定', btn.x + btn.w / 2, btn.y + 20);
-    ctx.textAlign = 'left';
+    // Settings remain available through the keyboard Tab shortcut only.
 
     ctx.restore();
   }

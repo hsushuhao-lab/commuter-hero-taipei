@@ -29,11 +29,13 @@ export class ProjectileManager {
 
   spawn(p) {
     const source = this.sourceContext || {};
-    if (!p.isPlayer && (source.attackPhase === 1 || source.attackPhase === 2)) {
-      const pressureLimit = source.sourceMonster === "boss_flower" ? (source.attackPhase === 2 ? 40 : 20) : 3;
+    const attackPhase = p.attackPhase || source.attackPhase;
+    const sourceMonster = p.sourceMonster || source.sourceMonster;
+    if (!p.isPlayer && (attackPhase === 1 || attackPhase === 2)) {
+      const pressureLimit = sourceMonster === "boss_flower" ? (attackPhase === 2 ? 48 : 24) : 3;
       if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) {
         if (typeof window !== "undefined" && window.__RUNTIME_QA__) {
-          const phase = "P" + source.attackPhase;
+          const phase = "P" + attackPhase;
           window.__BOSS_PROJECTILE_DROPS__ = window.__BOSS_PROJECTILE_DROPS__ || {};
           window.__BOSS_PROJECTILE_DROPS__[phase] = (window.__BOSS_PROJECTILE_DROPS__[phase] || 0) + 1;
           console.warn("[BOSS PROJECTILE DROPPED]", phase, pressureLimit);
@@ -69,6 +71,7 @@ export class ProjectileManager {
       isMeleeArc: p.isMeleeArc || false,
       zoneCenterX: p.zoneCenterX || null,
       zoneRadius: p.zoneRadius || null,
+      bossTargetAssist: Boolean(p.bossTargetAssist),
       sourceMonster: p.sourceMonster || source.sourceMonster || '',
       attackPhase: p.attackPhase || source.attackPhase || 0,
       attackType: p.attackType || source.attackType || p.type || 'bullet',
@@ -80,6 +83,7 @@ export class ProjectileManager {
     projectile.burstTimer = p.burstTimer ?? null;
     projectile.burstTriggered = false;
     projectile.armedAfter = p.armedAfter || 0;
+    projectile.releaseAfter = p.releaseAfter || 0;
     projectile.hitTargets = new Set();
     this.projectiles.push(projectile);
     return projectile;
@@ -88,13 +92,17 @@ export class ProjectileManager {
   update(dt) {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
+      if (p.releaseAfter > 0) {
+        p.releaseAfter = Math.max(0, p.releaseAfter - dt);
+        continue;
+      }
       p.life -= dt;
       if (p.armedAfter > 0) p.armedAfter = Math.max(0, p.armedAfter - dt);
       if (p.burstTimer !== null && !p.burstTriggered) {
         p.burstTimer -= dt;
         if (p.burstTimer <= 0) {
           p.burstTriggered = true;
-          for (let burstIndex = 0; burstIndex < 3; burstIndex++) {
+          for (let burstIndex = 0; burstIndex < 4; burstIndex++) {
             const angle = p.wobblePhase + burstIndex * (Math.PI * 2 / 3);
             this.spawn({
               isPlayer: false,
@@ -206,7 +214,7 @@ export class ProjectileManager {
         ctx.lineTo(-p.width * 0.5, 0);
         ctx.closePath();
         ctx.fill();
-      } 
+      }
       else if (p.type === 'umbrella_bullet') {
         // Needle wind bullet from umbrella machine gun
         ctx.fillStyle = '#00E5FF';

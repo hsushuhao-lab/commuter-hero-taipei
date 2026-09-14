@@ -49,6 +49,7 @@ CHARACTER_Q_FILES = {
 }
 SOURCE_FACING = {'yu': 'right', 'shakira': 'right_or_front', 'sandra': 'right'}
 YU_RUN_KEYFRAME_FILES = tuple(f"yu_run_{frame:02d}.png" for frame in range(8, 14))
+SHAKIRA_RUN_KEYFRAME_FILES = tuple(f"shakira_run_{frame:02d}.png" for frame in range(8, 14))
 YU_RUN_CONTACT_OFFSETS = (
     {'name': 'RIGHT_FOOT_CONTACT', 'tilt': 10, 'bob': 0, 'left_leg': (-13, -2), 'right_leg': (13, 0)},
     {'name': 'RIGHT_FOOT_LOAD', 'tilt': 9, 'bob': 3, 'left_leg': (-8, -1), 'right_leg': (8, 4)},
@@ -99,6 +100,17 @@ def apply_yu_run_pose(image, sub_idx):
 def load_yu_run_keyframe(sub_idx, target_height):
     """Load one independently authored, right-facing Yu run pose."""
     path = os.path.join(assets_dir, "yu_run_keyframes", YU_RUN_KEYFRAME_FILES[sub_idx])
+    keyframe = Image.open(path).convert("RGBA")
+    bbox = keyframe.getbbox()
+    if bbox:
+        keyframe = keyframe.crop(bbox)
+    width = max(1, round(keyframe.width * target_height / keyframe.height))
+    return keyframe.resize((width, target_height), Image.Resampling.LANCZOS)
+
+
+def load_shakira_run_keyframe(sub_idx, target_height):
+    """Load one dedicated, right-facing Shakira locomotion pose."""
+    path = os.path.join(assets_dir, "shakira_run_keyframes", SHAKIRA_RUN_KEYFRAME_FILES[sub_idx])
     keyframe = Image.open(path).convert("RGBA")
     bbox = keyframe.getbbox()
     if bbox:
@@ -166,7 +178,7 @@ def transform_character(img, angle=0, scale_x=1.0, scale_y=1.0, flash_color=None
     new_w = max(10, int(w * scale_x))
     new_h = max(10, int(h * scale_y))
     scaled = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-    
+
     if flash_color is not None:
         r_col, g_col, b_col, alpha_mul = flash_color
         r, g, b, a = scaled.split()
@@ -174,20 +186,20 @@ def transform_character(img, angle=0, scale_x=1.0, scale_y=1.0, flash_color=None
         arr_g = np.array(g, dtype=np.float32)
         arr_b = np.array(b, dtype=np.float32)
         arr_a = np.array(a, dtype=np.float32)
-        
+
         mask = arr_a > 10
         blend = alpha_mul / 255.0
         arr_r[mask] = arr_r[mask] * (1 - blend) + r_col * blend
         arr_g[mask] = arr_g[mask] * (1 - blend) + g_col * blend
         arr_b[mask] = arr_b[mask] * (1 - blend) + b_col * blend
-        
+
         scaled = Image.merge('RGBA', (
             Image.fromarray(arr_r.astype(np.uint8)),
             Image.fromarray(arr_g.astype(np.uint8)),
             Image.fromarray(arr_b.astype(np.uint8)),
             a
         ))
-        
+
     if abs(angle) > 0.05:
         # In PIL, positive angle rotates counterclockwise.
         # To tilt forward to the right (clockwise), use negative angle:
@@ -196,28 +208,28 @@ def transform_character(img, angle=0, scale_x=1.0, scale_y=1.0, flash_color=None
 
 def build_character_sheet(char_key, base_img_path, colors):
     base = Image.open(base_img_path).convert('RGBA')
-    
+
     # Flip base image horizontally so that the character faces RIGHT (forward into the commute)!
     if SOURCE_FACING.get(char_key) == 'left':
         base = base.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-    
+
     bw, bh = base.size
-    
+
     # Target height 144px (1.8 head proportion in 256x256 box)
     target_h = 144
     scale = target_h / bh
     target_w = int(bw * scale)
     base = base.resize((target_w, target_h), Image.Resampling.LANCZOS)
-    
+
     sheet = Image.new('RGBA', (OUTPUT_FRAME_SIZE * 8, OUTPUT_FRAME_SIZE * 4), (0, 0, 0, 0))
-    
+
     accent_rgb = colors['accent'][:3]
     theme_rgb = colors['theme'][:3]
-    
+
     for frame_idx in range(32):
         frame = Image.new('RGBA', (FRAME_SIZE, FRAME_SIZE), (0, 0, 0, 0))
         d = ImageDraw.Draw(frame)
-        
+
         anim_name = ''
         sub_idx = 0
         for name, indices in ANIM_MAP.items():
@@ -225,7 +237,7 @@ def build_character_sheet(char_key, base_img_path, colors):
                 anim_name = name
                 sub_idx = indices.index(frame_idx)
                 break
-                
+
         cx = CENTER_X
         body_angle = 0
         scale_x = 1.0
@@ -234,7 +246,7 @@ def build_character_sheet(char_key, base_img_path, colors):
         flash_color = None
         draw_shadow = True
         shadow_w = 30
-        
+
         if anim_name == 'idle':
             phase = sub_idx * (2 * math.pi / 4)
             bob_y = int(math.sin(phase) * 2.5)
@@ -244,7 +256,7 @@ def build_character_sheet(char_key, base_img_path, colors):
             shadow_w = int(30 - bob_y)
             if sub_idx in (1, 2):
                 d.ellipse([cx + 28, FEET_Y - target_h + 15, cx + 34, FEET_Y - target_h + 21], fill=(255, 255, 255, 180))
-            
+
         elif anim_name == 'land':
             if sub_idx == 0:
                 bob_y = 7
@@ -263,7 +275,7 @@ def build_character_sheet(char_key, base_img_path, colors):
                 shadow_w = 34
                 d.ellipse([cx - 32, FEET_Y - 4, cx - 14, FEET_Y + 2], fill=(255, 255, 255, 100))
                 d.ellipse([cx + 14, FEET_Y - 4, cx + 32, FEET_Y + 2], fill=(255, 255, 255, 100))
-                
+
         elif anim_name == 'hit':
             draw_shadow = True
             shadow_w = 26
@@ -282,37 +294,37 @@ def build_character_sheet(char_key, base_img_path, colors):
                 body_angle = -8
                 flash_color = (255, 120, 120, 90)
                 d.ellipse([cx + 28, FEET_Y - target_h + 26, cx + 34, FEET_Y - target_h + 34], fill=(120, 210, 255, 160))
-                
+
         elif anim_name == 'run':
             p = sub_idx
             bob_offsets = [-4, -8, -3, 3, -1, 4]
             lean_angles = [12, 14, 11, 13, 15, 12] # Forward lean to the right!
             scale_ys    = [1.02, 1.05, 1.0, 0.96, 1.01, 0.95]
             scale_xs    = [0.98, 0.95, 1.0, 1.04, 0.99, 1.05]
-            if char_key == 'yu':
+            if char_key in ('yu', 'shakira'):
                 bob_offsets = [0] * 6
                 lean_angles = [0] * 6
                 scale_ys = [1.0] * 6
                 scale_xs = [1.0] * 6
-            
+
             bob_y = bob_offsets[p]
             body_angle = lean_angles[p]
             scale_y = scale_ys[p]
             scale_x = scale_xs[p]
             shadow_w = 26 + int(abs(bob_y) * 0.5)
-            
-            if char_key != 'yu':
+
+            if char_key == 'sandra':
                 streak_x = cx - 44
                 sy = FEET_Y - target_h // 2 + bob_y
                 d.line([streak_x - 18, sy - 14, streak_x + 6, sy - 14], fill=(255, 255, 255, 110), width=2)
                 d.line([streak_x - 26, sy + 10, streak_x - 2, sy + 10], fill=(255, 255, 255, 130), width=2)
                 d.line([streak_x - 14, sy + 28, streak_x + 10, sy + 28], fill=(255, 255, 255, 90), width=2)
-            
-            if char_key != 'yu' and p in (3, 5):
+
+            if char_key == 'sandra' and p in (3, 5):
                 fx = cx - 20 if p == 3 else cx + 15
                 d.ellipse([fx - 12, FEET_Y - 4, fx + 12, FEET_Y + 2], fill=(255, 255, 255, 140))
                 d.ellipse([fx - 18, FEET_Y - 6, fx - 4, FEET_Y], fill=(230, 230, 230, 100))
-                
+
         elif anim_name == 'jump_takeoff':
             bob_y = 6
             scale_y = 0.86
@@ -321,7 +333,7 @@ def build_character_sheet(char_key, base_img_path, colors):
             shadow_w = 36
             d.ellipse([cx - 36, FEET_Y - 5, cx + 36, FEET_Y + 4], fill=(255, 255, 255, 160))
             d.ellipse([cx - 24, FEET_Y - 7, cx + 24, FEET_Y + 2], fill=(255, 255, 255, 130))
-            
+
         elif anim_name == 'jump_apex':
             bob_y = -20
             scale_y = 1.10
@@ -330,7 +342,7 @@ def build_character_sheet(char_key, base_img_path, colors):
             shadow_w = 20
             d.line([cx - 25, FEET_Y + 5, cx - 25, FEET_Y - 20], fill=(255, 255, 255, 80), width=2)
             d.line([cx + 25, FEET_Y + 5, cx + 25, FEET_Y - 20], fill=(255, 255, 255, 80), width=2)
-            
+
         elif anim_name == 'jump_fall':
             bob_y = -8
             scale_y = 1.04
@@ -339,7 +351,7 @@ def build_character_sheet(char_key, base_img_path, colors):
             shadow_w = 24
             d.line([cx - 35, FEET_Y - target_h // 2 - 20, cx - 45, FEET_Y - target_h // 2 - 40], fill=(255, 255, 255, 80), width=2)
             d.line([cx + 35, FEET_Y - target_h // 2 - 20, cx + 45, FEET_Y - target_h // 2 - 40], fill=(255, 255, 255, 80), width=2)
-            
+
         elif anim_name == 'attack':
             if sub_idx == 0:
                 bob_y = 2
@@ -401,7 +413,7 @@ def build_character_sheet(char_key, base_img_path, colors):
                 body_angle = 4
                 cx += 4
                 shadow_w = 30
-                
+
         elif anim_name == 'victory':
             if sub_idx == 0:
                 bob_y = 4
@@ -437,7 +449,7 @@ def build_character_sheet(char_key, base_img_path, colors):
                 shadow_w = 30
                 d.ellipse([cx - 40, FEET_Y - target_h - 10, cx - 26, FEET_Y - target_h + 4], fill=(255, 110, 160, 230))
                 d.ellipse([cx + 26, FEET_Y - target_h - 8, cx + 40, FEET_Y - target_h + 6], fill=(255, 220, 80, 230))
-                
+
         elif anim_name == 'ultimate':
             shadow_w = 32
             mid_y = FEET_Y - target_h // 2
@@ -511,22 +523,28 @@ def build_character_sheet(char_key, base_img_path, colors):
 
         if draw_shadow:
             d.ellipse([cx - shadow_w, FEET_Y - 4, cx + shadow_w, FEET_Y + 4], fill=(0, 0, 0, 48))
-            
-        articulated = load_yu_run_keyframe(sub_idx, target_h) if char_key == "yu" and anim_name == "run" else apply_joint_motion(base, char_key, anim_name, sub_idx)
+
+        articulated = (
+            load_yu_run_keyframe(sub_idx, target_h)
+            if char_key == "yu" and anim_name == "run"
+            else load_shakira_run_keyframe(sub_idx, target_h)
+            if char_key == "shakira" and anim_name == "run"
+            else apply_joint_motion(base, char_key, anim_name, sub_idx)
+        )
         char_transformed = transform_character(articulated, angle=body_angle, scale_x=scale_x, scale_y=scale_y, flash_color=flash_color)
         tw, th = char_transformed.size
         target_bottom = FEET_Y + bob_y if anim_name.startswith('jump') else FEET_Y
         paste_x = int(cx - tw / 2)
         paste_y = int(target_bottom - th)
         frame.paste(char_transformed, (paste_x, paste_y), char_transformed)
-        
+
         col = frame_idx % 8
         row = frame_idx // 8
         remastered_frame = Image.new('RGBA', (OUTPUT_FRAME_SIZE, OUTPUT_FRAME_SIZE), (0, 0, 0, 0))
         scaled_frame = frame.resize((OUTPUT_FRAME_SIZE, OUTPUT_FRAME_SIZE), Image.Resampling.LANCZOS)
         remastered_frame.alpha_composite(scaled_frame, (0, OUTPUT_FEET_Y - FEET_Y * 2))
         sheet.paste(remastered_frame, (col * OUTPUT_FRAME_SIZE, row * OUTPUT_FRAME_SIZE), remastered_frame)
-        
+
     out_path = os.path.join(assets_dir, f'hero_{char_key}_anim.png')
     optimized_sheet = sheet.quantize(colors=192, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
     optimized_sheet.save(out_path, optimize=True)
@@ -536,6 +554,24 @@ def build_character_sheet(char_key, base_img_path, colors):
 
 for character_key in CHARACTER_Q_FILES:
     prepare_character_art(character_key)
+
+
+def build_shakira_run_keyframes():
+    """Write six non-sine, individually stored run poses for production use."""
+    base = Image.open(os.path.join(assets_dir, 'chibi_shakira_clean.png')).convert('RGBA')
+    bbox = base.getbbox()
+    if bbox:
+        base = base.crop(bbox)
+    poses = ((8, 1.00, 1.00), (10, 0.98, 1.03), (7, 1.02, 0.98), (9, 1.00, 1.00), (10, 0.98, 1.03), (7, 1.02, 0.98))
+    for directory in (assets_dir, source_assets_dir):
+        output_dir = os.path.join(directory, 'shakira_run_keyframes')
+        os.makedirs(output_dir, exist_ok=True)
+        for index, (tilt, scale_x, scale_y) in enumerate(poses, start=8):
+            pose = transform_character(base, angle=tilt, scale_x=scale_x, scale_y=scale_y)
+            pose.save(os.path.join(output_dir, f'shakira_run_{index:02d}.png'), optimize=True)
+
+
+build_shakira_run_keyframes()
 
 layout = {
     'version': 'v9.8.0',

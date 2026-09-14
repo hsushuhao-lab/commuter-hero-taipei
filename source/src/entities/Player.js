@@ -327,7 +327,7 @@ export class Player {
         maxDistance: 480,
         width: 32,
         height: 18,
-        damage: this.phaseDamage(18),
+        damage: this.phaseDamage(this.x >= 14600 ? 22 : 18),
         life: 0.65,
         knockback: true,
         penetrating: false
@@ -346,7 +346,7 @@ export class Player {
           shape: 'spark'
         });
       }
-    } 
+    }
     else if (this.id === 'shakira') {
       // ═════════════════════════════════════════════════════════════════════════
       // 夏奇拉：蛋能雙彈 (Ranged Splash / True Ranged DPS)
@@ -382,7 +382,7 @@ export class Player {
           knockback: true
         });
       });
-    } 
+    }
     else {
       // ═════════════════════════════════════════════════════════════════════════
       // 珊卓澎：平底鍋揮舞・怒火鍋氣 (Hit-and-Run / Melee Arc)
@@ -446,6 +446,14 @@ export class Player {
     audio.playUltCutin();
   }
 
+  getUltimateTargetX() {
+    const game = typeof window !== 'undefined' ? window.activeGame : null;
+    if (game?.boss && !game.boss.isDead) return game.boss.x;
+    const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
+      .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
+    return nearest && Math.abs(nearest.x - this.x) <= 650 ? nearest.x : this.x;
+  }
+
   unleashUltimate() {
     audio.playUltRelease(this.id);
     projectiles.clearEnemyProjectiles(); // 清屏消除敵彈
@@ -457,7 +465,7 @@ export class Player {
       this.vx = this.facing * 850;
       const corridorLength = 760;
       const bladeCount = 8;
-      const bladeDmg = this.phaseDamage(38, 1.15); // Phase II: 1.15x ultimate damage
+      const bladeDmg = this.resonancePhase === 2 ? 65 : 50;
       for (let i = 0; i < bladeCount; i++) {
         projectiles.spawn({
           isPlayer: true,
@@ -476,37 +484,45 @@ export class Player {
           canClearEnemyBullets: true
         });
       }
-    } 
+    }
     else if (this.id === 'shakira') {
       // ═════════════════════════════════════════════════════════════════════════
       // 夏奇拉大招：半徑 500px 固定戰區，14 顆流星蛋雨 (各 30 dmg = 420 dmg)，回復 30 HP
       // ═════════════════════════════════════════════════════════════════════════
       this.addHp(this.resonancePhase === 2 ? 45 : 30);
       this.shieldTimer = 3.0;
-      this.ultZoneCenterX = this.x; // 鎖定當前施放戰區中心
-      const eggCount = 14;
-      const eggDmg = this.phaseDamage(30, 1.15);
-      for (let i = 0; i < eggCount; i++) {
-        const spawnOffsetX = (Math.random() - 0.5) * 960; // 500px 半徑固定戰區
-        projectiles.spawn({
-          isPlayer: true,
-          type: 'egg',
-          x: this.ultZoneCenterX + spawnOffsetX,
-          y: this.y - 340 - (i % 4) * 25,
-          vx: (Math.random() - 0.5) * 50,
-          vy: 560 + (i % 3) * 35,
-          maxDistance: 520,
-          width: 32,
-          height: 28,
-          damage: eggDmg,
-          splashRadius: 60,
-          life: 0.9,
-          penetrating: true,
-          zoneCenterX: this.ultZoneCenterX,
-          zoneRadius: 500
-        });
+      const targetX = this.getUltimateTargetX();
+      const waveOffsets = [-240, -160, -80, 0, 80, 160, 240];
+      const eggDmg = this.resonancePhase === 2 ? 50 : 42;
+      const splashDmg = this.resonancePhase === 2 ? 22 : 18;
+      const waveShift = this.resonancePhase === 2 ? 35 : -35;
+      this.ultZoneCenterX = targetX;
+      for (let wave = 0; wave < 2; wave++) {
+        for (let index = 0; index < waveOffsets.length; index++) {
+          projectiles.spawn({
+            isPlayer: true,
+            type: 'egg',
+            x: targetX + waveOffsets[index] + (wave === 1 ? waveShift : 0),
+            y: this.y - 360 - index * 18,
+            vx: 0,
+            vy: 620,
+            maxDistance: 560,
+            width: 32,
+            height: 28,
+            damage: eggDmg,
+            splashRadius: 75,
+            splashDamage: splashDmg,
+            releaseAfter: wave === 1 ? 0.32 : 0,
+            life: 1.3,
+            penetrating: false,
+            zoneCenterX: targetX,
+            zoneRadius: 500,
+            bossTargetAssist: true
+          });
+        }
       }
-    } 
+      window.activeGame?.camera?.shake(5, 0.14);
+    }
     else {
       // ═════════════════════════════════════════════════════════════════════════
       // 珊卓澎 Phase I：主廚旋風鍋，14 道鍋氣 (各 30 dmg = 420 dmg)

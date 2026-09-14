@@ -30,7 +30,7 @@ export class ProjectileManager {
   spawn(p) {
     const source = this.sourceContext || {};
     if (!p.isPlayer && (source.attackPhase === 1 || source.attackPhase === 2)) {
-      const pressureLimit = 3;
+      const pressureLimit = source.sourceMonster === "boss_flower" ? (source.attackPhase === 2 ? 24 : 12) : 3;
       if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) return null;
     }
     const projectile = {
@@ -66,6 +66,13 @@ export class ProjectileManager {
       attackType: p.attackType || source.attackType || p.type || 'bullet',
       telegraphShown: p.telegraphShown ?? source.telegraphShown ?? false
     };
+    projectile.wobble = p.wobble || 0;
+    projectile.wobblePhase = p.wobblePhase || 0;
+    projectile.large = Boolean(p.large);
+    projectile.burstTimer = p.burstTimer ?? null;
+    projectile.burstTriggered = false;
+    projectile.armedAfter = p.armedAfter || 0;
+    projectile.hitTargets = new Set();
     this.projectiles.push(projectile);
     return projectile;
   }
@@ -74,12 +81,48 @@ export class ProjectileManager {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.life -= dt;
+      if (p.armedAfter > 0) p.armedAfter = Math.max(0, p.armedAfter - dt);
+      if (p.burstTimer !== null && !p.burstTriggered) {
+        p.burstTimer -= dt;
+        if (p.burstTimer <= 0) {
+          p.burstTriggered = true;
+          for (let burstIndex = 0; burstIndex < 3; burstIndex++) {
+            const angle = p.wobblePhase + burstIndex * (Math.PI * 2 / 3);
+            this.spawn({
+              isPlayer: false,
+              type: "petal",
+              x: p.x,
+              y: p.y,
+              vx: Math.cos(angle) * 190,
+              vy: Math.sin(angle) * 190,
+              width: 16,
+              height: 10,
+              color: "#F48FB1",
+              damage: 11,
+              life: 1.35,
+              maxDistance: 260,
+              armedAfter: 0.12,
+              rotates: true,
+              vRot: 5,
+              sourceMonster: p.sourceMonster,
+              attackPhase: p.attackPhase,
+              attackType: "bubble_burst",
+              telegraphShown: true
+            });
+          }
+          p.life = 0;
+        }
+      }
       if (p.life <= 0) {
         this.projectiles.splice(i, 1);
         continue;
       }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      if (p.wobble) {
+        p.wobblePhase += dt * 4;
+        p.x += Math.sin(p.wobblePhase) * p.wobble * dt * 8;
+      }
       if (p.rotates) p.rotation += p.vRot * dt;
 
       // Max physical distance culling
@@ -241,6 +284,17 @@ export class ProjectileManager {
         ctx.beginPath();
         ctx.arc(-p.width * 0.12, -p.height * 0.14, p.width * 0.12, 0, Math.PI * 2);
         ctx.fill();
+      }
+      else if (p.type === 'dream_bubble') {
+        const radius = p.large ? 24 : 18;
+        ctx.globalAlpha = 0.78;
+        ctx.fillStyle = p.large ? "#E040FB" : "#CE93D8";
+        ctx.strokeStyle = "#FFF3FF";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#FF80AB";
+        ctx.beginPath(); ctx.arc(-radius * 0.25, -radius * 0.25, 4, 0, Math.PI * 2); ctx.fill();
       }
       else if (p.type === 'petal') {
         // Boss / Flower monster petal

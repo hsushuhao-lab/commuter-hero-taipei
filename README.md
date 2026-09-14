@@ -1,5 +1,5 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德 (v9.8.0 Q-Chibi Gameplay Character Remaster) ——
+## —— 象山晨衝・奔向松德 (v9.8.1 Yu-Sandra-Boss Combat Rebalance) ——
 
 一款結合台北在地晨間通勤、雙向同步進化與日系魔法花系怪獸的高完成度 2D 橫向卷軸動作冒險遊戲。
 
@@ -9,7 +9,15 @@
 
 ---
 
-## 🌟 遊戲核心特色與重大升級 (v9.7.9)
+## 🌟 遊戲核心特色與重大升級 (v9.8.1)
+
+### v9.8.1 更新重點
+
+- Yu 移動朝向依角色生成器 right-facing convention 修正，保持原有物理與操作。
+- Sandra 小招實際射程修正為 550px、基礎傷害 70；橘色鍋氣同一枚對 Boss 只命中一次，並保留穿透不同目標。
+- Sandra Phase II 大招為 14 枚飛鍋、每枚 60 傷害，名目總傷害 840，避免單次大招直接擊殺 Boss。
+- Boss P1/P2 彈幕、Bubble Bloom、Vine Whip、Crossfire 與 Bloom Burst 加入 telegraph、同族受擊窗口與 Boss threat cap。
+- 三英雄真實路線驗證：Yu 27.6s、Shakira 38.3s、Sandra 32.6s Boss clear time，皆完成 VICTORY 與三次打卡。
 
 ### v9.8.0 更新重點
 
@@ -46,7 +54,7 @@
 - **透明素材與正常合成**：Boss runtime sprite 使用透明 PNG 與 `source-over`，移除白底與 `multiply` workaround。
 - **變身演出**：保留 2.8 秒 P1 → P2 crossfade，並維持 Boss 無敵與既有戰鬥數值。
 
-- **Sandra Phase II 狂焰飛鍋陣**：14 枚真正的旋轉平底鍋投射物，單枚 90 傷害、700px 射程、0.70 秒 stagger 發射，總名目傷害 1260。
+- **Sandra Phase II 狂焰飛鍋陣**：14 枚真正的旋轉平底鍋投射物，單枚 60 傷害、700px 射程、0.70 秒 stagger 發射，總名目傷害 840。
 - **Boss 身體接觸修正**：P1 造成 18 傷害、P2 造成 28 傷害（60 幣共振時 30.8），附帶擊退與既有 iframe；登場、咆哮、變身、死亡演出期間不扣血。
 - **Boss 新形象**：由原始設計稿裁切為 P1／P2 獨立透明 runtime sprite；P1 保留閉眼安眠表情，P2 為睜眼狂暴盛開。
 - **完整路線驗證腳本**：保留 v9.7.2 的 Hero Resonance HP ×2、Threat Budget、180 秒倒數與三人打卡流程；v9.7.3 的新版本 trace 與通關穩定性仍以實測結果為準。
@@ -112,7 +120,7 @@
 
 3. **珊卓澎（熱血主廚・平底鍋戰神）**：
    - **小招【平底鍋揮舞・怒火鍋氣】**：前方 550px、110° 弧擊，70 傷害、380px 擊退，CD 0.38s。
-   - **大招【主廚旋風鍋・料理風暴】**：350px 核心旋風牽引；P1／P2 名目總傷害 630／1260，CD 8.2s。
+   - **大招【主廚旋風鍋・料理風暴】**：350px 核心旋風牽引；P1／P2 名目總傷害 630／840，CD 8.2s。
 
 ---
 

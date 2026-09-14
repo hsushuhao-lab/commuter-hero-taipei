@@ -62,6 +62,7 @@ audio.fadeToVictory = function(duration) {
 
 const game = new Game();
 game.startGame();
+ game.levelIntroTimer = 0;
 
 // 1. Scene 1 to Scene 4 Route Simulation (x: 0 -> 14650)
 console.log('[1/4] Simulating Scenes 1 to 4 Commute Route (x: 0 ~ 14650)...');
@@ -119,7 +120,7 @@ while (ent < 2.2) {
 }
 
 // Bring boss to 0 HP in Phase 1
-game.boss.takeDamage(2400, 'test_burst');
+game.boss.takeDamage(3600, 'test_burst');
 assert.strictEqual(game.boss.isTransforming, true, 'Boss must be transforming');
 
 console.log('  Intensity adjustments recorded: ' + (bgmIntensityHistory.length - intensitiesBeforeP2));

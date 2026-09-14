@@ -77,7 +77,7 @@ html_content = f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.8.0 Q-Chibi Gameplay Character Remaster)</title>
+  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.8.1 Yu-Sandra-Boss Combat Rebalance)</title>
   <style>
     * {{
       box-sizing: border-box;

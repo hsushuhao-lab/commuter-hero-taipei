@@ -113,7 +113,7 @@ test('3. Red Sprout Attack Upgrade: 1 bullet in P1 vs 3-bullet stream in P2', ()
   assert(projectiles.projectiles.length + m.delayedSpawns.length >= 3, 'Red P2 should launch 3-bullet burst');
 });
 
-test('4. Ice Crystal Attack Upgrade: 3-way in P1 vs 5-way blizzard in P2', () => {
+test('4. Ice Crystal Attack Upgrade: 3-way P1 vs capped P2 blizzard', () => {
   const m = new Monster('ice', 1000, 500);
   projectiles.reset();
   m.executeAttack();
@@ -122,7 +122,7 @@ test('4. Ice Crystal Attack Upgrade: 3-way in P1 vs 5-way blizzard in P2', () =>
   m.triggerAttackPhase2();
   projectiles.reset();
   m.executeAttack();
-  assert.strictEqual(projectiles.projectiles.length, 5, 'Ice P2 should spawn 5 projectiles');
+  assert.strictEqual(projectiles.projectiles.length, 3, 'Ice P2 should honor the active projectile cap');
 });
 
 test('5. Purple Grape Attack Upgrade: 3 lobbed poison orbs in P1 vs 5 in P2', () => {

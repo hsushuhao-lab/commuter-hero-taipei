@@ -53,7 +53,11 @@ export class Boss {
     this.attackTimer = 1.5;
     this.summonTimer = 7.0;
     this.vineTimer = 3.0;
-    this.sporeTimer = 5.0;    // Sleep spore clouds
+    this.sporeTimer = 5.0;
+    this.bubbleTimer = 2.6;
+    this.vineWhipTimer = 2.8;
+    this.patternStep = 0;
+    this.patternTimer = 1.0;    // Sleep spore clouds
     this.chomperTimer = 8.0;  // Phase 2 Venus Flytrap chomp
 
     // Anti-Facetank tracking
@@ -486,6 +490,30 @@ export class Boss {
     this.summonTimer -= dt;
     this.sporeTimer -= dt;
 
+    this.patternTimer -= dt;
+    if (this.patternTimer <= 0) {
+      const phase2 = this.phase === 2;
+      const step = this.patternStep % (phase2 ? 5 : 4);
+      if (!phase2) {
+        if (step === 0 || step === 2) this.firePetalBarrage(player);
+        else if (step === 1) this.launchDreamBubbles(player);
+        else this.queueVineWhip(player);
+        this.patternTimer = 1.15;
+      } else {
+        if (step === 0) this.firePetalBarrage(player);
+        else if (step === 1) this.launchDreamBubbles(player);
+        else if (step === 2) this.queueVineWhip(player);
+        else if (step === 3) this.fireCrossfire(player);
+        else { this.activeTelegraphs.push({ type: 'bloom_burst', x: this.x, y: this.y - 120, angle: Math.atan2(player.y - (this.y - 120), player.x - this.x), timer: 0.55, maxTimer: 0.55, onExecute: () => this.triggerBloomBurst(player) }); audio.playTelegraph(); }
+        this.patternTimer = 0.56;
+      }
+      this.patternStep++;
+    }
+    // v9.8.1 pattern scheduler owns Boss hazards; legacy independent timers stay inert.
+    this.attackTimer = 9999;
+    this.vineTimer = 9999;
+    this.sporeTimer = 9999;
+
     if (this.phase === 1) {
       // Phase 1 attack rotation
       if (this.attackTimer <= 0) {
@@ -641,7 +669,7 @@ export class Boss {
       // 9-way interlaced spiral petals at 320 px/s with safe angle gap
       const count = this.config.phase1.petalCount || 9;
       const spiralOffset = this.bobTimer * 0.5;
-      const speed = 320 * (this.resonanceEnraged ? 1.08 : 1.0);
+      const speed = (this.config.phase1.petalSpeed || 345) * (this.resonanceEnraged ? 1.08 : 1.0);
 
       for (let i = 0; i < count; i++) {
         const ang = baseAngleOffset(i, count, directAngle, spiralOffset);
@@ -668,12 +696,12 @@ export class Boss {
       }
     } else {
       // Phase 2: 16-way 360° crimson petal storm with 35° safe cone
-      const speed = 360 * (this.resonanceEnraged ? 1.10 : 1.0);
+      const speed = (this.config.phase2.petalSpeed || 405) * (this.resonanceEnraged ? 1.10 : 1.0);
       const safeHalfAngle = 0.32; // ~36 degree safe cone
       const dmg = (this.config.phase2.petalDamage || 20) * (this.resonanceEnraged ? 1.10 : 1.0);
 
-      for (let i = 0; i < 16; i++) {
-        const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / 16);
+      for (let i = 0; i < (this.config.phase2.petalCount || 18); i++) {
+        const ang = this.bobTimer * 2.5 + i * (Math.PI * 2 / (this.config.phase2.petalCount || 18));
         if (Math.abs(normalizeAngle(ang - directAngle)) < safeHalfAngle) continue;
 
         projectiles.spawn({
@@ -759,6 +787,50 @@ export class Boss {
   // ══════════════════════════════════════════════════════════════════
   // Sleep Spore Clouds (both phases)
   // ══════════════════════════════════════════════════════════════════
+  launchDreamBubbles(player) {
+    const phase2 = this.phase === 2;
+    const count = phase2 ? 8 : 5;
+    const speed = phase2 ? 145 : 115;
+    const damage = phase2 ? 20 : 12;
+    const arenaB = { minX: this.config.arena.startX - 60, maxX: this.config.arena.endX + 60 };
+    for (let i = 0; i < count; i++) {
+      const angle = Math.PI + (i - (count - 1) * 0.5) * 0.22;
+      projectiles.spawn({ isPlayer: false, type: 'dream_bubble', x: this.x + Math.cos(angle) * 42, y: this.y - 300 + (i % 4) * 22, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * 0.35, width: phase2 && i < 2 ? 48 : 38, height: phase2 && i < 2 ? 48 : 38, damage, life: phase2 ? 2.8 : 3.0, burstTimer: phase2 && i < 2 ? 1.4 : null, wobble: 1.0, large: phase2 && i < 2, arenaBounds: arenaB, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: phase2 ? 'bubble_bloom' : 'dream_bubble' });
+    }
+    audio.playTelegraph();
+  }
+
+  queueVineWhip(player) {
+    const phase2 = this.phase === 2;
+    const count = phase2 ? 3 : 2;
+    const damage = phase2 ? 42 : 20;
+    const telegraph = phase2 ? 0.33 : 0.45;
+    this.activeTelegraphs.push({ type: 'vine_whip', x: this.x + this.facing * 90, y: this.y - 28, dir: this.facing, count, timer: telegraph, maxTimer: telegraph, onExecute: () => {
+      for (let i = 0; i < count; i++) {
+        const y = this.y - 28 - (phase2 ? [0, 88, 46][i] : i * 72);
+        projectiles.spawn({ isPlayer: false, type: 'vine', x: this.x + this.facing * 90, y, vx: this.facing * 260, vy: 0, width: 115, height: 34, damage, life: 0.55, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: 'vine_whip' });
+      }
+      audio.playBossRoar();
+    }});
+    audio.playTelegraph();
+  }
+
+  fireCrossfire(player) {
+    this.launchDreamBubbles(player);
+    this.activeTelegraphs.push({ type: 'crossfire', x: this.x, y: this.y - 120, angle: Math.atan2(player.y - (this.y - 120), player.x - this.x), timer: 0.35, maxTimer: 0.35, onExecute: () => this.firePetalBarrage(player) });
+  }
+
+  triggerBloomBurst(player) {
+    const directAngle = Math.atan2(player.y - (this.y - 120), player.x - this.x);
+    const safeHalfAngle = 0.32;
+    for (let i = 0; i < 24; i++) {
+      const angle = i * Math.PI * 2 / 24;
+      if (Math.abs(normalizeAngle(angle - directAngle)) < safeHalfAngle || Math.abs(normalizeAngle(angle - directAngle - Math.PI)) < safeHalfAngle) continue;
+      projectiles.spawn({ isPlayer: false, type: 'petal', x: this.x, y: this.y - 120, vx: Math.cos(angle) * 400, vy: Math.sin(angle) * 400, width: 26, height: 18, damage: 34, life: 2.0, armedAfter: 0.12, rotates: true, vRot: 5, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: 2, attackType: 'bloom_burst' });
+    }
+    audio.playBossRoar();
+  }
+
   launchSpores(player) {
     const sporeCount = this.phase === 2 ? 3 : 2;
     for (let i = 0; i < sporeCount; i++) {
@@ -1601,7 +1673,53 @@ export class Boss {
         ctx.strokeRect(tg.dir > 0 ? tg.startX : tg.startX + totalW, tg.y - 120, Math.abs(totalW), 120);
         ctx.fillStyle = '#FF5252';
         ctx.font = 'bold 13px sans-serif';
-        ctx.fillText('⚡ LUNGE CHARGE ⚡', tg.startX + totalW * 0.5 - 65, tg.y - 130);
+        ctx.fillText("⚡ LUNGE CHARGE ⚡", tg.startX + totalW * 0.5 - 65, tg.y - 130);
+      }
+      else if (tg.type === "vine_whip") {
+        ctx.strokeStyle = "#81C784";
+        ctx.shadowColor = "#E040FB";
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 5 + progress * 3;
+        ctx.setLineDash([16, 10]);
+        for (let i = 0; i < tg.count; i++) {
+          const offset = i === 0 ? 0 : (i === 1 ? 88 : 46);
+          ctx.beginPath();
+          ctx.moveTo(tg.x, tg.y + offset);
+          ctx.lineTo(tg.x + tg.dir * 360, tg.y + offset);
+          ctx.stroke();
+        }
+      }
+      else if (tg.type === "crossfire") {
+        ctx.strokeStyle = "rgba(255, 128, 203, 0.9)";
+        ctx.shadowColor = "#E040FB";
+        ctx.shadowBlur = 12;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 9]);
+        for (let i = -3; i <= 3; i++) {
+          const angle = tg.angle + i * 0.12;
+          ctx.beginPath();
+          ctx.moveTo(tg.x, tg.y);
+          ctx.lineTo(tg.x + Math.cos(angle) * (280 + progress * 120), tg.y + Math.sin(angle) * (280 + progress * 120));
+          ctx.stroke();
+        }
+      }
+      else if (tg.type === "bloom_burst") {
+        ctx.strokeStyle = "#FF80AB";
+        ctx.shadowColor = "#E040FB";
+        ctx.shadowBlur = 16;
+        ctx.lineWidth = 4 + progress * 3;
+        ctx.setLineDash([12, 8]);
+        ctx.beginPath();
+        ctx.arc(tg.x, tg.y, 90 + progress * 90, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#B9F6CA";
+        ctx.lineWidth = 12;
+        ctx.setLineDash([]);
+        for (const safeAngle of [tg.angle, tg.angle + Math.PI]) {
+          ctx.beginPath();
+          ctx.arc(tg.x, tg.y, 115, safeAngle - 0.32, safeAngle + 0.32);
+          ctx.stroke();
+        }
       }
 
       ctx.restore();

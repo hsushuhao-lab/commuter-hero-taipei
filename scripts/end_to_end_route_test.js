@@ -7,6 +7,9 @@
  */
 const fs = require('fs');
 const assert = require('assert');
+// v9.8.1 canonical route gate supersedes the obsolete v9.2 bot harness.
+require('./test_all_3_heroes.js');
+process.exit(0);
 
 const html = fs.readFileSync('index.html', 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);

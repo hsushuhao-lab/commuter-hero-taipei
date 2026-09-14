@@ -30,8 +30,16 @@ export class ProjectileManager {
   spawn(p) {
     const source = this.sourceContext || {};
     if (!p.isPlayer && (source.attackPhase === 1 || source.attackPhase === 2)) {
-      const pressureLimit = source.sourceMonster === "boss_flower" ? (source.attackPhase === 2 ? 24 : 12) : 3;
-      if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) return null;
+      const pressureLimit = source.sourceMonster === "boss_flower" ? (source.attackPhase === 2 ? 40 : 20) : 3;
+      if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) {
+        if (typeof window !== "undefined" && window.__RUNTIME_QA__) {
+          const phase = "P" + source.attackPhase;
+          window.__BOSS_PROJECTILE_DROPS__ = window.__BOSS_PROJECTILE_DROPS__ || {};
+          window.__BOSS_PROJECTILE_DROPS__[phase] = (window.__BOSS_PROJECTILE_DROPS__[phase] || 0) + 1;
+          console.warn("[BOSS PROJECTILE DROPPED]", phase, pressureLimit);
+        }
+        return null;
+      }
     }
     const projectile = {
       id: p.id || `proj_${this.nextProjId++}`,

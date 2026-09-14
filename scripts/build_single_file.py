@@ -1,11 +1,32 @@
-import os, base64, re
+import base64
+import hashlib
+import os
+import re
+from datetime import UTC, datetime
 
-base_dir = r'c:\Users\Asher\Documents\game\08workbattle-v8_0-COMMUTER-HERO'
+BUILD_VERSION = "v9.8.2"
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 assets_dir = os.path.join(base_dir, 'assets')
 source_dir = os.path.join(base_dir, 'source')
 src_dir = os.path.join(source_dir, 'src')
 dist_dir = os.path.join(base_dir, 'dist')
 os.makedirs(dist_dir, exist_ok=True)
+
+
+def source_fingerprint() -> str:
+    """Return a short deterministic fingerprint for the bundled runtime inputs."""
+    digest = hashlib.sha256()
+    for root, _, files in os.walk(src_dir):
+        for filename in sorted(files):
+            path = os.path.join(root, filename)
+            digest.update(os.path.relpath(path, src_dir).encode("utf-8"))
+            with open(path, "rb") as source_file:
+                digest.update(source_file.read())
+    return digest.hexdigest()[:16]
+
+
+build_sha = source_fingerprint()
+build_built_at = datetime.now(UTC).isoformat()
 
 print('1. Encoding all image assets to base64 Data URIs...')
 asset_map = {}
@@ -53,7 +74,7 @@ bundled_code_parts.append(asset_dict_str)
 
 for mod_path in module_order:
     with open(mod_path, 'r', encoding='utf-8') as mf:
-        content = mf.read()
+        content = mf.read().replace("\r\n", "\n").replace("\r", "\n")
     
     # Remove import lines
     content = re.sub(r'import\s+.*?from\s+[\'"].*?[\'"];?\n?', '', content)
@@ -77,7 +98,10 @@ html_content = f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.8.1 Yu-Sandra-Boss Combat Rebalance)</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta name="game-build" content="{BUILD_VERSION}">
+  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 ({BUILD_VERSION} Runtime Recovery)</title>
   <style>
     * {{
       box-sizing: border-box;
@@ -144,6 +168,12 @@ html_content = f"""<!DOCTYPE html>
   </div>
 
   <script>
+    window.__GAME_BUILD__ = {{
+      version: "{BUILD_VERSION}",
+      sha: "{build_sha}",
+      builtAt: "{build_built_at}"
+    }};
+    console.info(`[GAME BUILD] {BUILD_VERSION} {build_sha}`);
 {combined_js}
   </script>
 </body>

@@ -17,6 +17,8 @@ import { particles } from './Particles.js';
 import { projectiles } from './Projectiles.js';
 import { Monster } from './Monster.js';
 
+const USE_NEW_PATTERN_SCHEDULER = true;
+
 function baseAngleOffset(i, count, baseAngle, spiralOffset) {
   return baseAngle + (i - Math.floor(count / 2)) * 0.22 + spiralOffset * (i % 2 === 0 ? 1 : -1) * 0.08;
 }
@@ -58,6 +60,10 @@ export class Boss {
     this.vineWhipTimer = 2.8;
     this.patternStep = 0;
     this.patternTimer = 1.0;    // Sleep spore clouds
+
+    if (typeof window !== "undefined") {
+      window.__BOSS_PATTERN_COUNTS__ = { P1: {}, P2: {} };
+    }
     this.chomperTimer = 8.0;  // Phase 2 Venus Flytrap chomp
 
     // Anti-Facetank tracking
@@ -514,8 +520,8 @@ export class Boss {
     this.vineTimer = 9999;
     this.sporeTimer = 9999;
 
-    if (this.phase === 1) {
-      // Phase 1 attack rotation
+    if (!USE_NEW_PATTERN_SCHEDULER && this.phase === 1) {
+      // Phase 1 legacy attack rotation
       if (this.attackTimer <= 0) {
         this.attackTimer = currentConfig.attackCooldown * p1CooldownMult;
         this.firePetalBarrage(player);
@@ -532,8 +538,8 @@ export class Boss {
         this.sporeTimer = 6.5 * p1CooldownMult;
         this.launchSpores(player);
       }
-    } else {
-      // Phase 2 sequenced attack rotation (mod 6)
+    } else if (!USE_NEW_PATTERN_SCHEDULER) {
+      // Phase 2 legacy sequenced attack rotation (mod 6)
       this.scytheTimer -= dt;
       this.thornTimer -= dt;
       this.miasmaTimer -= dt;
@@ -659,7 +665,17 @@ export class Boss {
   // 9-Way Spiral Petals (Phase 1) / 16-Way Crimson Storm (Phase 2)
   // v9.5: Guaranteed safe cone angle allowing skilled dodge
   // ══════════════════════════════════════════════════════════════════
+  _recordPattern(name) {
+    if (typeof window === "undefined") return;
+    const phase = this.phase === 2 ? "P2" : "P1";
+    const counts = window.__BOSS_PATTERN_COUNTS__ || { P1: {}, P2: {} };
+    counts[phase][name] = (counts[phase][name] || 0) + 1;
+    window.__BOSS_PATTERN_COUNTS__ = counts;
+    if (window.__RUNTIME_QA__) console.info("[BOSS PATTERN]", phase, name);
+  }
+
   firePetalBarrage(player) {
+    this._recordPattern("petal_barrage");
     const pX = this.x;
     const pY = this.y - 120;
     const arenaB = { minX: this.config.arena.startX - 50, maxX: this.config.arena.endX + 50 };
@@ -788,6 +804,7 @@ export class Boss {
   // Sleep Spore Clouds (both phases)
   // ══════════════════════════════════════════════════════════════════
   launchDreamBubbles(player) {
+    this._recordPattern("dream_bubbles");
     const phase2 = this.phase === 2;
     const count = phase2 ? 8 : 5;
     const speed = phase2 ? 145 : 115;
@@ -801,6 +818,7 @@ export class Boss {
   }
 
   queueVineWhip(player) {
+    this._recordPattern("vine_whip");
     const phase2 = this.phase === 2;
     const count = phase2 ? 3 : 2;
     const damage = phase2 ? 42 : 20;
@@ -808,7 +826,7 @@ export class Boss {
     this.activeTelegraphs.push({ type: 'vine_whip', x: this.x + this.facing * 90, y: this.y - 28, dir: this.facing, count, timer: telegraph, maxTimer: telegraph, onExecute: () => {
       for (let i = 0; i < count; i++) {
         const y = this.y - 28 - (phase2 ? [0, 88, 46][i] : i * 72);
-        projectiles.spawn({ isPlayer: false, type: 'vine', x: this.x + this.facing * 90, y, vx: this.facing * 260, vy: 0, width: 115, height: 34, damage, life: 0.55, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: 'vine_whip' });
+        projectiles.spawn({ isPlayer: false, type: 'vine', x: this.x + this.facing * 90, y, vx: this.facing * 260, vy: 0, width: 115, height: 34, damage, life: 0.55, armedAfter: 0.30, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: 'vine_whip' });
       }
       audio.playBossRoar();
     }});
@@ -816,11 +834,13 @@ export class Boss {
   }
 
   fireCrossfire(player) {
+    this._recordPattern("crossfire");
     this.launchDreamBubbles(player);
     this.activeTelegraphs.push({ type: 'crossfire', x: this.x, y: this.y - 120, angle: Math.atan2(player.y - (this.y - 120), player.x - this.x), timer: 0.35, maxTimer: 0.35, onExecute: () => this.firePetalBarrage(player) });
   }
 
   triggerBloomBurst(player) {
+    this._recordPattern("bloom_burst");
     const directAngle = Math.atan2(player.y - (this.y - 120), player.x - this.x);
     const safeHalfAngle = 0.32;
     for (let i = 0; i < 24; i++) {

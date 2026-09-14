@@ -1,0 +1,13 @@
+v9.8.2 local Chrome runtime QA
+title=《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.8.2 Runtime Recovery)
+build.version=v9.8.2
+build.sha=1433e1c5069b6348
+Sandra P1=30x14
+Sandra P2=40x14
+Sandra stagger=0.90
+Boss phase2Hp=3050
+Yu assets=08..13
+root/dist sha equality verified
+SANDRA trace unique IDs=14 total=560 max per ID=40
+Boss patterns P1=petal,dream_bubbles,vine_whip,crossfire
+Boss patterns P2=petal,dream_bubbles,vine_whip,crossfire,bloom_burst

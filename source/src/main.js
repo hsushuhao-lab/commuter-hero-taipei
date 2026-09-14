@@ -19,6 +19,13 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
+const GAME_BUILD_VERSION = "v9.8.2";
+const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, sha: "source-dev", builtAt: "source" });
+if (typeof window !== "undefined") {
+  window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
+  console.info("[GAME BUILD] " + window.__GAME_BUILD__.version + " " + window.__GAME_BUILD__.sha);
+}
+
 class Game {
   constructor() {
     this.canvas = document.getElementById('gameCanvas');
@@ -1350,7 +1357,15 @@ class Game {
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
           if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop') && proj.hitTargets.has('boss')) continue;
           if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop') proj.hitTargets.add('boss');
-          this.boss.takeDamage(proj.damage, proj.id);
+          const bossHpBefore = this.boss.hp;
+          const bossHitAccepted = this.boss.takeDamage(proj.damage, proj.id);
+          const bossHpAfter = this.boss.hp;
+          if (bossHitAccepted && this.player.id === "sandra" && proj.type === "flying_pan" && typeof window !== "undefined") {
+            window.__SANDRA_BOSS_DAMAGE_TRACE__ = window.__SANDRA_BOSS_DAMAGE_TRACE__ || [];
+            if (!window.__SANDRA_BOSS_DAMAGE_TRACE__.some((entry) => entry.id === proj.id)) {
+              window.__SANDRA_BOSS_DAMAGE_TRACE__.push({ timestamp: performance.now(), id: proj.id, target: "boss", damage: proj.damage, bossHpBefore, bossHpAfter, phase: this.boss.phase });
+            }
+          }
           if (this.player.id === 'sandra' && proj.isMeleeArc) {
             this.player.meleeDashCancelTimer = 0.22;
             this.player.hitConfirmArmorTimer = 0.30;
@@ -1369,7 +1384,10 @@ class Game {
           this._bossHazardHitUntil = this._bossHazardHitUntil || {};
           const hazardKey = proj.attackType || proj.type;
           const now = performance.now();
+          const threatCooldown = proj.attackPhase === 2 ? 2200 : 900;
+          if ((this._bossThreatHitUntil || 0) > now) continue;
           if ((this._bossHazardHitUntil[hazardKey] || 0) > now) continue;
+          this._bossThreatHitUntil = now + threatCooldown;
           this._bossHazardHitUntil[hazardKey] = now + 1200;
         }
         p.takeDamage(proj.damage, {
@@ -1591,6 +1609,12 @@ class Game {
     ctx.fillStyle = '#ECEFF1';
     ctx.font = '14px sans-serif';
     ctx.fillText('台北 08:00 晨間通勤冒險 × 奇幻花系怪獸大作戰', this.vw / 2, 235);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+    ctx.font = "12px monospace";
+    ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 22, 24);
+    ctx.textAlign = "center";
 
     // 1. Start Game Button
     ctx.fillStyle = '#0288D1';
@@ -1895,6 +1919,40 @@ class Game {
   }
 }
 
+function debugRuntime() {
+  const build = window.__GAME_BUILD__ || GAME_BUILD;
+  const bossMethods = ["firePetalBarrage", "launchDreamBubbles", "queueVineWhip", "fireCrossfire", "triggerBloomBurst"];
+  const result = {
+    build,
+    sandra: {
+      phase1Skill: CHARACTERS.sandra.skill.damage + "x" + CHARACTERS.sandra.skill.range,
+      phase1Ultimate: CHARACTERS.sandra.ult.phase1ProjectileDamage + "x" + CHARACTERS.sandra.ult.phase2ProjectileCount,
+      phase2Ultimate: CHARACTERS.sandra.ult.phase2ProjectileDamage + "x" + CHARACTERS.sandra.ult.phase2ProjectileCount,
+      stagger: CHARACTERS.sandra.ult.phase2StaggerDuration
+    },
+    boss: {
+      phase1Hp: BOSS_CONFIG.phase1Hp,
+      phase2Hp: BOSS_CONFIG.phase2Hp,
+      patternMethods: Object.fromEntries(bossMethods.map((name) => [name, typeof Boss.prototype[name] === "function"]))
+    },
+    yu: { runAssetIds: ["08", "09", "10", "11", "12", "13"] }
+  };
+  if (window.__RUNTIME_QA__) {
+    const failures = [];
+    if (build.version !== GAME_BUILD_VERSION) failures.push("version=" + build.version);
+    if (CHARACTERS.sandra.ult.phase1ProjectileDamage !== 30) failures.push("Sandra P1 damage");
+    if (CHARACTERS.sandra.ult.phase2ProjectileDamage !== 40) failures.push("Sandra P2 damage");
+    if (CHARACTERS.sandra.ult.phase2ProjectileCount !== 14) failures.push("Sandra count");
+    if (BOSS_CONFIG.phase2Hp !== 3050) failures.push("Boss phase2Hp");
+    for (const name of bossMethods) if (typeof Boss.prototype[name] !== "function") failures.push("Boss." + name);
+    if (failures.length) console.error("RUNTIME_VERSION_SKEW_DETECTED", failures, result);
+    else console.info("[RUNTIME QA] v9.8.2 contract PASS", result);
+  }
+  return result;
+}
+
+window.debugRuntime = debugRuntime;
+
 window.CommuterGame = {
   Game,
   Player,
@@ -1917,7 +1975,9 @@ window.CommuterGame = {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
+  window.__RUNTIME_QA__ = window.__RUNTIME_QA__ || new URLSearchParams(window.location.search).has("qa");
   const game = new Game();
   window.activeGame = game;
   game.start();
+  if (window.__RUNTIME_QA__) debugRuntime();
 });

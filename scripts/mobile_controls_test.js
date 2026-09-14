@@ -20,7 +20,7 @@ const scriptContent = scriptMatch[1];
 
 // Mock browser sandbox
 global.window = {
-  innerWidth: 390,
+  innerWidth: 960,
   innerHeight: 540,
   addEventListener: () => {},
   AudioContext: class {
@@ -102,7 +102,7 @@ test('PointerDown on Left D-Pad drives player to move left (touchLeft & negative
 test('Multi-Pointer Tracking: Jumping while holding Left does NOT stop Left movement', () => {
   // Pointer 101 is holding Left
   assert.strictEqual(input.isLeft(), true);
-  
+
   // Pointer 102 taps Jump button
   const jumpX = hud.btnJump.x + hud.btnJump.w / 2;
   const jumpY = hud.btnJump.y + hud.btnJump.h / 2;
@@ -150,7 +150,12 @@ test('PointerDown on Right D-Pad drives player to move right (touchRight & posit
   game.activePointers.delete(103);
 });
 
-test('Analog Virtual Joystick owns its full touch zone and drives lateral movement', () => {
+test('Compact mobile layout uses one enlarged joystick without duplicate D-pad', () => {
+  window.innerWidth = 390;
+  hud.updateLayout();
+  assert.strictEqual(hud.showDPad, false, 'Compact layout must hide duplicate D-pad controls');
+  assert(hud.joystick.radius >= 58 && hud.joystick.baseY >= 395, 'Compact joystick must be enlarged and anchored lower-left');
+
   input.reset();
   hud.resetJoystick();
 
@@ -174,7 +179,7 @@ test('Analog Virtual Joystick owns its full touch zone and drives lateral moveme
 
 test('Touch Action Buttons trigger Skill, Ult, and Dash correctly', () => {
   input.reset();
-  
+
   // Skill
   const skillX = hud.btnSkill.x + hud.btnSkill.w / 2;
   const skillY = hud.btnSkill.y + hud.btnSkill.h / 2;

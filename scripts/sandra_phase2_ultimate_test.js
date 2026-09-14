@@ -38,6 +38,7 @@ phase1.triggerSkill();
 assert.strictEqual(projectiles.projectiles.length, 1, 'Sandra small skill must spawn one pan wave');
 assert.strictEqual(projectiles.projectiles[0].maxDistance, 550, 'Sandra runtime small-skill reach must be 550');
 assert.strictEqual(projectiles.projectiles[0].damage, 70, 'Sandra runtime small-skill base damage must be 70');
+assert.strictEqual(projectiles.projectiles[0].type, 'sandra_orange_drop', 'Sandra small skill must use its distinct orange droplet type');
 
 const phase2 = new Player('sandra');
 phase2.addCoins(30);
@@ -61,6 +62,7 @@ assert(projectiles.projectiles.every(p => p.rotates === true && p.vRot >= 9), 'P
 assert.strictEqual(projectiles.projectiles.reduce((sum, p) => sum + p.damage, 0), 1260, 'Phase 2 nominal damage must be 1260');
 
 const projectileSource = fs.readFileSync('source/src/entities/Projectiles.js', 'utf8');
+assert(projectileSource.includes("p.type === 'sandra_orange_drop'"), 'orange droplet renderer branch must exist');
 assert(projectileSource.includes("p.type === 'flying_pan'"), 'flying_pan renderer branch must exist');
 assert(projectileSource.includes('p.type === \'flying_pan\' && Math.random()'), 'flying_pan flame trail branch must exist');
-console.log('PASS: Sandra Phase I/II Ultimate damage, staggered flying pans, renderer branch, range, rotation, and v9.7.7 small-skill reach and damage validated.');
+console.log('PASS: Sandra Phase I/II Ultimate damage, staggered flying pans, renderer branch, range, rotation, and v9.7.8 orange-droplet small skill validated.');

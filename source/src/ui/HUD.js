@@ -52,6 +52,7 @@ export class HUD {
     this.btnBible = { x: 890, y: 20, w: 50, h: 32, isPressed: false };
 
     this.compactLayout = null;
+    this.showDPad = true;
 
     // End screen 3 buttons (Victory & Game Over)
     this.endButtons = {
@@ -67,7 +68,8 @@ export class HUD {
     if (compact === this.compactLayout) return;
     this.compactLayout = compact;
     if (compact) {
-      Object.assign(this.joystick, { baseX: 104, baseY: 330, radius: 52, knobX: 104, knobY: 330, knobRadius: 25 });
+      this.showDPad = false;
+      Object.assign(this.joystick, { baseX: 110, baseY: 410, radius: 60, knobX: 110, knobY: 410, knobRadius: 29 });
       Object.assign(this.btnLeft, { x: 20, y: 410, w: 80, h: 80 });
       Object.assign(this.btnRight, { x: 112, y: 410, w: 80, h: 80 });
       Object.assign(this.btnJump, { x: 858, y: 410, w: 80, h: 80 });
@@ -77,6 +79,7 @@ export class HUD {
       Object.assign(this.btnPause, { x: 792, y: 18, w: 80, h: 34 });
       Object.assign(this.btnBible, { x: 882, y: 18, w: 58, h: 34 });
     } else {
+      this.showDPad = true;
       Object.assign(this.joystick, { baseX: 104, baseY: 340, radius: 46, knobX: 104, knobY: 340, knobRadius: 22 });
       Object.assign(this.btnLeft, { x: 30, y: 425, w: 68, h: 68 });
       Object.assign(this.btnRight, { x: 110, y: 425, w: 68, h: 68 });
@@ -656,8 +659,10 @@ export class HUD {
       ctx.restore();
     };
 
-    drawDPadBtn(this.btnLeft, '◀', false);
-    drawDPadBtn(this.btnRight, '▶', true);
+    if (this.showDPad) {
+      drawDPadBtn(this.btnLeft, '◀', false);
+      drawDPadBtn(this.btnRight, '▶', true);
+    }
 
     // Virtual Joystick (top of D-pad)
     ctx.save();

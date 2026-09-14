@@ -384,7 +384,7 @@ export class Player {
 
       projectiles.spawn({
         isPlayer: true,
-        type: 'pan_wave',
+        type: 'sandra_orange_drop',
         x: spawnX,
         y: spawnY,
         vx: this.facing * 500,

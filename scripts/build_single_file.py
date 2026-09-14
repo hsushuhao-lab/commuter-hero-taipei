@@ -77,7 +77,7 @@ html_content = f"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.7.7 Sandra Skill & Clean Menu)</title>
+  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.7.8 Character Art & Mobile Controls)</title>
   <style>
     * {{
       box-sizing: border-box;

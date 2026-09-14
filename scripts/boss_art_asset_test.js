@@ -12,4 +12,4 @@ if (p1Bytes.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' || p2Bytes.sub
 if (p1Bytes.equals(p2Bytes)) throw new Error('P1/P2 assets have identical content');
 if (!boss.includes('boss_flower_phase1_v9_7_4.png') || !boss.includes('boss_flower_phase2_v9_7_7.png')) throw new Error('runtime references missing');
 if (boss.includes("globalCompositeOperation = 'multiply'")) throw new Error('Boss multiply workaround remains');
-console.log('PASS: v9.7.7 text-free P2 runtime PNG path and source-over integration validated.');
+console.log('PASS: v9.7.8 reference-derived text-free P2 runtime PNG path and source-over integration validated.');

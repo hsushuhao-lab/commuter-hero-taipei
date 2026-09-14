@@ -50,7 +50,7 @@ export class ProjectileManager {
       life: p.life || 2.0,
       maxLife: p.life || 2.0,
       color: p.color || '#fff',
-      type: p.type || 'bullet', // wind_blade, egg, pan_wave, flying_pan, petal, vine, laser
+      type: p.type || 'bullet', // wind_blade, egg, sandra_orange_drop, pan_wave, flying_pan, petal, vine, laser
       penetrating: p.penetrating || false,
       rotates: p.rotates || false,
       rotation: p.rotation || 0,
@@ -184,6 +184,27 @@ export class ProjectileManager {
         ctx.fillStyle = '#FFA000';
         ctx.beginPath();
         ctx.arc(0, 0, p.width * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      else if (p.type === 'sandra_orange_drop') {
+        // Sandra-only orange droplet, distinct from blue monster water shots.
+        ctx.rotate(Math.atan2(p.vy, p.vx));
+        ctx.shadowColor = '#FF9800';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = '#FF6D00';
+        ctx.strokeStyle = '#FFE0B2';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(p.width * 0.9, 0);
+        ctx.lineTo(-p.width * 0.2, -p.height * 0.58);
+        ctx.lineTo(-p.width * 0.62, 0);
+        ctx.lineTo(-p.width * 0.2, p.height * 0.58);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#FFB74D';
+        ctx.beginPath();
+        ctx.ellipse(-p.width * 0.12, 0, p.width * 0.42, p.height * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
       }
       else if (p.type === 'pan_wave') {

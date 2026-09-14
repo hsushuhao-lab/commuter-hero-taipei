@@ -79,7 +79,7 @@ class Game {
     this.chibiImages = {};
     ['yu', 'shakira', 'sandra'].forEach(id => {
       const img = new Image();
-      img.src = id === 'sandra' ? 'assets/chibi_sandra_v9_7_5.png' : `assets/chibi_${id}_clean.png`;
+      img.src = `assets/chibi_${id}_clean.png`;
       this.chibiImages[id] = img;
     });
 
@@ -424,13 +424,13 @@ class Game {
       }
 
       // Legacy D-pad remains available outside the joystick touch zone.
-      if (hitRect(hud.btnLeft, mx, my)) {
+      if (hud.showDPad && hitRect(hud.btnLeft, mx, my)) {
         hud.btnLeft.isPressed = true;
         input.touchLeft = true;
         if (e) this.activePointers.set(e.pointerId, { type: 'left' });
         return;
       }
-      if (hitRect(hud.btnRight, mx, my)) {
+      if (hud.showDPad && hitRect(hud.btnRight, mx, my)) {
         hud.btnRight.isPressed = true;
         input.touchRight = true;
         if (e) this.activePointers.set(e.pointerId, { type: 'right' });

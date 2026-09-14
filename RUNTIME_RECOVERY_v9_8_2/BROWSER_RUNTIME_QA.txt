@@ -1,4 +1,4 @@
-v9.8.2 local Chrome runtime QA
+v9.8.2 local Chrome plus live GitHub Pages runtime QA
 title=《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 (v9.8.2 Runtime Recovery)
 build.version=v9.8.2
 build.sha=1433e1c5069b6348

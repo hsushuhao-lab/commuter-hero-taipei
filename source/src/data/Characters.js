@@ -142,11 +142,11 @@ export const CHARACTERS = {
       key: 'S / J',
       cooldown: 0.38,
       damage: 56,           // v9.7.2: melee DPS recovery; Phase II 再乘 1.25
-      range: 160,           // 前方 160px
-      meleeRange: 160,      // 前方 160px
+      range: 220,           // v9.7.5: expanded mobile-friendly melee reach 220px
+      meleeRange: 220,      // v9.7.5: 前方 220px
       fanAngle: 110,        // 扇形 110 度
       knockback: 380,       // 擊退 380px
-      desc: 'Phase I 以高速近戰游擊斬出前方 160px 弧形火氣（CD 0.38s），擊退前方敵人。'
+      desc: 'Phase I 以高速近戰游擊斬出前方 220px 弧形火氣（CD 0.38s），擊退前方敵人。'
     },
     ult: {
       name: '主廚旋風鍋・料理風暴',

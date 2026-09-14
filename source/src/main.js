@@ -79,7 +79,7 @@ class Game {
     this.chibiImages = {};
     ['yu', 'shakira', 'sandra'].forEach(id => {
       const img = new Image();
-      img.src = `assets/chibi_${id}_clean.png`;
+      img.src = id === 'sandra' ? 'assets/chibi_sandra_v9_7_5.png' : `assets/chibi_${id}_clean.png`;
       this.chibiImages[id] = img;
     });
 
@@ -249,6 +249,7 @@ class Game {
 
     this.canvas.style.width = `${Math.floor(targetW)}px`;
     this.canvas.style.height = `${Math.floor(targetH)}px`;
+    hud.updateLayout();
   }
 
   handlePointerDown(mx, my, e) {

@@ -48,8 +48,10 @@ export class HUD {
     this.btnSkill = { x: 775, y: 430, w: 64, h: 64, isPressed: false };
     this.btnUlt = { x: 865, y: 345, w: 68, h: 68, isPressed: false };
     this.btnDash = { x: 775, y: 345, w: 64, h: 64, isPressed: false };
-    this.btnPause = { x: 20, y: 18, w: 44, h: 32, isPressed: false };
+    this.btnPause = { x: 812, y: 18, w: 62, h: 32, isPressed: false };
     this.btnBible = { x: 890, y: 20, w: 50, h: 32, isPressed: false };
+
+    this.compactLayout = null;
 
     // End screen 3 buttons (Victory & Game Over)
     this.endButtons = {
@@ -57,6 +59,34 @@ export class HUD {
       reselect: { x: 0, y: 0, w: 145, h: 44, label: '重新選角 (C)' },
       home: { x: 0, y: 0, w: 145, h: 44, label: '回主畫面 (M)' }
     };
+    this.updateLayout();
+  }
+
+  updateLayout() {
+    const compact = typeof window !== 'undefined' && window.innerWidth <= 900;
+    if (compact === this.compactLayout) return;
+    this.compactLayout = compact;
+    if (compact) {
+      Object.assign(this.joystick, { baseX: 104, baseY: 330, radius: 52, knobX: 104, knobY: 330, knobRadius: 25 });
+      Object.assign(this.btnLeft, { x: 20, y: 410, w: 80, h: 80 });
+      Object.assign(this.btnRight, { x: 112, y: 410, w: 80, h: 80 });
+      Object.assign(this.btnJump, { x: 858, y: 410, w: 80, h: 80 });
+      Object.assign(this.btnSkill, { x: 758, y: 416, w: 76, h: 76 });
+      Object.assign(this.btnDash, { x: 758, y: 322, w: 76, h: 76 });
+      Object.assign(this.btnUlt, { x: 856, y: 322, w: 80, h: 80 });
+      Object.assign(this.btnPause, { x: 792, y: 18, w: 80, h: 34 });
+      Object.assign(this.btnBible, { x: 882, y: 18, w: 58, h: 34 });
+    } else {
+      Object.assign(this.joystick, { baseX: 104, baseY: 340, radius: 46, knobX: 104, knobY: 340, knobRadius: 22 });
+      Object.assign(this.btnLeft, { x: 30, y: 425, w: 68, h: 68 });
+      Object.assign(this.btnRight, { x: 110, y: 425, w: 68, h: 68 });
+      Object.assign(this.btnJump, { x: 865, y: 430, w: 68, h: 68 });
+      Object.assign(this.btnSkill, { x: 775, y: 430, w: 64, h: 64 });
+      Object.assign(this.btnDash, { x: 775, y: 345, w: 64, h: 64 });
+      Object.assign(this.btnUlt, { x: 865, y: 345, w: 68, h: 68 });
+      Object.assign(this.btnPause, { x: 812, y: 18, w: 62, h: 32 });
+      Object.assign(this.btnBible, { x: 890, y: 20, w: 50, h: 32 });
+    }
   }
 
   updateJoystick(touchX, touchY, active) {
@@ -210,6 +240,7 @@ export class HUD {
   }
 
   render(ctx, player, boss, level, camera) {
+    this.updateLayout();
     const vw = camera.viewportWidth;
     const vh = camera.viewportHeight;
 

@@ -3,11 +3,11 @@ import os, math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 
-base_dir = r'c:\Users\Asher\Documents\game\08workbattle-v8_0-COMMUTER-HERO'
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 assets_dir = os.path.join(base_dir, 'assets')
 source_assets_dir = os.path.join(base_dir, 'source', 'assets')
 source_art_dir = os.path.join(os.path.dirname(base_dir), '美術設計')
-qa_dir = os.path.join(base_dir, 'PI_QA_v9_8_1_round2')
+qa_dir = os.path.join(base_dir, 'PI_QA_v9_8_1_round3')
 os.makedirs(assets_dir, exist_ok=True)
 os.makedirs(source_assets_dir, exist_ok=True)
 os.makedirs(qa_dir, exist_ok=True)
@@ -48,6 +48,7 @@ CHARACTER_Q_FILES = {
     'sandra': 'character_Q03.png',
 }
 SOURCE_FACING = {'yu': 'right', 'shakira': 'right_or_front', 'sandra': 'right'}
+YU_RUN_KEYFRAME_FILES = tuple(f"yu_run_{frame:02d}.png" for frame in range(8, 14))
 YU_RUN_CONTACT_OFFSETS = (
     {'name': 'RIGHT_FOOT_CONTACT', 'tilt': 10, 'bob': 0, 'left_leg': (-13, -2), 'right_leg': (13, 0)},
     {'name': 'RIGHT_FOOT_LOAD', 'tilt': 9, 'bob': 3, 'left_leg': (-8, -1), 'right_leg': (8, 4)},
@@ -75,7 +76,7 @@ def _bilinear_remap(image, source_x, source_y):
 
 
 def apply_yu_run_pose(image, sub_idx):
-    """Apply Yu's authored six-beat gait without shared sine deformation."""
+    """Legacy Round 2 diagnostic; production Yu run no longer calls this."""
     width, height = image.size
     yy, xx = np.indices((height, width), dtype=np.float32)
     source_x = xx.copy()
@@ -93,6 +94,17 @@ def apply_yu_run_pose(image, sub_idx):
     trail = np.exp(-(((xx - width * 0.24) / (width * 0.22)) ** 2 + ((yy - height * 0.38) / (height * 0.28)) ** 2) * 1.8)
     source_x += 3.0 * trail
     return _bilinear_remap(image, source_x, source_y)
+
+
+def load_yu_run_keyframe(sub_idx, target_height):
+    """Load one independently authored, right-facing Yu run pose."""
+    path = os.path.join(assets_dir, "yu_run_keyframes", YU_RUN_KEYFRAME_FILES[sub_idx])
+    keyframe = Image.open(path).convert("RGBA")
+    bbox = keyframe.getbbox()
+    if bbox:
+        keyframe = keyframe.crop(bbox)
+    width = max(1, round(keyframe.width * target_height / keyframe.height))
+    return keyframe.resize((width, target_height), Image.Resampling.LANCZOS)
 
 def apply_joint_motion(image, char_key, anim_name, sub_idx):
     """Apply subtle local hand/foot motion without distorting the hero's face."""
@@ -278,8 +290,8 @@ def build_character_sheet(char_key, base_img_path, colors):
             scale_ys    = [1.02, 1.05, 1.0, 0.96, 1.01, 0.95]
             scale_xs    = [0.98, 0.95, 1.0, 1.04, 0.99, 1.05]
             if char_key == 'yu':
-                bob_offsets = [pose['bob'] for pose in YU_RUN_CONTACT_OFFSETS]
-                lean_angles = [pose['tilt'] for pose in YU_RUN_CONTACT_OFFSETS]
+                bob_offsets = [0] * 6
+                lean_angles = [0] * 6
                 scale_ys = [1.0] * 6
                 scale_xs = [1.0] * 6
             
@@ -500,7 +512,7 @@ def build_character_sheet(char_key, base_img_path, colors):
         if draw_shadow:
             d.ellipse([cx - shadow_w, FEET_Y - 4, cx + shadow_w, FEET_Y + 4], fill=(0, 0, 0, 48))
             
-        articulated = apply_yu_run_pose(base, sub_idx) if char_key == 'yu' and anim_name == 'run' else apply_joint_motion(base, char_key, anim_name, sub_idx)
+        articulated = load_yu_run_keyframe(sub_idx, target_h) if char_key == "yu" and anim_name == "run" else apply_joint_motion(base, char_key, anim_name, sub_idx)
         char_transformed = transform_character(articulated, angle=body_angle, scale_x=scale_x, scale_y=scale_y, flash_color=flash_color)
         tw, th = char_transformed.size
         target_bottom = FEET_Y + bob_y if anim_name.startswith('jump') else FEET_Y
@@ -567,13 +579,13 @@ def export_yu_run_qa_assets():
         col = frame_idx % 8
         row = frame_idx // 8
         frame = sheet.crop((col * OUTPUT_FRAME_SIZE, row * OUTPUT_FRAME_SIZE, (col + 1) * OUTPUT_FRAME_SIZE, (row + 1) * OUTPUT_FRAME_SIZE))
-        frame.save(os.path.join(qa_dir, f'yu_run_frame{frame_idx:02d}.png'), optimize=True)
+        frame.save(os.path.join(qa_dir, f'yu_run_{frame_idx:02d}.png'), optimize=True)
         run_frames.append(frame)
     run_frames[0].save(os.path.join(qa_dir, 'yu_static_right.png'), optimize=True)
     strip = Image.new('RGBA', (OUTPUT_FRAME_SIZE * 6, OUTPUT_FRAME_SIZE), (18, 24, 34, 255))
     for index, frame in enumerate(run_frames):
         strip.alpha_composite(frame, (index * OUTPUT_FRAME_SIZE, 0))
-    strip.save(os.path.join(qa_dir, 'yu_run_right_strip.png'), optimize=True)
+    strip.save(os.path.join(qa_dir, 'yu_run_strip.png'), optimize=True)
 
     def make_loop(facing_right):
         frames = []

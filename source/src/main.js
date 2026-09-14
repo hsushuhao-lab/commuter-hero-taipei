@@ -30,6 +30,7 @@ class Game {
 
     this.state = 'OPENING'; // OPENING, MENU, INTRO, SELECT, PLAYING, PAUSE, VICTORY_RUN, VICTORY, GAMEOVER
     this.selectedCharId = 'yu';
+    this.instructionsOpen = false;
 
     this.camera = new Camera(this.vw, this.vh);
     this.pm = new PlatformManager();
@@ -95,11 +96,20 @@ class Game {
 
     // Global keyboard handling for state shortcuts & navigation
     window.addEventListener('keydown', (e) => {
+      // Shared instructions modal shortcut
+      if (this.instructionsOpen) {
+        if (e.code === 'Escape' || e.code === 'KeyH' || e.code === 'KeyI') this.instructionsOpen = false;
+        return;
+      }
       // Opening / Intro skip
       if (this.state === 'OPENING' || this.state === 'INTRO') {
         if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') {
           introCinematic.skip();
         }
+      }
+      // Main menu help
+      else if (this.state === 'MENU') {
+        if (e.code === 'KeyH' || e.code === 'KeyI') this.instructionsOpen = true;
       }
       // Character Select back to Menu
       else if (this.state === 'SELECT') {
@@ -129,6 +139,8 @@ class Game {
         } else if (e.code === 'KeyM') {
           this.state = 'MENU';
           audio.playCoin();
+        } else if (e.code === 'KeyH' || e.code === 'KeyI') {
+          this.instructionsOpen = true;
         }
       }
       // Victory or GameOver shortcuts: R/Retry, C/Reselect, M/Home
@@ -273,6 +285,13 @@ class Game {
       return;
     }
 
+    if (this.instructionsOpen) {
+      if (mx >= this.vw / 2 - 85 && mx <= this.vw / 2 + 85 && my >= this.vh - 70 && my <= this.vh - 28) {
+        this.instructionsOpen = false;
+      }
+      return;
+    }
+
     // Top Right TAB button in HUD
     if (mx >= hud.btnBible.x && mx <= hud.btnBible.x + hud.btnBible.w &&
         my >= hud.btnBible.y && my <= hud.btnBible.y + hud.btnBible.h) {
@@ -305,8 +324,12 @@ class Game {
         });
         audio.playCoin();
       }
-      // 3. Style Bible Button
-      else if (mx >= 380 && mx <= 580 && my >= 462 && my <= 505) {
+      // 3. Game Instructions
+      else if (mx >= 350 && mx <= 470 && my >= 462 && my <= 505) {
+        this.instructionsOpen = true;
+      }
+      // 4. Style Bible Button
+      else if (mx >= 490 && mx <= 610 && my >= 462 && my <= 505) {
         styleBibleUI.toggle();
       }
       return;
@@ -348,16 +371,20 @@ class Game {
       const cy = this.vh / 2;
       const btnW = 260;
       // 1. Resume
-      if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy - 20 && my <= cy + 24) {
+      if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy - 55 && my <= cy - 15) {
         this.state = 'PLAYING';
         audio.playCoin();
       }
-      // 2. Restart
-      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy + 36 && my <= cy + 80) {
+      // 2. Game Instructions
+      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy - 5 && my <= cy + 35) {
+        this.instructionsOpen = true;
+      }
+      // 3. Restart
+      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy + 45 && my <= cy + 85) {
         this.startGame();
       }
-      // 3. Back to Title
-      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy + 92 && my <= cy + 136) {
+      // 4. Back to Title
+      else if (mx >= cx - btnW / 2 && mx <= cx + btnW / 2 && my >= cy + 95 && my <= cy + 135) {
         this.state = 'MENU';
         audio.playCoin();
       }
@@ -1434,6 +1461,8 @@ class Game {
       }
     }
 
+    if (this.instructionsOpen) this.renderInstructionsOverlay();
+
     // 5. Style Bible Modal Overlay
     styleBibleUI.render(this.ctx, this.vw, this.vh);
   }
@@ -1532,14 +1561,61 @@ class Game {
     ctx.font = 'bold 16px sans-serif';
     ctx.fillText('🎬 開篇序幕 (人物與怪獸介紹)', this.vw / 2, 426);
 
-    // 3. Style Bible Button
+    // 3. Quick help and style bible buttons
     ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(380, 462, 200, 42);
+    ctx.fillRect(350, 462, 120, 42);
+    ctx.fillRect(490, 462, 120, 42);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.strokeRect(380, 462, 200, 42);
+    ctx.strokeRect(350, 462, 120, 42);
+    ctx.strokeRect(490, 462, 120, 42);
     ctx.fillStyle = '#FFF';
     ctx.font = '14px sans-serif';
-    ctx.fillText('企劃與設定集 [TAB]', this.vw / 2, 483);
+    ctx.fillText('遊戲說明 [H]', 410, 483);
+    ctx.fillText('設定集 [TAB]', 550, 483);
+
+    // Mission and control guide is visible from the first menu screen.
+    ctx.fillStyle = 'rgba(8, 15, 32, 0.82)';
+    ctx.strokeStyle = 'rgba(129, 212, 250, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(24, 285, 270, 214);
+    ctx.strokeRect(24, 285, 270, 214);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#FFE082';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('快速操作', 42, 311);
+    ctx.fillStyle = '#ECEFF1';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('A/D 或 ←/→：移動    Space：跳躍', 42, 335);
+    ctx.fillText('Shift：衝刺    S：小招    F：大招', 42, 356);
+    ctx.fillText('⏸ 暫停：可繼續、說明、重開、回主選單', 42, 377);
+    ctx.fillText('H：隨時開啟遊戲說明', 42, 398);
+    ctx.fillStyle = '#FFE082';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('本局目標', 42, 432);
+    ctx.fillStyle = '#ECEFF1';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('收集金幣解鎖能力，穿越五段路線', 42, 454);
+    ctx.fillText('擊敗夢影巨花王，趕在 08:00 前打卡', 42, 475);
+    ctx.fillText('15 幣大招｜30 幣共振｜60 幣狂暴', 42, 494);
+
+    ctx.fillStyle = 'rgba(8, 15, 32, 0.82)';
+    ctx.strokeStyle = 'rgba(255, 213, 79, 0.55)';
+    ctx.fillRect(666, 285, 270, 214);
+    ctx.strokeRect(666, 285, 270, 214);
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('階段任務', 684, 311);
+    ctx.fillStyle = '#ECEFF1';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('1  晨霧街區：熟悉移動與跳躍', 684, 338);
+    ctx.fillText('2  捷運高架：避開平台與怪獸', 684, 362);
+    ctx.fillText('3  象山雨林：收集咖啡與金幣', 684, 386);
+    ctx.fillText('4  松德決戰：應對雙階 Boss', 684, 410);
+    ctx.fillText('5  打卡終點：三人結伴完成任務', 684, 434);
+    ctx.fillStyle = '#80D8FF';
+    ctx.fillText('功能：TAB 設定集｜H 遊戲說明', 684, 470);
+    ctx.fillText('目標：Boss 倒下後抵達終點打卡', 684, 491);
+    ctx.textAlign = 'center';
 
     ctx.restore();
   }
@@ -1695,6 +1771,50 @@ class Game {
     ctx.restore();
   }
 
+  renderInstructionsOverlay() {
+    const ctx = this.ctx;
+    const cx = this.vw / 2;
+    ctx.save();
+    ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
+    ctx.fillRect(0, 0, this.vw, this.vh);
+    ctx.fillStyle = 'rgba(14, 25, 52, 0.98)';
+    ctx.strokeStyle = '#00E5FF';
+    ctx.lineWidth = 2;
+    ctx.fillRect(115, 45, this.vw - 230, this.vh - 90);
+    ctx.strokeRect(115, 45, this.vw - 230, this.vh - 90);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FFE082';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillText('遊戲說明', cx, 88);
+    ctx.fillStyle = '#80D8FF';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('操作與任務', cx - 205, 126);
+    ctx.fillStyle = '#ECEFF1';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('A/D、方向鍵移動　Space/W 跳躍　Shift/L 衝刺', cx - 205, 153);
+    ctx.fillText('S/J 小招　F/K 大招　ESC/P 暫停　H/I 說明', cx - 205, 178);
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillText('階段任務', cx + 205, 126);
+    ctx.fillStyle = '#ECEFF1';
+    ctx.font = '13px sans-serif';
+    ctx.fillText('晨霧街區 → 捷運高架 → 象山雨林', cx + 205, 153);
+    ctx.fillText('松德決戰：擊敗雙階夢影巨花王', cx + 205, 178);
+    ctx.fillText('Boss 倒下後抵達終點完成三人打卡', cx + 205, 203);
+    ctx.fillStyle = '#B0BEC5';
+    ctx.fillText('15 幣解鎖大招　30 幣進入共振 II　60 幣觸發狂暴', cx, 242);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('遊戲中可按暫停 → 遊戲說明；按 ESC 關閉', cx, 282);
+    ctx.fillStyle = '#455A64';
+    ctx.fillRect(cx - 85, this.vh - 70, 170, 42);
+    ctx.strokeStyle = '#90A4AE';
+    ctx.strokeRect(cx - 85, this.vh - 70, 170, 42);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText('關閉說明 (ESC)', cx, this.vh - 44);
+    ctx.restore();
+  }
+
   renderPauseMenu() {
     const ctx = this.ctx;
     ctx.save();
@@ -1704,7 +1824,7 @@ class Game {
     const cx = this.vw / 2;
     const cy = this.vh / 2;
     const modalW = 420;
-    const modalH = 290;
+    const modalH = 360;
 
     // Modal base
     ctx.fillStyle = 'rgba(20, 28, 48, 0.96)';
@@ -1727,37 +1847,45 @@ class Game {
 
     ctx.fillStyle = '#B0BEC5';
     ctx.font = '13px sans-serif';
-    ctx.fillText('08:00 上班倒數暫時凍結，喘口氣繼續前行！', cx, cy - 52);
+    ctx.fillText('08:00 上班倒數暫時凍結，選擇下一步行動。', cx, cy - 55);
 
-    // 3 Buttons
+    // 4 Buttons
     const btnW = 260;
-    const btnH = 44;
+    const btnH = 40;
     
     // 1. Resume
     ctx.fillStyle = '#0288D1';
-    ctx.fillRect(cx - btnW / 2, cy - 20, btnW, btnH);
+    ctx.fillRect(cx - btnW / 2, cy - 55, btnW, btnH);
     ctx.strokeStyle = '#81D4FA';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(cx - btnW / 2, cy - 20, btnW, btnH);
+    ctx.strokeRect(cx - btnW / 2, cy - 55, btnW, btnH);
     ctx.fillStyle = '#FFF';
     ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('繼續遊戲 (ESC / Resume)', cx, cy + 7);
+    ctx.fillText('繼續遊戲 (ESC / Resume)', cx, cy - 30);
 
-    // 2. Restart
+    // 2. Game Instructions
+    ctx.fillStyle = '#6A1B9A';
+    ctx.fillRect(cx - btnW / 2, cy - 5, btnW, btnH);
+    ctx.strokeStyle = '#CE93D8';
+    ctx.strokeRect(cx - btnW / 2, cy - 5, btnW, btnH);
+    ctx.fillStyle = '#FFF';
+    ctx.fillText('遊戲說明 (H / I)', cx, cy + 20);
+
+    // 3. Restart
     ctx.fillStyle = '#D84315';
-    ctx.fillRect(cx - btnW / 2, cy + 36, btnW, btnH);
+    ctx.fillRect(cx - btnW / 2, cy + 45, btnW, btnH);
     ctx.strokeStyle = '#FF8A65';
-    ctx.strokeRect(cx - btnW / 2, cy + 36, btnW, btnH);
+    ctx.strokeRect(cx - btnW / 2, cy + 45, btnW, btnH);
     ctx.fillStyle = '#FFF';
-    ctx.fillText('重新開始 (R / Restart)', cx, cy + 63);
+    ctx.fillText('重新開始 (R / Restart)', cx, cy + 70);
 
-    // 3. Back to Title
+    // 4. Back to Title
     ctx.fillStyle = '#37474F';
-    ctx.fillRect(cx - btnW / 2, cy + 92, btnW, btnH);
+    ctx.fillRect(cx - btnW / 2, cy + 95, btnW, btnH);
     ctx.strokeStyle = '#90A4AE';
-    ctx.strokeRect(cx - btnW / 2, cy + 92, btnW, btnH);
+    ctx.strokeRect(cx - btnW / 2, cy + 95, btnW, btnH);
     ctx.fillStyle = '#FFF';
-    ctx.fillText('回主選單 (M / Title)', cx, cy + 119);
+    ctx.fillText('回主選單 (M / Title)', cx, cy + 120);
 
     ctx.restore();
   }

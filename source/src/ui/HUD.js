@@ -774,10 +774,16 @@ export class HUD {
     const chibImg = chibiImages && chibiImages[player.id];
     if (chibImg && chibImg.complete && chibImg.naturalWidth > 0) {
       ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(cx - 264, cy - 191, 122, 155);
+      ctx.strokeStyle = player.charConfig ? player.charConfig.colors.accent : '#FFD700';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx - 264, cy - 191, 122, 155);
       ctx.drawImage(chibImg, cx - 258, cy - 185, 110, 143);
-      ctx.globalAlpha = 0.3;
-      ctx.fillStyle = player.charConfig ? player.charConfig.colors.theme : '#FFD700';
-      ctx.fillRect(cx - 258, cy - 185, 110, 143);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('通關英雄', cx - 203, cy - 198);
       ctx.restore();
     }
 

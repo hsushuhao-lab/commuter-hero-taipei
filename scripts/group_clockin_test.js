@@ -39,10 +39,12 @@ console.log('====================================================\n');
 
 const game = new Game();
 game.startGame(); // Player is 'yu' by default
+ game.levelIntroTimer = 0;
 
 // Teleport to arena and trigger boss defeat
 game.player.x = 15500;
 game.boss.entranceDone = true;
+  game.bossEntranceDone = true;
 game.boss.phase = 2;
 game.boss.hp = 0;
 game.boss.isDead = true;

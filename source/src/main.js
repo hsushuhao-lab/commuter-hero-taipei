@@ -1321,7 +1321,7 @@ class Game {
           m.takeDamage(proj.damage, proj.id);
           if (this.player.id === 'sandra' && proj.isMeleeArc) {
             this.player.meleeDashCancelTimer = 0.22;
-            this.player.hitConfirmArmorTimer = 0.16;
+            this.player.hitConfirmArmorTimer = 0.30;
           }
           if (proj.knockback) {
             const kbDist = typeof proj.knockback === 'number' ? Math.min(260, proj.knockback) : 85;
@@ -1348,10 +1348,12 @@ class Game {
         const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width;
         const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
+          if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop') && proj.hitTargets.has('boss')) continue;
+          if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop') proj.hitTargets.add('boss');
           this.boss.takeDamage(proj.damage, proj.id);
           if (this.player.id === 'sandra' && proj.isMeleeArc) {
             this.player.meleeDashCancelTimer = 0.22;
-            this.player.hitConfirmArmorTimer = 0.16;
+            this.player.hitConfirmArmorTimer = 0.30;
           }
           if (!proj.penetrating) proj.life = 0;
         }
@@ -1361,7 +1363,15 @@ class Game {
     // 2. Enemy Projectiles vs Player
     for (let proj of projectiles.projectiles) {
       if (proj.isPlayer) continue;
+      if (proj.armedAfter > 0) continue;
       if (Math.hypot(proj.x - p.x, proj.y - (p.y - 35)) < proj.width + 22) {
+        if (proj.sourceMonster === 'boss_flower') {
+          this._bossHazardHitUntil = this._bossHazardHitUntil || {};
+          const hazardKey = proj.attackType || proj.type;
+          const now = performance.now();
+          if ((this._bossHazardHitUntil[hazardKey] || 0) > now) continue;
+          this._bossHazardHitUntil[hazardKey] = now + 1200;
+        }
         p.takeDamage(proj.damage, {
           kind: 'projectile',
           sourceMonster: proj.sourceMonster || '',

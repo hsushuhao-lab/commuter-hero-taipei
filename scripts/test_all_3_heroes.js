@@ -53,7 +53,7 @@ const CG = window.CommuterGame;
 const { Game, input, hud, projectiles, particles } = CG;
 
 console.log('================================================================');
-console.log('=== COMMUTER HERO v9.7.2 - 3-HERO FULL END-TO-END VERIFICATION ===');
+console.log('=== COMMUTER HERO v9.8.1 - 3-HERO FULL END-TO-END VERIFICATION ===');
 console.log('================================================================\n');
 
 const heroes = ['yu', 'shakira', 'sandra'];
@@ -331,6 +331,7 @@ for (const hero of heroes) {
   assert.strictEqual(result.watchdogTriggerCount, 0, `${hero} must not use watchdog recovery`);
   // Sandra's approved v9.7.8 small/ultimate buffs can produce a 20s clear;
   // retain the upper pacing bound while accepting that intentional lower bound.
-  assert(result.bossDuration >= 20 && result.bossDuration <= 45, `${hero} Boss duration must be 20-45s, got ${result.bossDuration.toFixed(1)}s`);
+  assert(result.bossDuration >= 25 && result.bossDuration <= 45, `${hero} Boss duration must be 25-45s, got ${result.bossDuration.toFixed(1)}s`);
 }
 console.log('PASS: all three heroes completed the real route and Boss pacing gate.');
+process.exit(0);

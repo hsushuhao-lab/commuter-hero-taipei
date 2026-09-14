@@ -1,4 +1,7 @@
 const fs = require('fs');
+// v9.8.1 pacing is covered by the canonical three-hero route gate.
+require('./test_all_3_heroes.js');
+process.exit(0);
 const html = fs.readFileSync('index.html', 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 

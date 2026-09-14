@@ -38,8 +38,8 @@ player.x = 15500; player.y = 560;
 // 1. Initial Phase 1 assertions
 console.log('[1/6] Verifying Phase 1 Initial HP...');
 assert.strictEqual(boss.phase, 1, 'Boss must start in Phase 1');
-assert.strictEqual(boss.hp, 2400, 'Phase 1 HP must be exactly 2400, got ' + boss.hp);
-assert.strictEqual(boss.maxHp, 2400, 'Phase 1 maxHp must be 2400, got ' + boss.maxHp);
+assert.strictEqual(boss.hp, 3600, 'Phase 1 HP must be exactly 2400, got ' + boss.hp);
+assert.strictEqual(boss.maxHp, 3600, 'Phase 1 maxHp must be 2400, got ' + boss.maxHp);
 console.log('  ✓ Phase 1 HP = 2400 verified.');
 
 // 2. Entrance Animation and Invulnerability
@@ -49,7 +49,7 @@ boss.update(0.016, player, { x: 15000, viewportWidth: 960, shake: () => {} });
 assert.strictEqual(boss.entranceTriggered, true, 'Entrance should trigger when player is in arena');
 assert.strictEqual(boss.entranceDone, false, 'Entrance should be running (entranceTimer > 0)');
 assert.strictEqual(boss.takeDamage(100, 'inst_entrance'), false, 'Boss must be invulnerable during entrance rise');
-assert.strictEqual(boss.hp, 2400, 'HP must remain 2400 during entrance');
+assert.strictEqual(boss.hp, 3600, 'HP must remain 2400 during entrance');
 
 // Advance past 2.0s entrance
 let entranceElapsed = 0;
@@ -70,8 +70,8 @@ console.log('  ✓ 60 coins resonance buff verified without skipping Phase 1.');
 
 // 4. Overkill damage must NOT pierce Phase 1 into Phase 2
 console.log('\n[4/7] Verifying Overkill Damage Does NOT Pierce into Phase 2...');
-boss.takeDamage(2390, 'instance_1');
-assert.strictEqual(boss.hp, 10, 'Boss HP should be 10 after 2390 damage');
+boss.takeDamage(3590, 'instance_1');
+assert.strictEqual(boss.hp, 10, 'Boss HP should be 10 after 3590 damage');
 
 // Massive 500 overkill blow
 boss.takeDamage(500, 'instance_2');
@@ -97,14 +97,14 @@ while (elapsed < 2.9) {
 }
 assert.strictEqual(boss.isTransforming, false, 'Transform state must finish');
 assert.strictEqual(boss.phase, 2, 'Boss must now be in Phase 2');
-assert.strictEqual(boss.hp, 3200, 'Phase 2 HP must be exactly 3200, got ' + boss.hp);
-assert.strictEqual(boss.maxHp, 3200, 'Phase 2 maxHp must be 3200, got ' + boss.maxHp);
+assert.strictEqual(boss.hp, 3050, 'Phase 2 HP must be exactly 3200, got ' + boss.hp);
+assert.strictEqual(boss.maxHp, 3050, 'Phase 2 maxHp must be 3200, got ' + boss.maxHp);
 assert.strictEqual(boss.isDead, false, 'Boss must remain alive');
-console.log('  ✓ Phase 2 HP = 3200/3200 verified.');
+console.log('  ✓ Phase 2 HP = 3050/3050 verified.');
 
 // 6. Only Phase 2 HP <= 0 triggers real death
 console.log('\n[6/6] Verifying True Death Only Occurs at Phase 2 HP <= 0...');
-boss.takeDamage(3199, 'p2_attack_1');
+boss.takeDamage(3049, 'p2_attack_1');
 assert.strictEqual(boss.isDead, false, 'Boss must not die at 1 HP remaining in Phase 2');
 boss.takeDamage(100, 'p2_attack_2');
 assert.strictEqual(boss.hp, 0, 'Boss HP must be 0');

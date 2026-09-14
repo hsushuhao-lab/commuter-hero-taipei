@@ -409,7 +409,7 @@ export class Player {
         height: 64,
         damage: this.phaseDamage(70),
         knockback: 380,
-        life: 0.16,
+        life: 1.1,
         penetrating: true,
         isMeleeArc: true
       });
@@ -563,7 +563,7 @@ export class Player {
       maxDistance: cfg.phase2MaxDistance || 700,
       width: 34,
       height: 28,
-      damage: 45 * (cfg.phase2UltDamageMultiplier || 2.0),
+      damage: cfg.phase2ProjectileDamage || 60,
       life: 1.2,
       penetrating: true,
       rotates: true,

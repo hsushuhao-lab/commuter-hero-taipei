@@ -157,7 +157,7 @@ export const CHARACTERS = {
       coreRadius: 350,      // 核心吸附半徑 350px
       gustRange: 420,       // 14 道鍋氣射程 420px
       phase2Name: '主廚旋風鍋・狂焰飛鍋陣',
-      phase2UltDamageMultiplier: 2.0, // 45 base x 2 = 90 per pan
+      phase2ProjectileDamage: 60,
       phase2ProjectileType: 'flying_pan',
       phase2ProjectileCount: 14,
       phase2ProjectileSpeed: 700,

@@ -266,11 +266,11 @@ export const BOSS_CONFIG = {
   phase1: {
     name: '夢影巨花王・夢境安撫態',
     bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就……一下下……」',
-    attackCooldown: 1.40,   // 9-way spiral petals
-    petalDamage: 12,        // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
-    petalCount: 9,          // 9-way interlaced spiral
-    petalSpeed: 330,        // px/s
-    vineDamage: 18,         // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
+    attackCooldown: 1.15,   // 9-way spiral petals
+    petalDamage: 14,        // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
+    petalCount: 11,          // 9-way interlaced spiral
+    petalSpeed: 345,        // px/s
+    vineDamage: 20,         // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
     groundSpikeCount: 3,    // 3~4 consecutive ground spikes
     sporeDamage: 14,        // sleep spore damage (11 * 1.27 = 14)
     sporeSlowDuration: 1.5, // seconds of slow on hit
@@ -281,16 +281,16 @@ export const BOSS_CONFIG = {
   phase2: {
     name: '夢影巨花王・狂暴盛開態',
     bannerText: 'PHASE 2：狂暴盛開！「現在……沒有人能逃離我的夢境！！」',
-    attackCooldown: 0.70,   // v9.7.1: faster attack cadence
-    petalDamage: 30,        // v9.7.1: 20 * 1.5 = 30
-    petalCount: 16,         // 360° 16-way crimson petal storm
-    petalSpeed: 385,        // px/s
-    targetedDamage: 40,
-    vineDamage: 38,
+    attackCooldown: 0.58,   // v9.7.1: faster attack cadence
+    petalDamage: 32,        // v9.7.1: 20 * 1.5 = 30
+    petalCount: 18,         // 360° 16-way crimson petal storm
+    petalSpeed: 405,        // px/s
+    targetedDamage: 32,
+    vineDamage: 42,
     summonCooldown: 4.5,
     bulletSpeed: 385,
-    chomperDamage: 36,      // Venus Flytrap chomp
-    scytheDamage: 36,       // 追擊藤蔓尖刺
+    chomperDamage: 34,      // Venus Flytrap chomp
+    scytheDamage: 34,       // 追擊藤蔓尖刺
     thornsDamage: 30,       // 旋刺龍卷
     miasmaDamage: 20,       // 夢幻花粉毒霧
     colorTheme: '#880E4F'

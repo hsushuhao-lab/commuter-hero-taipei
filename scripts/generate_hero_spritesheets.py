@@ -39,11 +39,13 @@ LIMB_CONTROL_POINTS = {
     'sandra': {'left_arm': (0.27, 0.47), 'right_arm': (0.73, 0.53), 'left_leg': (0.30, 0.84), 'right_leg': (0.57, 0.84)},
 }
 
+
 CHARACTER_Q_FILES = {
     'yu': 'character_Q01.png',
     'shakira': 'character_Q02.png',
     'sandra': 'character_Q03.png',
 }
+SOURCE_FACING = {'yu': 'right', 'shakira': 'right_or_front', 'sandra': 'right'}
 
 
 def _bilinear_remap(image, source_x, source_y):
@@ -154,7 +156,8 @@ def build_character_sheet(char_key, base_img_path, colors):
     base = Image.open(base_img_path).convert('RGBA')
     
     # Flip base image horizontally so that the character faces RIGHT (forward into the commute)!
-    base = base.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if SOURCE_FACING.get(char_key) == 'left':
+        base = base.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     
     bw, bh = base.size
     

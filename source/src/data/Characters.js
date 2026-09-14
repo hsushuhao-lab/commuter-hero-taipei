@@ -141,12 +141,12 @@ export const CHARACTERS = {
       name: '平底鍋揮舞・怒火鍋氣',
       key: 'S / J',
       cooldown: 0.38,
-      damage: 56,           // v9.7.2: melee DPS recovery; Phase II 再乘 1.25
-      range: 440,           // v9.7.6: doubled Sandra melee reach to 440px
-      meleeRange: 440,      // v9.7.6: 前方 440px
+      damage: 70,           // v9.7.7: +25% small-skill damage; Phase II 再乘 1.25
+      range: 550,           // v9.7.7: +25% reach to 550px
+      meleeRange: 550,      // v9.7.7: 前方 550px
       fanAngle: 110,        // 扇形 110 度
       knockback: 380,       // 擊退 380px
-      desc: 'Phase I 以高速近戰游擊斬出前方 440px 弧形火氣（CD 0.38s），擊退前方敵人。'
+      desc: 'Phase I 以高速近戰游擊斬出前方 550px 弧形火氣（CD 0.38s），擊退前方敵人。'
     },
     ult: {
       name: '主廚旋風鍋・料理風暴',

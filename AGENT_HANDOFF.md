@@ -1,9 +1,9 @@
-# Agent Handoff Prompt — v9.7.6 Boss Sprite & Mobile Joystick
+# Agent Handoff Prompt — v9.7.7 Sandra Skill & Clean Menu
 
 ## v9.7.4 current handoff
 
-- Current release: v9.7.6 Boss Sprite & Mobile Joystick; base main `8be8949`.
-- Boss assets: `source/assets/boss_flower_phase1_v9_7_4.png` and `source/assets/boss_flower_phase2_v9_7_6.png`.
+- Current release: v9.7.7 Sandra Skill & Clean Menu; base main `8be8949`.
+- Boss assets: `source/assets/boss_flower_phase1_v9_7_4.png` and `source/assets/boss_flower_phase2_v9_7_7.png`.
 - Boss runtime references independent P1/P2 paths and no longer uses multiply compositing.
 - P1/P2 已依原稿裁切、去白底並重建；下一位 Agent 應以目前發布 SHA 與 Pages 狀態為準。
 

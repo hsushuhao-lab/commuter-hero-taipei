@@ -1574,49 +1574,6 @@ class Game {
     ctx.fillText('遊戲說明 [H]', 410, 483);
     ctx.fillText('設定集 [TAB]', 550, 483);
 
-    // Mission and control guide is visible from the first menu screen.
-    ctx.fillStyle = 'rgba(8, 15, 32, 0.82)';
-    ctx.strokeStyle = 'rgba(129, 212, 250, 0.55)';
-    ctx.lineWidth = 1.5;
-    ctx.fillRect(24, 285, 270, 214);
-    ctx.strokeRect(24, 285, 270, 214);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText('快速操作', 42, 311);
-    ctx.fillStyle = '#ECEFF1';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('A/D 或 ←/→：移動    Space：跳躍', 42, 335);
-    ctx.fillText('Shift：衝刺    S：小招    F：大招', 42, 356);
-    ctx.fillText('⏸ 暫停：可繼續、說明、重開、回主選單', 42, 377);
-    ctx.fillText('H：隨時開啟遊戲說明', 42, 398);
-    ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText('本局目標', 42, 432);
-    ctx.fillStyle = '#ECEFF1';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('收集金幣解鎖能力，穿越五段路線', 42, 454);
-    ctx.fillText('擊敗夢影巨花王，趕在 08:00 前打卡', 42, 475);
-    ctx.fillText('15 幣大招｜30 幣共振｜60 幣狂暴', 42, 494);
-
-    ctx.fillStyle = 'rgba(8, 15, 32, 0.82)';
-    ctx.strokeStyle = 'rgba(255, 213, 79, 0.55)';
-    ctx.fillRect(666, 285, 270, 214);
-    ctx.strokeRect(666, 285, 270, 214);
-    ctx.fillStyle = '#FFD54F';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText('階段任務', 684, 311);
-    ctx.fillStyle = '#ECEFF1';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('1  晨霧街區：熟悉移動與跳躍', 684, 338);
-    ctx.fillText('2  捷運高架：避開平台與怪獸', 684, 362);
-    ctx.fillText('3  象山雨林：收集咖啡與金幣', 684, 386);
-    ctx.fillText('4  松德決戰：應對雙階 Boss', 684, 410);
-    ctx.fillText('5  打卡終點：三人結伴完成任務', 684, 434);
-    ctx.fillStyle = '#80D8FF';
-    ctx.fillText('功能：TAB 設定集｜H 遊戲說明', 684, 470);
-    ctx.fillText('目標：Boss 倒下後抵達終點打卡', 684, 491);
-    ctx.textAlign = 'center';
 
     ctx.restore();
   }

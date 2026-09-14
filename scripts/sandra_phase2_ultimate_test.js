@@ -33,12 +33,17 @@ phase1.unleashUltimate();
 assert.strictEqual(projectiles.projectiles.length, 14, 'Phase 1 Sandra Ult must release 14 projectiles');
 assert(projectiles.projectiles.every(p => p.type === 'pan_wave' && p.damage === 45), 'Phase 1 Ult must deal 45 damage per pan wave');
 assert.strictEqual(projectiles.projectiles.reduce((sum, p) => sum + p.damage, 0), 630, 'Phase 1 nominal damage must be 630');
+projectiles.reset();
+phase1.triggerSkill();
+assert.strictEqual(projectiles.projectiles.length, 1, 'Sandra small skill must spawn one pan wave');
+assert.strictEqual(projectiles.projectiles[0].maxDistance, 550, 'Sandra runtime small-skill reach must be 550');
+assert.strictEqual(projectiles.projectiles[0].damage, 70, 'Sandra runtime small-skill base damage must be 70');
 
 const phase2 = new Player('sandra');
 phase2.addCoins(30);
 assert.strictEqual(phase2.resonancePhase, 2);
-assert.strictEqual(phase2.charConfig.skill.damage, 56, 'Sandra small skill damage must remain 56');
-assert.strictEqual(phase2.charConfig.skill.range, 440, 'Sandra small skill range must be doubled to 440');
+assert.strictEqual(phase2.charConfig.skill.damage, 70, 'Sandra small skill damage must be 70');
+assert.strictEqual(phase2.charConfig.skill.range, 550, 'Sandra small skill range must be 550');
 assert.strictEqual(phase2.charConfig.skill.cooldown, 0.38, 'Sandra small skill cooldown must remain 0.38');
 projectiles.reset();
 phase2.unleashUltimate();
@@ -58,4 +63,4 @@ assert.strictEqual(projectiles.projectiles.reduce((sum, p) => sum + p.damage, 0)
 const projectileSource = fs.readFileSync('source/src/entities/Projectiles.js', 'utf8');
 assert(projectileSource.includes("p.type === 'flying_pan'"), 'flying_pan renderer branch must exist');
 assert(projectileSource.includes('p.type === \'flying_pan\' && Math.random()'), 'flying_pan flame trail branch must exist');
-console.log('PASS: Sandra Phase I/II Ultimate damage, staggered flying pans, renderer branch, range, rotation, and v9.7.6 small-skill range validated.');
+console.log('PASS: Sandra Phase I/II Ultimate damage, staggered flying pans, renderer branch, range, rotation, and v9.7.7 small-skill reach and damage validated.');

@@ -107,7 +107,7 @@ export class Boss {
     this.imgPhase1 = new Image();
     this.imgPhase1.src = 'assets/boss_flower_phase1_v9_7_4.png';
     this.imgPhase2 = new Image();
-    this.imgPhase2.src = 'assets/boss_flower_phase2_v9_7_6.png';
+    this.imgPhase2.src = 'assets/boss_flower_phase2_v9_7_7.png';
 
     // Minions array passed from level
     this.minions = [];

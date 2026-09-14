@@ -371,7 +371,7 @@ export class Player {
     else {
       // ═════════════════════════════════════════════════════════════════════════
       // 珊卓澎：平底鍋揮舞・怒火鍋氣 (Hit-and-Run / Melee Arc)
-      // v9.7.6: 一段揮舞 440px 110° arc, 56 dmg, 380px knockback, CD 0.38s
+      // v9.7.7: 一段揮舞 550px 110° arc, 70 dmg, 380px knockback, CD 0.38s
       // 靠三人最快移速 (370) 游擊穿梭戰場
       // ═════════════════════════════════════════════════════════════════════════
       this.skillCooldown = this.charConfig.stats.skillCooldown || 0.38;
@@ -389,10 +389,10 @@ export class Player {
         y: spawnY,
         vx: this.facing * 500,
         vy: 0,
-        maxDistance: 440,
+        maxDistance: 550,
         width: 64,
         height: 64,
-        damage: this.phaseDamage(56),
+        damage: this.phaseDamage(70),
         knockback: 380,
         life: 0.16,
         penetrating: true,

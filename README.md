@@ -54,7 +54,7 @@
 - **透明素材與正常合成**：Boss runtime sprite 使用透明 PNG 與 `source-over`，移除白底與 `multiply` workaround。
 - **變身演出**：保留 2.8 秒 P1 → P2 crossfade，並維持 Boss 無敵與既有戰鬥數值。
 
-- **Sandra Phase II 狂焰飛鍋陣**：14 枚真正的旋轉平底鍋投射物，單枚 60 傷害、700px 射程、0.70 秒 stagger 發射，總名目傷害 840。
+- **Sandra Phase II 狂焰飛鍋陣**：14 枚真正的旋轉平底鍋投射物，單枚 40 傷害、700px 射程、0.90 秒 stagger 發射，總名目傷害 560。
 - **Boss 身體接觸修正**：P1 造成 18 傷害、P2 造成 28 傷害（60 幣共振時 30.8），附帶擊退與既有 iframe；登場、咆哮、變身、死亡演出期間不扣血。
 - **Boss 新形象**：由原始設計稿裁切為 P1／P2 獨立透明 runtime sprite；P1 保留閉眼安眠表情，P2 為睜眼狂暴盛開。
 - **完整路線驗證腳本**：保留 v9.7.2 的 Hero Resonance HP ×2、Threat Budget、180 秒倒數與三人打卡流程；v9.7.3 的新版本 trace 與通關穩定性仍以實測結果為準。

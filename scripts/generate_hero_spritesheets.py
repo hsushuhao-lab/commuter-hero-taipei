@@ -7,8 +7,10 @@ base_dir = r'c:\Users\Asher\Documents\game\08workbattle-v8_0-COMMUTER-HERO'
 assets_dir = os.path.join(base_dir, 'assets')
 source_assets_dir = os.path.join(base_dir, 'source', 'assets')
 source_art_dir = os.path.join(os.path.dirname(base_dir), '美術設計')
+qa_dir = os.path.join(base_dir, 'PI_QA_v9_8_1_round2')
 os.makedirs(assets_dir, exist_ok=True)
 os.makedirs(source_assets_dir, exist_ok=True)
+os.makedirs(qa_dir, exist_ok=True)
 
 FRAME_SIZE = 256
 FEET_Y = 232
@@ -46,6 +48,14 @@ CHARACTER_Q_FILES = {
     'sandra': 'character_Q03.png',
 }
 SOURCE_FACING = {'yu': 'right', 'shakira': 'right_or_front', 'sandra': 'right'}
+YU_RUN_CONTACT_OFFSETS = (
+    {'name': 'RIGHT_FOOT_CONTACT', 'tilt': 10, 'bob': 0, 'left_leg': (-13, -2), 'right_leg': (13, 0)},
+    {'name': 'RIGHT_FOOT_LOAD', 'tilt': 9, 'bob': 3, 'left_leg': (-8, -1), 'right_leg': (8, 4)},
+    {'name': 'PASSING_A', 'tilt': 8, 'bob': -3, 'left_leg': (2, -5), 'right_leg': (-4, -4)},
+    {'name': 'LEFT_FOOT_CONTACT', 'tilt': 10, 'bob': 0, 'left_leg': (13, 0), 'right_leg': (-13, -2)},
+    {'name': 'LEFT_FOOT_LOAD', 'tilt': 9, 'bob': 3, 'left_leg': (8, 4), 'right_leg': (-8, -1)},
+    {'name': 'PASSING_B', 'tilt': 8, 'bob': -3, 'left_leg': (-4, -4), 'right_leg': (2, -5)},
+)
 
 
 def _bilinear_remap(image, source_x, source_y):
@@ -63,6 +73,26 @@ def _bilinear_remap(image, source_x, source_y):
     bottom = pixels[y1, x0] * (1 - wx) + pixels[y1, x1] * wx
     return Image.fromarray(np.clip(top * (1 - wy) + bottom * wy, 0, 255).astype(np.uint8), 'RGBA')
 
+
+def apply_yu_run_pose(image, sub_idx):
+    """Apply Yu's authored six-beat gait without shared sine deformation."""
+    width, height = image.size
+    yy, xx = np.indices((height, width), dtype=np.float32)
+    source_x = xx.copy()
+    source_y = yy.copy()
+    pose = YU_RUN_CONTACT_OFFSETS[sub_idx]
+    radius_x = max(12.0, width * 0.16)
+    radius_y = max(16.0, height * 0.18)
+    for limb in ('left_leg', 'right_leg'):
+        nx, ny = LIMB_CONTROL_POINTS['yu'][limb]
+        dx, dy = pose[limb]
+        center_x, center_y = nx * width, ny * height
+        weight = np.exp(-(((xx - center_x) / radius_x) ** 2 + ((yy - center_y) / radius_y) ** 2) * 2.2)
+        source_x -= dx * weight
+        source_y -= dy * weight
+    trail = np.exp(-(((xx - width * 0.24) / (width * 0.22)) ** 2 + ((yy - height * 0.38) / (height * 0.28)) ** 2) * 1.8)
+    source_x += 3.0 * trail
+    return _bilinear_remap(image, source_x, source_y)
 
 def apply_joint_motion(image, char_key, anim_name, sub_idx):
     """Apply subtle local hand/foot motion without distorting the hero's face."""
@@ -247,6 +277,11 @@ def build_character_sheet(char_key, base_img_path, colors):
             lean_angles = [12, 14, 11, 13, 15, 12] # Forward lean to the right!
             scale_ys    = [1.02, 1.05, 1.0, 0.96, 1.01, 0.95]
             scale_xs    = [0.98, 0.95, 1.0, 1.04, 0.99, 1.05]
+            if char_key == 'yu':
+                bob_offsets = [pose['bob'] for pose in YU_RUN_CONTACT_OFFSETS]
+                lean_angles = [pose['tilt'] for pose in YU_RUN_CONTACT_OFFSETS]
+                scale_ys = [1.0] * 6
+                scale_xs = [1.0] * 6
             
             bob_y = bob_offsets[p]
             body_angle = lean_angles[p]
@@ -254,13 +289,14 @@ def build_character_sheet(char_key, base_img_path, colors):
             scale_x = scale_xs[p]
             shadow_w = 26 + int(abs(bob_y) * 0.5)
             
-            streak_x = cx - 44
-            sy = FEET_Y - target_h // 2 + bob_y
-            d.line([streak_x - 18, sy - 14, streak_x + 6, sy - 14], fill=(255, 255, 255, 110), width=2)
-            d.line([streak_x - 26, sy + 10, streak_x - 2, sy + 10], fill=(255, 255, 255, 130), width=2)
-            d.line([streak_x - 14, sy + 28, streak_x + 10, sy + 28], fill=(255, 255, 255, 90), width=2)
+            if char_key != 'yu':
+                streak_x = cx - 44
+                sy = FEET_Y - target_h // 2 + bob_y
+                d.line([streak_x - 18, sy - 14, streak_x + 6, sy - 14], fill=(255, 255, 255, 110), width=2)
+                d.line([streak_x - 26, sy + 10, streak_x - 2, sy + 10], fill=(255, 255, 255, 130), width=2)
+                d.line([streak_x - 14, sy + 28, streak_x + 10, sy + 28], fill=(255, 255, 255, 90), width=2)
             
-            if p in (3, 5):
+            if char_key != 'yu' and p in (3, 5):
                 fx = cx - 20 if p == 3 else cx + 15
                 d.ellipse([fx - 12, FEET_Y - 4, fx + 12, FEET_Y + 2], fill=(255, 255, 255, 140))
                 d.ellipse([fx - 18, FEET_Y - 6, fx - 4, FEET_Y], fill=(230, 230, 230, 100))
@@ -464,7 +500,7 @@ def build_character_sheet(char_key, base_img_path, colors):
         if draw_shadow:
             d.ellipse([cx - shadow_w, FEET_Y - 4, cx + shadow_w, FEET_Y + 4], fill=(0, 0, 0, 48))
             
-        articulated = apply_joint_motion(base, char_key, anim_name, sub_idx)
+        articulated = apply_yu_run_pose(base, sub_idx) if char_key == 'yu' and anim_name == 'run' else apply_joint_motion(base, char_key, anim_name, sub_idx)
         char_transformed = transform_character(articulated, angle=body_angle, scale_x=scale_x, scale_y=scale_y, flash_color=flash_color)
         tw, th = char_transformed.size
         target_bottom = FEET_Y + bob_y if anim_name.startswith('jump') else FEET_Y
@@ -522,4 +558,39 @@ build_character_sheet('sandra', os.path.join(assets_dir, 'chibi_sandra_clean.png
     'theme': (255, 210, 100, 240)
 })
 
+def export_yu_run_qa_assets():
+    """Write PI-facing static frames and neutral-ground right/left locomotion loops."""
+    sheet = Image.open(os.path.join(assets_dir, 'hero_yu_anim.png')).convert('RGBA')
+    frame_order = [8, 9, 10, 11, 12, 13]
+    run_frames = []
+    for frame_idx in frame_order:
+        col = frame_idx % 8
+        row = frame_idx // 8
+        frame = sheet.crop((col * OUTPUT_FRAME_SIZE, row * OUTPUT_FRAME_SIZE, (col + 1) * OUTPUT_FRAME_SIZE, (row + 1) * OUTPUT_FRAME_SIZE))
+        frame.save(os.path.join(qa_dir, f'yu_run_frame{frame_idx:02d}.png'), optimize=True)
+        run_frames.append(frame)
+    run_frames[0].save(os.path.join(qa_dir, 'yu_static_right.png'), optimize=True)
+    strip = Image.new('RGBA', (OUTPUT_FRAME_SIZE * 6, OUTPUT_FRAME_SIZE), (18, 24, 34, 255))
+    for index, frame in enumerate(run_frames):
+        strip.alpha_composite(frame, (index * OUTPUT_FRAME_SIZE, 0))
+    strip.save(os.path.join(qa_dir, 'yu_run_right_strip.png'), optimize=True)
+
+    def make_loop(facing_right):
+        frames = []
+        for tick in range(36):
+            canvas = Image.new('RGBA', (640, 320), (18, 24, 34, 255))
+            ImageDraw.Draw(canvas).line([(0, 278), (640, 278)], fill=(82, 104, 122, 255), width=3)
+            frame = run_frames[tick % 6]
+            sprite = frame if facing_right else frame.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            x = 96 + tick * 3 if facing_right else 544 - tick * 3
+            canvas.alpha_composite(sprite.resize((220, 220), Image.Resampling.LANCZOS), (x - 110, 58))
+            frames.append(canvas.convert('P', palette=Image.Palette.ADAPTIVE))
+        return frames
+
+    right_loop = make_loop(True)
+    left_loop = make_loop(False)
+    right_loop[0].save(os.path.join(qa_dir, 'yu_run_right.gif'), save_all=True, append_images=right_loop[1:], duration=83, loop=0, disposal=2)
+    left_loop[0].save(os.path.join(qa_dir, 'yu_run_left.gif'), save_all=True, append_images=left_loop[1:], duration=83, loop=0, disposal=2)
+
+export_yu_run_qa_assets()
 print('All 3 hero animation sheets successfully rebuilt FACING RIGHT!')

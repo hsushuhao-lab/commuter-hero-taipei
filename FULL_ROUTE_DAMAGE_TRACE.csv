@@ -29,5 +29,10 @@ shakira,93.56,14704,Scene 5,boss_flower,bubble_burst,2,11,11,57.5,46.5,false,pro
 shakira,94.76,14821,Scene 5,boss_flower,bubble_burst,2,11,11,46.5,35.5,false,proj_267,15.3,true,true,1,22
 sandra,4.60,2064,Scene 1,pink,contact,1,12,12,120,108,false,,31.0,false,false,0,2
 sandra,26.82,10280,Scene 3,obsidian,obsidian,2,48,48,240,192,false,proj_111,49.6,true,true,1,3
-sandra,41.28,15109,Scene 5,ice,ice,2,34,34,217,183,false,proj_11,65.7,true,true,1,12
-sandra,64.50,15643,Scene 5,boss_flower,vine_whip,2,42,42,183,141,false,proj_121,99.8,true,true,0,15
+sandra,37.02,12391,Scene 4,ice,ice,2,34,34,199,165,false,proj_171,59.4,true,true,1,3
+sandra,47.28,15425,Scene 5,boss_flower,boss,1,14,14,165,151,false,proj_16,44.3,true,true,0,9
+sandra,52.20,15858,Scene 5,boss_flower,boss,1,14,14,151,137,false,proj_56,30.8,true,true,0,10
+sandra,70.08,15669,Scene 5,boss_flower,bubble_burst,2,11,11,137,126,false,proj_55,24.5,true,true,0,23
+sandra,77.34,15664,Scene 5,boss_flower,vine_whip,2,42,42,126,84,false,proj_178,94.8,true,true,0,15
+sandra,78.42,15753,Scene 5,boss_flower,boss,2,35.2,35.2,84,48.8,false,proj_190,44.1,true,true,0,24
+sandra,80.32,15763,Scene 5,boss_flower,vine_whip,2,42,42,48.8,6.799999999999997,false,proj_219,133.1,true,true,0,10

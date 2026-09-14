@@ -152,17 +152,18 @@ export const CHARACTERS = {
       name: '主廚旋風鍋・料理風暴',
       key: 'F / K',
       cooldown: 8.2,
-      damage: 630,          // v9.7.6: 14 道鍋氣 x 45 dmg
+      damage: 420,          // v9.8.1: 14 道鍋氣 x 30 dmg
+      phase1ProjectileDamage: 30,
       duration: 2.0,
       coreRadius: 350,      // 核心吸附半徑 350px
       gustRange: 420,       // 14 道鍋氣射程 420px
       phase2Name: '主廚旋風鍋・狂焰飛鍋陣',
-      phase2ProjectileDamage: 60,
+      phase2ProjectileDamage: 40,
       phase2ProjectileType: 'flying_pan',
       phase2ProjectileCount: 14,
       phase2ProjectileSpeed: 700,
       phase2MaxDistance: 700,
-      phase2StaggerDuration: 0.70,
+      phase2StaggerDuration: 0.90,
       windupDuration: 0.50,
       cutinDuration: 0.65,
       desc: 'Phase I 釋放 14 道鍋氣；Phase II 升級為 14 枚高速遠程旋轉火焰平底鍋。'

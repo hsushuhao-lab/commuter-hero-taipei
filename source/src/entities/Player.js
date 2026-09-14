@@ -509,12 +509,12 @@ export class Player {
     } 
     else {
       // ═════════════════════════════════════════════════════════════════════════
-      // 珊卓澎 Phase I：主廚旋風鍋，14 道鍋氣 (各 45 dmg = 630 dmg)
+      // 珊卓澎 Phase I：主廚旋風鍋，14 道鍋氣 (各 30 dmg = 420 dmg)
       // ═════════════════════════════════════════════════════════════════════════
       this.pullEnemiesInZone(350);
       const waveCount = 14;
       if (this.resonancePhase === 2) {
-        const staggerDuration = this.charConfig.ult.phase2StaggerDuration || 0.70;
+        const staggerDuration = this.charConfig.ult.phase2StaggerDuration || 0.90;
         this.sandraUltRelease = {
           elapsed: 0,
           nextReleaseAt: staggerDuration / 13,
@@ -525,7 +525,7 @@ export class Player {
         this.releaseSandraFlyingPan(0);
         return;
       }
-      const waveDmg = 45;
+      const waveDmg = this.charConfig.ult.phase1ProjectileDamage || 30;
       for (let i = 0; i < waveCount; i++) {
         const ang = i * (Math.PI * 2 / waveCount);
         projectiles.spawn({
@@ -563,7 +563,7 @@ export class Player {
       maxDistance: cfg.phase2MaxDistance || 700,
       width: 34,
       height: 28,
-      damage: cfg.phase2ProjectileDamage || 60,
+      damage: cfg.phase2ProjectileDamage || 40,
       life: 1.2,
       penetrating: true,
       rotates: true,
@@ -966,7 +966,10 @@ export class Player {
     if (Math.abs(this.vx) > 20) {
       this.animState = 'run';
       // 6 frames loop @ 12fps
-      const runStep = Math.floor(this.animTimer * 12) % 6;
+      const yuRunDiag = this.id === 'yu' && typeof window !== 'undefined'
+        ? (window.YU_RUN_DIAG || new URLSearchParams(window.location?.search || '').get('YU_RUN_DIAG'))
+        : null;
+      const runStep = yuRunDiag === 'static' ? 0 : Math.floor(this.animTimer * 12) % 6;
       this.currentFrame = 8 + runStep;
     } else {
       this.animState = 'idle';

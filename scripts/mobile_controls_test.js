@@ -20,7 +20,7 @@ const scriptContent = scriptMatch[1];
 
 // Mock browser sandbox
 global.window = {
-  innerWidth: 960,
+  innerWidth: 390,
   innerHeight: 540,
   addEventListener: () => {},
   AudioContext: class {
@@ -150,22 +150,25 @@ test('PointerDown on Right D-Pad drives player to move right (touchRight & posit
   game.activePointers.delete(103);
 });
 
-test('Analog Virtual Joystick sets joystickX and drives smooth lateral movement', () => {
+test('Analog Virtual Joystick owns its full touch zone and drives lateral movement', () => {
   input.reset();
   hud.resetJoystick();
-  
-  // Touch right of joystick center
-  const jX = hud.joystick.baseX + 30;
-  const jY = hud.joystick.baseY;
-  hud.updateJoystick(jX, jY, true);
-  input.setJoystick(hud.joystick.normX, hud.joystick.normY);
+
+  const jX = hud.joystick.baseX + 16;
+  const jY = hud.joystick.baseY + 82;
+  game.handlePointerDown(jX, jY, { pointerId: 107 });
 
   assert(input.joystickActive, 'Joystick should be active');
-  assert(input.joystickX > 0.5, `joystickX should be > 0.5, got ${input.joystickX}`);
+  assert(input.joystickX > 0.18, `joystickX should exceed movement deadzone, got ${input.joystickX}`);
   assert.strictEqual(input.isRight(), true, 'Joystick tilted right should trigger isRight');
+  assert.strictEqual(game.activePointers.get(107).type, 'joystick', 'Joystick touch zone must not be captured by D-pad');
+
+  for (let i = 0; i < 3; i++) game.player.update(0.016, input, game.pm.platforms);
+  assert(game.player.vx > 50, `Joystick must move player right, got ${game.player.vx}`);
 
   hud.resetJoystick();
   input.resetJoystick();
+  game.activePointers.delete(107);
   assert.strictEqual(input.joystickActive, false);
 });
 

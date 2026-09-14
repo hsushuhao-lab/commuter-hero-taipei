@@ -142,22 +142,22 @@ export const CHARACTERS = {
       key: 'S / J',
       cooldown: 0.38,
       damage: 56,           // v9.7.2: melee DPS recovery; Phase II 再乘 1.25
-      range: 220,           // v9.7.5: expanded mobile-friendly melee reach 220px
-      meleeRange: 220,      // v9.7.5: 前方 220px
+      range: 440,           // v9.7.6: doubled Sandra melee reach to 440px
+      meleeRange: 440,      // v9.7.6: 前方 440px
       fanAngle: 110,        // 扇形 110 度
       knockback: 380,       // 擊退 380px
-      desc: 'Phase I 以高速近戰游擊斬出前方 220px 弧形火氣（CD 0.38s），擊退前方敵人。'
+      desc: 'Phase I 以高速近戰游擊斬出前方 440px 弧形火氣（CD 0.38s），擊退前方敵人。'
     },
     ult: {
       name: '主廚旋風鍋・料理風暴',
       key: 'F / K',
       cooldown: 8.2,
-      damage: 420,          // 14 道鍋氣 x 30 dmg
+      damage: 630,          // v9.7.6: 14 道鍋氣 x 45 dmg
       duration: 2.0,
       coreRadius: 350,      // 核心吸附半徑 350px
       gustRange: 420,       // 14 道鍋氣射程 420px
       phase2Name: '主廚旋風鍋・狂焰飛鍋陣',
-      phase2UltDamageMultiplier: 2.0,
+      phase2UltDamageMultiplier: 2.0, // 45 base x 2 = 90 per pan
       phase2ProjectileType: 'flying_pan',
       phase2ProjectileCount: 14,
       phase2ProjectileSpeed: 700,

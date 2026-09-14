@@ -170,6 +170,8 @@ class Game {
       const mx = (e.clientX - rect.left) * scaleX;
       const my = (e.clientY - rect.top) * scaleY;
 
+      e.preventDefault();
+      if (this.canvas.setPointerCapture) this.canvas.setPointerCapture(e.pointerId);
       this.handlePointerDown(mx, my, e);
     });
 
@@ -411,29 +413,27 @@ class Game {
       const hitRect = (b, x, y) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
       const hitCircle = (btn, x, y) => Math.hypot(x - (btn.x + btn.w / 2), y - (btn.y + btn.h / 2)) <= btn.w / 2 + 12;
 
-      // Check Left D-Pad (◀)
-      if (hitRect(hud.btnLeft, mx, my)) {
-        hud.btnLeft.isPressed = true;
-        input.touchLeft = true;
-        if (e) this.activePointers.set(e.pointerId, { type: 'left' });
-        return;
-      }
-
-      // Check Right D-Pad (▶)
-      if (hitRect(hud.btnRight, mx, my)) {
-        hud.btnRight.isPressed = true;
-        input.touchRight = true;
-        if (e) this.activePointers.set(e.pointerId, { type: 'right' });
-        return;
-      }
-
-      // Check Virtual Joystick touch / click
+      // Virtual joystick owns its entire enlarged touch zone before the legacy D-pad.
       const jDist = Math.hypot(mx - hud.joystick.baseX, my - hud.joystick.baseY);
       if (jDist <= hud.joystick.radius + 35) {
         this.joystickPointerId = e ? e.pointerId : 1;
         if (e) this.activePointers.set(e.pointerId, { type: 'joystick' });
         hud.updateJoystick(mx, my, true);
         input.setJoystick(hud.joystick.normX, hud.joystick.normY);
+        return;
+      }
+
+      // Legacy D-pad remains available outside the joystick touch zone.
+      if (hitRect(hud.btnLeft, mx, my)) {
+        hud.btnLeft.isPressed = true;
+        input.touchLeft = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'left' });
+        return;
+      }
+      if (hitRect(hud.btnRight, mx, my)) {
+        hud.btnRight.isPressed = true;
+        input.touchRight = true;
+        if (e) this.activePointers.set(e.pointerId, { type: 'right' });
         return;
       }
 

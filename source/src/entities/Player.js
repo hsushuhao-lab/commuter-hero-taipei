@@ -371,7 +371,7 @@ export class Player {
     else {
       // ═════════════════════════════════════════════════════════════════════════
       // 珊卓澎：平底鍋揮舞・怒火鍋氣 (Hit-and-Run / Melee Arc)
-      // v9.7.1: 一段揮舞 160px 110° arc, 34 dmg (低傷害), 380px knockback, CD 0.38s
+      // v9.7.6: 一段揮舞 440px 110° arc, 56 dmg, 380px knockback, CD 0.38s
       // 靠三人最快移速 (370) 游擊穿梭戰場
       // ═════════════════════════════════════════════════════════════════════════
       this.skillCooldown = this.charConfig.stats.skillCooldown || 0.38;
@@ -389,7 +389,7 @@ export class Player {
         y: spawnY,
         vx: this.facing * 500,
         vy: 0,
-        maxDistance: 220,
+        maxDistance: 440,
         width: 64,
         height: 64,
         damage: this.phaseDamage(56),
@@ -494,7 +494,7 @@ export class Player {
     } 
     else {
       // ═════════════════════════════════════════════════════════════════════════
-      // 珊卓澎 Phase I：主廚旋風鍋，14 道鍋氣 (各 30 dmg = 420 dmg)
+      // 珊卓澎 Phase I：主廚旋風鍋，14 道鍋氣 (各 45 dmg = 630 dmg)
       // ═════════════════════════════════════════════════════════════════════════
       this.pullEnemiesInZone(350);
       const waveCount = 14;
@@ -510,7 +510,7 @@ export class Player {
         this.releaseSandraFlyingPan(0);
         return;
       }
-      const waveDmg = 30;
+      const waveDmg = 45;
       for (let i = 0; i < waveCount; i++) {
         const ang = i * (Math.PI * 2 / waveCount);
         projectiles.spawn({
@@ -548,7 +548,7 @@ export class Player {
       maxDistance: cfg.phase2MaxDistance || 700,
       width: 34,
       height: 28,
-      damage: 30 * (cfg.phase2UltDamageMultiplier || 2.0),
+      damage: 45 * (cfg.phase2UltDamageMultiplier || 2.0),
       life: 1.2,
       penetrating: true,
       rotates: true,

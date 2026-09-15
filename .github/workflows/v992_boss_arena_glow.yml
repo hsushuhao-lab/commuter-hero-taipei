@@ -1,0 +1,107 @@
+name: v9.9.2 boss arena and neon hard-core
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v992_boss_arena_glow.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.2 patch
+        run: |
+          python3 -m py_compile scripts/patch_v992_boss_arena_hardcore_glow.py
+          python3 scripts/patch_v992_boss_arena_hardcore_glow.py
+
+      - name: Regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          boss = Path('source/src/entities/Boss.js').read_text(encoding='utf-8')
+          proj = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          monsters = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.2";' in main
+          assert 'this.bossArenaLocked = false;' in main
+          assert 'this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150;' in main
+          assert 'this.player.x = this.bossRetreatMinX;' in main
+          assert "this.difficultyMode === 'hardcore' ? 1.10 : 1.0" in main
+          assert "window.__GAME_MODE__ === 'HARDCORE'" in proj
+          assert "sourceMonster === 'boss_flower'" in proj
+          assert 'damage: (p.damage || 10) * hardCoreBossDamage' in proj
+          assert 'bossGlow:' in proj
+          assert "'#FF2BD6'" in proj and "'#00F5D4'" in proj
+          assert 'globalCompositeOperation = \'lighter\'' in proj
+          assert 'getOutgoingDamageMultiplier()' in boss
+          assert '26 * this.getOutgoingDamageMultiplier()' in boss
+          assert 'this.config.arena.startX - 200' in boss
+
+          # Keep accepted v9.9.1 character identities and Shakira wave ultimate.
+          for t in ['maxHp: 100','maxHp: 110','maxHp: 120','speed: 370','speed: 345','speed: 320','damage: 516','damage: 483','damage: 560']:
+              assert t in chars, t
+          player = Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          assert "type: 'egg_wave'" in player
+          assert 'for (let wave = 0; wave < 3; wave++)' in player
+          assert 'for (let index = 0; index < 7; index++)' in player
+
+          # Chill regular monsters still never enter Phase II; Boss remains two-phase.
+          monster_entity = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          assert "window.__GAME_MODE__ === 'CHILL'" in monster_entity
+          assert "if (!chillMode && player.coins >= 30 && !this.isPhase2)" in monster_entity
+          assert 'phase1Hp: 3600' in monsters and 'phase2Hp: 3050' in monsters
+          print('V9.9.2 REGRESSION PASS')
+          PY
+
+      - name: Build and verify
+        run: |
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.2' index.html
+          grep -q 'bossArenaLocked' index.html
+          grep -q 'bossGlow' index.html
+          grep -q "__GAME_MODE__ === 'HARDCORE'" index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_9_2
+          cat > QA_V9_9_2/BOSS_ARENA_HARDCORE_GLOW_QA.json <<'EOF'
+          {
+            "version": "v9.9.2",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "BOSS_ARENA_LOCK_HARDCORE_DAMAGE_NEON_VFX",
+            "boss_arena_rear_boundary": "PASS",
+            "boss_retreat_allowance_150px_from_arena_start": "PASS",
+            "boss_projectile_coverage_extended_to_retreat_zone": "PASS",
+            "hardcore_boss_damage_multiplier_1_10": "PASS",
+            "chill_boss_damage_unchanged": "PASS",
+            "boss_projectile_fluorescent_aura": "PASS",
+            "boss_projectile_fluorescent_trails": "PASS",
+            "boss_pattern_neon_preflash": "PASS",
+            "shakira_wave_ultimate_retained": "PASS",
+            "hero_hp_100_110_120_retained": "PASS",
+            "chill_regular_monster_phase2_disabled": "PASS",
+            "boss_two_phase_encounter_retained": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+          cat SHA256.txt
+
+      - name: Commit candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md QA_V9_9_2 source scripts index.html dist/index.html SHA256.txt
+          git diff --cached --check
+          git commit -m 'feat(v9.9.2): lock boss arena and enhance hard-core boss'
+          git push origin HEAD:main

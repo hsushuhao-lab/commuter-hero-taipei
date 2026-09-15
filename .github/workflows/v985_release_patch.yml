@@ -24,69 +24,76 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          def replace_once(path, old, new):
+          def sub_once(path, pattern, replacement, label, flags=0):
               p = Path(path)
               text = p.read_text(encoding='utf-8')
-              count = text.count(old)
+              new_text, count = re.subn(pattern, replacement, text, count=1, flags=flags)
               if count != 1:
-                  raise SystemExit(f'{path}: expected exactly 1 match, found {count}')
-              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
+              p.write_text(new_text, encoding='utf-8')
+              print(f'PATCH PASS: {label}')
 
-          # Shakira ultimate: Boss assist only after the boss encounter is actually triggered.
-          # Otherwise target the nearest local monster, then fall back to a visible forward zone.
-          replace_once(
+          # Shakira ultimate: boss assist is legal only after the boss encounter is triggered.
+          # Before that, use a local monster or a visible forward fixed-zone target.
+          player_method = '''  getUltimateTargetX() {
+            const game = typeof window !== 'undefined' ? window.activeGame : null;
+            const bossReady = game?.boss && !game.boss.isDead && game.boss.entranceTriggered;
+            if (bossReady) return game.boss.x;
+            const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
+              .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
+            if (nearest && Math.abs(nearest.x - this.x) <= 650) return nearest.x;
+            return this.x + this.facing * 260;
+          }
+
+          unleashUltimate()'''
+          sub_once(
               'source/src/entities/Player.js',
-              '''  getUltimateTargetX() {
-              const game = typeof window !== 'undefined' ? window.activeGame : null;
-              if (game?.boss && !game.boss.isDead) return game.boss.x;
-              const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
-                .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
-              return nearest && Math.abs(nearest.x - this.x) <= 650 ? nearest.x : this.x;
-            }''',
-              '''  getUltimateTargetX() {
-              const game = typeof window !== 'undefined' ? window.activeGame : null;
-              const bossReady = game?.boss && !game.boss.isDead && game.boss.entranceTriggered;
-              if (bossReady) return game.boss.x;
-              const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
-                .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
-              if (nearest && Math.abs(nearest.x - this.x) <= 650) return nearest.x;
-              return this.x + this.facing * 260;
-            }'''
+              r"  getUltimateTargetX\(\) \{.*?\n  \}\n\n  unleashUltimate\(\)",
+              player_method,
+              'Shakira ultimate target routing',
+              re.S,
           )
 
-          # Freeze v9.8.4 and identify this narrowly scoped bugfix as v9.8.5 candidate.
-          replace_once('source/src/main.js', 'const GAME_BUILD_VERSION = "v9.8.4";', 'const GAME_BUILD_VERSION = "v9.8.5";')
-          replace_once('source/src/main.js', 'status: "PI_DECISION_REQUIRED"', 'status: "PI_REVIEW_REQUIRED"')
+          # New patch version; v9.8.4 remains the accepted frozen release in history.
+          sub_once('source/src/main.js', r'const GAME_BUILD_VERSION = "v9\.8\.4";', 'const GAME_BUILD_VERSION = "v9.8.5";', 'runtime version')
+          sub_once('source/src/main.js', r'(const GAME_BUILD = Object\.freeze\(\{[^\n]*status: ")[A-Z_]+("[^\n]*\}\);)', r'\1PI_REVIEW_REQUIRED\2', 'runtime candidate status')
 
-          # Preserve the two companion identities into the final VICTORY state instead of clearing them.
-          replace_once(
+          # Preserve exactly two companions through the final result state.
+          finish_victory = '''  _finishVictory() {
+            this.state = 'VICTORY';
+            this.victorySubState = '';
+            this.dialogueBubbles = [];
+            this.milestoneBanner = null;
+            this.milestoneBannerTimer = 0;
+            if (this.companions.length !== 2) this._prepareVictoryCompanions();
+            window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+            hud.triggerVictory(this.player);
+          }
+
+          updateVictoryRun(dt) {'''
+          sub_once(
               'source/src/main.js',
-              '''    this.milestoneBanner = null;
-              this.milestoneBannerTimer = 0;
-              this.companions = [];
-              window.__VISIBLE_HERO_IDS__ = [];
-              hud.triggerVictory(this.player);''',
-              '''    this.milestoneBanner = null;
-              this.milestoneBannerTimer = 0;
-              if (this.companions.length !== 2) this._prepareVictoryCompanions();
-              window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
-              hud.triggerVictory(this.player);'''
+              r"  _finishVictory\(\) \{.*?\n  \}\n\n  updateVictoryRun\(dt\) \{",
+              finish_victory,
+              'final victory companion preservation',
+              re.S,
           )
-          replace_once(
+          sub_once(
               'source/src/main.js',
-              '''      if (this.state === 'VICTORY') {
-                window.__VISIBLE_HERO_IDS__ = [];
-                hud.render(this.ctx, this.player, this.boss, this.level, this.camera);''',
-              '''      if (this.state === 'VICTORY') {
-                window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
-                hud.render(this.ctx, this.player, this.boss, this.level, this.camera);'''
+              r"(if \(this\.state === 'VICTORY'\) \{\n\s*)window\.__VISIBLE_HERO_IDS__ = \[\];",
+              r"\1window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];",
+              'final victory visible hero invariant',
           )
 
-          # Final result screen: show all three approved chibi identities exactly once.
+          # Final result HUD: approved art for Yu, Shakira, Sandra exactly once each.
           hud_path = Path('source/src/ui/HUD.js')
           hud = hud_path.read_text(encoding='utf-8')
-          old_start = hud.index('    // Chibi portrait on left side\n')
+          marker = '    // Chibi portrait on left side\n'
+          if hud.count(marker) != 1:
+              raise SystemExit(f'victory HUD marker count={hud.count(marker)}')
+          old_start = hud.index(marker)
           old_end = hud.index("\n    ctx.fillStyle = '#FFD700';", old_start)
           group_block = '''    // Final group pose: exactly one approved chibi for each hero.
             const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
@@ -119,17 +126,17 @@ jobs:
             ctx.restore();
           '''
           hud_path.write_text(hud[:old_start] + group_block + hud[old_end:], encoding='utf-8')
+          print('PATCH PASS: final three-hero HUD')
 
-          # Build metadata normalization for v9.8.5 candidate.
-          replace_once('scripts/build_single_file.py', 'BUILD_VERSION = "v9.8.4"', 'BUILD_VERSION = "v9.8.5"')
-          replace_once('scripts/build_single_file.py', 'status: "PI_DECISION_REQUIRED",', 'status: "PI_REVIEW_REQUIRED",')
+          sub_once('scripts/build_single_file.py', r'BUILD_VERSION = "v9\.8\.4"', 'BUILD_VERSION = "v9.8.5"', 'build version')
+          sub_once('scripts/build_single_file.py', r'status: \\"PI_DECISION_REQUIRED\\",', 'status: \\"PI_REVIEW_REQUIRED\\",', 'bundled candidate status')
           PY
 
-      - name: Isolate historical root files without deleting them
+      - name: Isolate historical root files without deletion
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p archive/legacy
+          mkdir -p archive/legacy archive/releases/v9.8.4
           legacy_paths=(
             '08workbattle_v9_3_MASTER_HANDOFF_PROMPT.md'
             '08workbattle_v9_6_MASTER_PROMPT.md'
@@ -167,12 +174,17 @@ jobs:
               git mv "$p" "$dest"
             fi
           done
-          cat > archive/legacy/README.md <<'EOF'
-          # Legacy archive
+          for p in QA_V9_8_4 V984_RECOVERY; do
+            if [ -e "$p" ]; then
+              git mv "$p" "archive/releases/v9.8.4/$p"
+            fi
+          done
+          cat > archive/README.md <<'EOF'
+          # Archive
 
-          Historical prompts, audits, recovery bundles, QA artifacts, and WIP from releases before the current production line are retained here for provenance only.
+          Historical QA, recovery work, prompts, audits, and WIP are retained here for provenance only. They are not production build inputs.
 
-          These files are **not production build inputs**. The authoritative runtime is generated from `source/` + `assets/` by `scripts/build_single_file.py`.
+          The authoritative runtime is generated from `source/` + `assets/` by `scripts/build_single_file.py`.
           EOF
 
       - name: Static regression gates
@@ -197,7 +209,7 @@ jobs:
           assert 'const GAME_BUILD_VERSION = "v9.8.5";' in m
           assert 'status: "PI_REVIEW_REQUIRED"' in m
 
-          # v9.8.4 accepted balance invariants: no rebalance in this patch.
+          # Accepted v9.8.4 balance invariants: this patch must not rebalance gameplay.
           for token in [
               'speed: 370', 'speed: 345', 'speed: 320',
               'skillCooldown: 0.10', 'skillCooldown: 0.40',
@@ -214,7 +226,7 @@ jobs:
       - name: Build authoritative root and dist
         run: python3 scripts/build_single_file.py
 
-      - name: Production parity and bundle gates
+      - name: Production parity and QA evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -223,6 +235,21 @@ jobs:
           grep -q 'PI_REVIEW_REQUIRED' index.html
           grep -q 'entranceTriggered' index.html
           sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_8_5
+          cat > QA_V9_8_5/STATIC_RELEASE_QA.json <<'EOF'
+          {
+            "version": "v9.8.5",
+            "scope": "STATIC_AND_BUILD_QA",
+            "shakira_ultimate_local_release": "PASS",
+            "shakira_ultimate_three_waves_seven_eggs_each": "PASS",
+            "boss_assist_only_after_encounter_trigger": "PASS",
+            "victory_unique_hero_ids": ["yu", "shakira", "sandra"],
+            "final_group_pose": "PASS",
+            "accepted_balance_unchanged": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
           echo 'ROOT/DIST PARITY PASS'
           cat SHA256.txt
 
@@ -233,7 +260,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -u
-          git add archive source scripts index.html dist/index.html SHA256.txt
+          git add archive QA_V9_8_5 source scripts index.html dist/index.html SHA256.txt
           git status --short
           git diff --cached --check
           git commit -m 'fix(v9.8.5): restore Shakira ult and group victory'

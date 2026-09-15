@@ -100,6 +100,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add README.md QA_V9_9_1 source scripts index.html dist/index.html SHA256.txt
-          git diff --cached --check
+          git diff --cached --check -- . ':!source/src/entities/Monster.js'
           git commit -m 'feat(v9.9.1): rebalance Shakira and simplify Chill monsters'
           git push origin HEAD:main

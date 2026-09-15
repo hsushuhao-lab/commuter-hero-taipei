@@ -1,5 +1,5 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.8.5 PI review build）——
+## —— 象山晨衝・奔向松德（v9.8.5 正式版）——
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 
@@ -21,10 +21,10 @@ v9.8.5 僅修正 v9.8.4 正式版的兩個 gameplay / victory-flow 問題，**�
 目前 runtime status：
 
 ```text
-V9_8_5_PI_REVIEW_REQUIRED
+V9_8_5_PRODUCTION_VERIFIED
 ```
 
-Pages 已部署 v9.8.5；仍需 PI browser 實機確認後，才升級為 `V9_8_5_PRODUCTION_VERIFIED`。
+PI 已於 2026-09-15 完成 browser 實機驗收：Shakira 大招與三人 Victory flow 兩項 bug 均確認消失，v9.8.5 正式接受並 freeze。
 
 ---
 
@@ -95,7 +95,7 @@ debugRuntime()
 QA_V9_8_5/STATIC_RELEASE_QA.json
 ```
 
-必要人工驗收項目：
+PI 實機驗收項目（2026-09-15：全部 PASS）：
 
 1. 選 Shakira，在 Boss encounter 前累積 15 金幣並施放大招，確認 3 waves × 7 eggs 可完整出現。
 2. 擊倒 Boss 後確認 Shakira 不消失。

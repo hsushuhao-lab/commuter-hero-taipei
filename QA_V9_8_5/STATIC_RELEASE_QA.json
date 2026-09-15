@@ -1,0 +1,12 @@
+{
+  "version": "v9.8.5",
+  "scope": "STATIC_AND_BUILD_QA",
+  "shakira_ultimate_local_release": "PASS",
+  "shakira_ultimate_three_waves_seven_eggs_each": "PASS",
+  "boss_assist_only_after_encounter_trigger": "PASS",
+  "victory_unique_hero_ids": ["yu", "shakira", "sandra"],
+  "final_group_pose": "PASS",
+  "accepted_balance_unchanged": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

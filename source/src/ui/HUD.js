@@ -795,23 +795,35 @@ export class HUD {
     ctx.lineWidth = 1;
     ctx.strokeRect(cx - 272, cy - 197, 544, 394);
 
-    // Chibi portrait on left side
-    const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
-    const chibImg = chibiImages && chibiImages[player.id];
-    if (chibImg && chibImg.complete && chibImg.naturalWidth > 0) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.fillRect(cx - 264, cy - 191, 122, 155);
-      ctx.strokeStyle = player.charConfig ? player.charConfig.colors.accent : '#FFD700';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(cx - 264, cy - 191, 122, 155);
-      ctx.drawImage(chibImg, cx - 258, cy - 185, 110, 143);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('通關英雄', cx - 203, cy - 198);
-      ctx.restore();
-    }
+    // Final group pose: approved Yu, Shakira, Sandra chibis exactly once each.
+  const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
+  const groupIds = ['yu', 'shakira', 'sandra'];
+  const groupColors = { yu: '#4FC3F7', shakira: '#FFD54F', sandra: '#FF7043' };
+  ctx.save();
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.fillRect(cx - 264, cy - 191, 122, 155);
+  ctx.strokeStyle = '#FFD700';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - 264, cy - 191, 122, 155);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('三人打卡・全員歡呼', cx - 203, cy - 198);
+  groupIds.forEach((id, index) => {
+    const img = chibiImages && chibiImages[id];
+    if (!img || !img.complete || img.naturalWidth <= 0) return;
+    const x = cx - 258 + index * 29;
+    const y = cy - 163 + (index === 1 ? -10 : 7);
+    ctx.save();
+    ctx.shadowColor = groupColors[id];
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = groupColors[id];
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x - 2, y - 2, 60, 77);
+    ctx.drawImage(img, x, y, 56, 73);
+    ctx.restore();
+  });
+  ctx.restore();
 
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 24px "PingFang SC", "Microsoft JhengHei", sans-serif';

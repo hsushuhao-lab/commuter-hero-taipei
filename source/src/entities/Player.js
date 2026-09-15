@@ -447,14 +447,16 @@ export class Player {
   }
 
   getUltimateTargetX() {
-    const game = typeof window !== 'undefined' ? window.activeGame : null;
-    if (game?.boss && !game.boss.isDead) return game.boss.x;
-    const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
-      .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
-    return nearest && Math.abs(nearest.x - this.x) <= 650 ? nearest.x : this.x;
-  }
+  const game = typeof window !== 'undefined' ? window.activeGame : null;
+  const bossReady = game?.boss && !game.boss.isDead && game.boss.entranceTriggered;
+  if (bossReady) return game.boss.x;
+  const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
+    .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
+  if (nearest && Math.abs(nearest.x - this.x) <= 650) return nearest.x;
+  return this.x + this.facing * 260;
+}
 
-  unleashUltimate() {
+unleashUltimate() {
     audio.playUltRelease(this.id);
     projectiles.clearEnemyProjectiles(); // 清屏消除敵彈
 

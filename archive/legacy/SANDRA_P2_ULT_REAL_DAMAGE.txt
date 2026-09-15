@@ -1,0 +1,7 @@
+STATUS = ISOLATED_RUNTIME_DAMAGE_PASS; BROWSER_REAL_PLAY_PENDING
+Boss HP before = 3050
+Boss HP after = 2490
+actual delta = 560
+percentage of phase2 HP = 18.4%
+
+Method: clean Phase II Boss collision path; one Sandra ultimate, 14 flying pans, each pan allowed one Boss hit. This is not a browser real-play claim.

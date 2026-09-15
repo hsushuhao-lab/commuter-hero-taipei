@@ -19,8 +19,8 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.8.4";
-const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_DECISION_REQUIRED", sha: "source-dev", builtAt: "source" });
+const GAME_BUILD_VERSION = "v9.8.5";
+const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
   console.info("[GAME BUILD] " + window.__GAME_BUILD__.version + " " + window.__GAME_BUILD__.sha);
@@ -707,17 +707,17 @@ class Game {
   }
 
   _finishVictory() {
-    this.state = 'VICTORY';
-    this.victorySubState = '';
-    this.dialogueBubbles = [];
-    this.milestoneBanner = null;
-    this.milestoneBannerTimer = 0;
-    this.companions = [];
-    window.__VISIBLE_HERO_IDS__ = [];
-    hud.triggerVictory(this.player);
-  }
+  this.state = 'VICTORY';
+  this.victorySubState = '';
+  this.dialogueBubbles = [];
+  this.milestoneBanner = null;
+  this.milestoneBannerTimer = 0;
+  if (this.companions.length !== 2) this._prepareVictoryCompanions();
+  window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+  hud.triggerVictory(this.player);
+}
 
-  updateVictoryRun(dt) {
+updateVictoryRun(dt) {
     if (this.companions.length !== 2) this._prepareVictoryCompanions();
     this.victoryTimer += dt;
     this.bossDeadTimer += dt;
@@ -1431,7 +1431,7 @@ class Game {
       this.renderSelect();
     } else {
       if (this.state === 'VICTORY') {
-        window.__VISIBLE_HERO_IDS__ = [];
+        window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
         hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
         if (this.instructionsOpen) this.renderInstructionsOverlay();
         styleBibleUI.render(this.ctx, this.vw, this.vh);

@@ -4,7 +4,7 @@ import os
 import re
 from datetime import UTC, datetime
 
-BUILD_VERSION = "v9.8.4"
+BUILD_VERSION = "v9.8.5"
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 assets_dir = os.path.join(base_dir, 'assets')
 source_dir = os.path.join(base_dir, 'source')
@@ -170,7 +170,7 @@ html_content = f"""<!DOCTYPE html>
   <script>
     window.__GAME_BUILD__ = {{
       version: "{BUILD_VERSION}",
-      status: "PI_DECISION_REQUIRED",
+      status: "PI_REVIEW_REQUIRED",
       sha: "{build_sha}",
       builtAt: "{build_built_at}"
     }};

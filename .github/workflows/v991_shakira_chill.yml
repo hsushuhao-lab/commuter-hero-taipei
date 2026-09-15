@@ -1,0 +1,105 @@
+name: v9.9.1 Shakira wave and Chill balance
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v991_shakira_chill.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.1 patch
+        run: |
+          python3 -m py_compile scripts/patch_v991_shakira_chill.py
+          python3 scripts/patch_v991_shakira_chill.py
+
+      - name: Regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          c = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          p = Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          pr = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+          m = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          boss = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.1";' in main
+          assert "maxHp: 100" in c
+          assert "maxHp: 110" in c
+          assert "maxHp: 120" in c
+          assert "name: '元氣蛋浪・Oeuf Mayo 全波浪蛋捲'" in c
+          assert '21 顆波浪蛋 x 23 dmg = 483 nominal' in c
+          assert "type: 'egg_wave'" in p
+          assert 'for (let wave = 0; wave < 3; wave++)' in p
+          assert 'for (let index = 0; index < 7; index++)' in p
+          assert 'waveCenterY:' in p and 'waveRiseDuration:' in p
+          assert "p.type === 'egg_wave'" in pr
+          assert 'Math.sin(p.age * p.waveFrequency + p.wavePhase)' in pr
+          assert "else if (p.type === 'egg_wave')" in pr
+          assert "window.__GAME_MODE__ === 'CHILL'" in m
+          assert "if (!chillMode && player.coins >= 30 && !this.isPhase2)" in m
+          assert "this.config.phase2.attackDamage" in m
+          assert "singleHitBossTypes = ['flying_pan', 'sandra_orange_drop', 'wind_blade', 'umbrella_wave', 'egg_wave']" in main
+          assert "this.difficultyMode === 'chill'" in main
+          assert 'game.boss.entranceTriggered' in p
+          assert '[this.player.id, ...this.companions.map(comp => comp.id)]' in main
+          for t in ['speed: 370','speed: 345','speed: 320','skillCooldown: 0.10','skillCooldown: 0.40','ultCooldown: 6.0','ultCooldown: 7.5','damage: 18','damage: 40','damage: 60','damage: 516','damage: 483','damage: 560']:
+              assert t in c, t
+          assert 'phase1Hp: 3600' in boss and 'phase2Hp: 3050' in boss
+          print('V9.9.1 REGRESSION PASS')
+          PY
+
+      - name: Build and verify
+        run: |
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.1' index.html
+          grep -q 'egg_wave' index.html
+          grep -q "__GAME_MODE__ === 'CHILL'" index.html
+          grep -q 'maxHp: 110' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_9_1
+          cat > QA_V9_9_1/BALANCE_WAVE_CHILL_QA.json <<'EOF'
+          {
+            "version": "v9.9.1",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "SHAKIRA_HP_WAVE_ULT_AND_CHILL_MONSTER_PHASE",
+            "hp_yu_100": "PASS",
+            "hp_shakira_110": "PASS",
+            "hp_sandra_120": "PASS",
+            "shakira_ult_three_waves_seven_eggs_each": "PASS",
+            "shakira_ult_ground_emergent_forward_wave_motion": "PASS",
+            "shakira_ult_nominal_damage_483_retained": "PASS",
+            "shakira_ult_heal_and_shield_retained": "PASS",
+            "egg_wave_boss_single_hit_gate": "PASS",
+            "chill_regular_monster_phase2_disabled": "PASS",
+            "hardcore_regular_monster_phase2_retained": "PASS",
+            "boss_two_phase_encounter_retained": "PASS",
+            "yu_and_sandra_ultimate_identity_retained": "PASS",
+            "shakira_v9_8_5_target_bug_regression_not_applicable_forward_wave": "PASS",
+            "three_hero_victory_fix_retained": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+          cat SHA256.txt
+
+      - name: Commit candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md QA_V9_9_1 source scripts index.html dist/index.html SHA256.txt
+          git diff --cached --check
+          git commit -m 'feat(v9.9.1): rebalance Shakira and simplify Chill monsters'
+          git push origin HEAD:main

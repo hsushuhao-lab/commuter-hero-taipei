@@ -1,9 +1,9 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.8.4 PI Candidate）——
+## —— 象山晨衝・奔向松德（v9.8.4 正式版）——
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 
-> **🌐 即時公開版**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
+> **🌐 正式公開版**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
 >
 > **📦 GitHub**：https://github.com/hsushuhao-lab/commuter-hero-taipei
 
@@ -22,15 +22,15 @@
 - **HUD**：Pause 移至右側 16px margin，避免擋住資訊。
 - **Boss**：P1 interval `0.82s` / cap `28`；P2 interval `0.36s` / cap `56`，提升密度與華麗度，同時保留 telegraph 與 safe gap。
 
-## 目前狀態
+## 正式發布狀態
 
-本版依 two-strike 規則發布為：
+PI 已完成 v9.8.4 線上實機試玩並確認體驗滿意，本版正式接受為 production release：
 
 ```text
-V9_8_4_PI_DECISION_REQUIRED
+V9_8_4_PRODUCTION_VERIFIED
 ```
 
-已知限制：Shakira automated full-route 仍可能出現 `GAMEOVER`，因此 v9.8.4 交由 PI 實機試玩決定是否接受、回退或進入下一版調整。
+已知自動化限制仍保留於 QA 記錄：Shakira automated full-route 在特定測試路徑仍可能出現 `GAMEOVER`；此項依 two-strike policy 停止自動調參，並已由 PI 實機試玩結果覆核接受，不影響本次正式發布。
 
 ---
 
@@ -84,8 +84,14 @@ debugRuntime()
 
 確認 build identity、角色速度、技能數值、Victory hero count 與 Boss density。
 
+正式發布 QA 記錄位於：
+
+```text
+QA_V9_8_4/BROWSER_RUNTIME_QA.json
+```
+
 ---
 
 ## Release policy
 
-本專案以 PI 實機驗收優先。若 automated gate 與實際遊玩體感衝突，以可重現的 runtime evidence 與 PI manual QA 作為下一版調整依據。
+本專案以 PI 實機驗收優先。若 automated gate 與實際遊玩體感衝突，以可重現的 runtime evidence 與 PI manual QA 作為版本接受與下一版調整依據。

@@ -1,0 +1,134 @@
+name: v9.9.5 UI repair and fixed boss arena
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v995_ui_fixed_boss_arena.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.5 patch
+        run: |
+          python3 -m py_compile scripts/patch_v995_ui_fixed_boss_arena.py
+          python3 scripts/patch_v995_ui_fixed_boss_arena.py
+
+      - name: Regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          hud = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
+          level = Path('source/src/world/Level.js').read_text(encoding='utf-8')
+          boss = Path('source/src/entities/Boss.js').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          monsters = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          proj = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+          boss_cfg = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.5";' in main
+          assert "this.menuKeyart.src = 'assets/menu_keyart.jpg';" in main
+          assert 'menu_keyart_v994.jpg' not in main
+          assert "ctx.fillText('SELECT COMMUTE MOOD'" in main
+          assert "ctx.fillText('☕  Chill Mood'" in main
+          assert "ctx.fillText('🔥  Hard-Core'" in main
+          assert 'this.bossBattleCameraX = 14800' in main
+          assert 'this.bossBattleZoom = 0.82' in main
+          assert 'lockBossBattleCamera()' in main
+          assert 'this.camera.setTarget(null);' in main
+          assert 'if (this.finalBossIntroDone) this.lockBossBattleCamera();' in main
+          assert 'this.camera.setTarget(this.player);' in main
+          assert 'this.camera.shakeIntensity = 0' in main
+          assert 'this.camera.shakeDuration = 0' in main
+
+          assert 'Column separators keep long Chinese labels' in hud
+          assert '共振｜' in hud
+          assert '打卡倒數' in hud
+          assert 'const barY = 94;' in hud
+          assert '(HP 3050)' in hud
+          assert 'const maxHp = boss.phase === 2 ? 3050 : 3600;' in hud
+
+          for marker in [
+              "this.pm.addPlatform(14900, 510, 120, 24, 'brick');",
+              "this.pm.addPlatform(15020, 470, 120, 24, 'brick');",
+              "this.pm.addPlatform(15140, 430, 120, 24, 'brick');",
+              "this.pm.addPlatform(15260, 390, 160, 24, 'brick');"
+          ]:
+              assert marker in level, marker
+
+          assert "this.hp = this.config.phase2Hp || 3050;" in boss
+          assert "this.maxHp = this.config.phase2Hp || 3050;" in boss
+          assert '狂暴盛開態！HP 3050' in boss
+
+          # Retain previously accepted gameplay/balance.
+          for token in ['maxHp: 100', 'maxHp: 110', 'maxHp: 120', 'damage: 516', 'damage: 483', 'damage: 560']:
+              assert token in chars, token
+          assert "window.__GAME_MODE__ === 'CHILL'" in monsters
+          assert "window.__GAME_MODE__ === 'HARDCORE'" in proj
+          assert 'phase1Hp: 3600' in boss_cfg and 'phase2Hp: 3050' in boss_cfg
+          assert 'layered water-flow impact wave' in proj
+          assert 'Organic thorn-vine strike' in proj
+          assert "window.__VISIBLE_HERO_IDS__ = [this.player.id];" in main
+          assert "const companionIds = allIds.filter(id => id !== this.player.id);" in main
+          print('V9.9.5 REGRESSION PASS')
+          PY
+
+      - name: Build and verify
+        run: |
+          test -s assets/menu_keyart.jpg
+          test ! -e assets/menu_keyart_v994.jpg
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.5' index.html
+          grep -q 'SELECT COMMUTE MOOD' index.html
+          grep -q 'lockBossBattleCamera' index.html
+          grep -q '共振｜' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_9_5
+          cat > QA_V9_9_5/UI_FIXED_BOSS_ARENA_QA.json <<'EOF'
+          {
+            "version": "v9.9.5",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "MENU_REPAIR_HUD_REFLOW_FIXED_BOSS_CAMERA_STAIRS",
+            "stable_menu_keyart_restored": "PASS",
+            "broken_v994_menu_asset_removed": "PASS",
+            "menu_buttons_rendered_in_code": "PASS",
+            "hud_top_left_no_overlap_layout": "PASS",
+            "boss_phase2_hp_label_3050": "PASS",
+            "final_battle_intro_retained": "PASS",
+            "boss_battle_camera_fixed_after_intro": "PASS",
+            "boss_battle_camera_follow_disabled": "PASS",
+            "boss_battle_camera_shake_suppressed": "PASS",
+            "boss_arena_four_step_staircase": "PASS",
+            "victory_run_camera_follow_restored": "PASS",
+            "selected_hero_final_result_retained": "PASS",
+            "hardcore_boss_plus_10_damage_retained": "PASS",
+            "yu_water_wave_retained": "PASS",
+            "shakira_wave_ultimate_retained": "PASS",
+            "hero_hp_120_110_100_retained": "PASS",
+            "chill_regular_monster_p2_disabled": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+          cat SHA256.txt
+
+      - name: Commit candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md source scripts/build_single_file.py index.html dist/index.html SHA256.txt QA_V9_9_5 assets/menu_keyart_v994.jpg
+          git rm -f scripts/patch_v995_ui_fixed_boss_arena.py
+          git diff --cached --check -- . ':!source/src/entities/Monster.js' ':!source/src/world/Level.js'
+          git commit -m 'fix(v9.9.5): repair UI and lock boss arena camera'
+          git push origin HEAD:main

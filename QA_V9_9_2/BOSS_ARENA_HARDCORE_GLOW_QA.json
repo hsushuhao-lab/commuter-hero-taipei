@@ -1,0 +1,19 @@
+{
+  "version": "v9.9.2",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "BOSS_ARENA_LOCK_HARDCORE_DAMAGE_NEON_VFX",
+  "boss_arena_rear_boundary": "PASS",
+  "boss_retreat_allowance_150px_from_arena_start": "PASS",
+  "boss_projectile_coverage_extended_to_retreat_zone": "PASS",
+  "hardcore_boss_damage_multiplier_1_10": "PASS",
+  "chill_boss_damage_unchanged": "PASS",
+  "boss_projectile_fluorescent_aura": "PASS",
+  "boss_projectile_fluorescent_trails": "PASS",
+  "boss_pattern_neon_preflash": "PASS",
+  "shakira_wave_ultimate_retained": "PASS",
+  "hero_hp_100_110_120_retained": "PASS",
+  "chill_regular_monster_phase2_disabled": "PASS",
+  "boss_two_phase_encounter_retained": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

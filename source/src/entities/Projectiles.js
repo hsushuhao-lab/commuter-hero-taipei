@@ -31,6 +31,8 @@ export class ProjectileManager {
     const source = this.sourceContext || {};
     const attackPhase = p.attackPhase || source.attackPhase;
     const sourceMonster = p.sourceMonster || source.sourceMonster;
+    const hardCoreBossDamage = (!p.isPlayer && sourceMonster === 'boss_flower' &&
+      typeof window !== 'undefined' && window.__GAME_MODE__ === 'HARDCORE') ? 1.10 : 1.0;
     if (!p.isPlayer && (attackPhase === 1 || attackPhase === 2)) {
       const pressureLimit = sourceMonster === "boss_flower" ? (attackPhase === 2 ? 56 : 28) : 3;
       if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) {
@@ -56,7 +58,7 @@ export class ProjectileManager {
       vy: p.vy || 0,
       width: p.width || 16,
       height: p.height || 16,
-      damage: p.damage || 10,
+      damage: (p.damage || 10) * hardCoreBossDamage,
       monsterDamage: p.monsterDamage || p.damage || 10,
       life: p.life || 2.0,
       maxLife: p.life || 2.0,
@@ -76,7 +78,8 @@ export class ProjectileManager {
       sourceMonster: p.sourceMonster || source.sourceMonster || '',
       attackPhase: p.attackPhase || source.attackPhase || 0,
       attackType: p.attackType || source.attackType || p.type || 'bullet',
-      telegraphShown: p.telegraphShown ?? source.telegraphShown ?? false
+      telegraphShown: p.telegraphShown ?? source.telegraphShown ?? false,
+      bossGlow: !p.isPlayer && sourceMonster === 'boss_flower'
     };
     projectile.wobble = p.wobble || 0;
     projectile.wobblePhase = p.wobblePhase || 0;
@@ -158,6 +161,25 @@ export class ProjectileManager {
       }
       if (p.rotates) p.rotation += p.vRot * dt;
 
+      // v9.9.2 Boss attacks leave fluorescent trails without changing collision geometry.
+      if (p.bossGlow && Math.random() < 0.72) {
+        const glowColor = p.attackPhase === 2
+          ? (Math.random() < 0.5 ? '#FF2BD6' : '#7C4DFF')
+          : (Math.random() < 0.5 ? '#00F5D4' : '#FF4FD8');
+        particles.emit({
+          x: p.x - p.vx * 0.018,
+          y: p.y - p.vy * 0.018,
+          vx: -p.vx * 0.035 + (Math.random() - 0.5) * 24,
+          vy: -p.vy * 0.035 + (Math.random() - 0.5) * 24,
+          size: 3 + Math.random() * 5,
+          color: glowColor,
+          life: 0.24 + Math.random() * 0.18,
+          shape: Math.random() < 0.55 ? 'spark' : 'circle',
+          fade: true,
+          visualOnly: true
+        });
+      }
+
       // Max physical distance culling
       if (p.maxDistance !== null) {
         const traveled = Math.hypot(p.x - p.startX, p.y - p.startY);
@@ -218,6 +240,28 @@ export class ProjectileManager {
     for (let p of this.projectiles) {
       ctx.save();
       ctx.translate(p.x, p.y);
+
+      // v9.9.2 Fluorescent boss-attack aura. Purely visual; hitboxes remain unchanged.
+      if (p.bossGlow) {
+        const aura = p.attackPhase === 2 ? '#FF2BD6' : '#00F5D4';
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.42;
+        ctx.shadowColor = aura;
+        ctx.shadowBlur = p.attackPhase === 2 ? 28 : 22;
+        ctx.strokeStyle = aura;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.max(12, Math.max(p.width, p.height) * 0.72), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.18;
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.max(18, Math.max(p.width, p.height) * 1.05), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        ctx.shadowColor = aura;
+        ctx.shadowBlur = p.attackPhase === 2 ? 24 : 18;
+      }
 
       if (p.type === 'wind_blade') {
         // Cyan crescent wind blade

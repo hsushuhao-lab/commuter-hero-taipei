@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.9.1";
+const GAME_BUILD_VERSION = "v9.9.2";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -77,6 +77,9 @@ class Game {
 
     // v9.4: Boss entrance cinematic tracking
     this.bossEntranceDone = false;
+    // v9.9.2: Once the boss encounter starts, the hero may retreat only a short distance.
+    this.bossArenaLocked = false;
+    this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150;
 
     // Joystick touch tracking
     this.joystickPointerId = null;
@@ -555,6 +558,8 @@ class Game {
     this.milestoneBannerTimer = 0;
     this.announcedMilestones = {};
     this.bossEntranceDone = false;  // reset boss entrance for new game
+    this.bossArenaLocked = false;
+    this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150;
     this.joystickPointerId = null;
     this.companions = [];
     this.dialogueBubbles = [];
@@ -620,6 +625,13 @@ class Game {
       this.camera.update(dt);
       this.level.update(dt, this.player, this.camera);
       this.pm.update(dt, this.player);
+
+      // v9.9.2 Boss Arena containment: entering the encounter locks the rear boundary.
+      if (!this.boss.isDead && this.player.x >= 14700) this.bossArenaLocked = true;
+      if (this.bossArenaLocked && !this.boss.isDead && this.player.x < this.bossRetreatMinX) {
+        this.player.x = this.bossRetreatMinX;
+        if (this.player.vx < 0) this.player.vx = 0;
+      }
 
       // Check Boss Arena trigger (Arena entrance at x >= 14700)
       if (this.player.x >= 14700 && !this.boss.isDead) {
@@ -1416,7 +1428,8 @@ updateVictoryRun(dt) {
       const bodyHalfWidth = 100;
       const bodyHalfHeight = 125;
       if (Math.abs(p.x - boss.x) < bodyHalfWidth && Math.abs(playerCenterY - bossCenterY) < bodyHalfHeight) {
-        const damage = boss.phase === 2 ? 28 * (boss.resonanceEnraged ? 1.10 : 1.0) : 18;
+        const hardCoreBossDamage = this.difficultyMode === 'hardcore' ? 1.10 : 1.0;
+        const damage = (boss.phase === 2 ? 28 * (boss.resonanceEnraged ? 1.10 : 1.0) : 18) * hardCoreBossDamage;
         const hit = p.takeDamage(damage, {
           kind: 'boss_contact',
           sourceMonster: boss.config.id,

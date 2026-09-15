@@ -123,6 +123,10 @@ export class Boss {
     this.minions = [];
   }
 
+  getOutgoingDamageMultiplier() {
+    return (typeof window !== 'undefined' && window.__GAME_MODE__ === 'HARDCORE') ? 1.10 : 1.0;
+  }
+
   takeDamage(amount, attackInstanceId = null) {
     // 100% Invulnerable during transform, entrance, or when dead
     if (this.isDead || this.isTransforming || (this.entranceTriggered && this.entranceTimer > 0)) {
@@ -453,7 +457,9 @@ export class Boss {
         const dx = Math.abs(this.x - player.x);
         const dy = Math.abs((this.y - 60) - player.y);
         if (dx < 90 && dy < 95) {
-          player.takeDamage(26);
+          player.takeDamage(26 * this.getOutgoingDamageMultiplier(), {
+            kind: 'boss_lunge', sourceMonster: 'boss_flower', attackPhase: this.phase, telegraphShown: true
+          });
           if (typeof player.knockback === 'function') {
             player.knockback(this.facing * 240);
           } else {
@@ -672,6 +678,23 @@ export class Boss {
     counts[phase][name] = (counts[phase][name] || 0) + 1;
     window.__BOSS_PATTERN_COUNTS__ = counts;
     if (window.__RUNTIME_QA__) console.info("[BOSS PATTERN]", phase, name);
+    // v9.9.2: every named attack gets a fluorescent pre-flash for readability and spectacle.
+    const neon = this.phase === 2 ? '#FF2BD6' : '#00F5D4';
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      particles.emit({
+        x: this.x + Math.cos(angle) * 70,
+        y: this.y - 120 + Math.sin(angle) * 50,
+        vx: Math.cos(angle) * 80,
+        vy: Math.sin(angle) * 60,
+        size: 5 + Math.random() * 5,
+        color: neon,
+        life: 0.38,
+        shape: 'spark',
+        fade: true,
+        visualOnly: true
+      });
+    }
   }
 
 
@@ -693,7 +716,7 @@ export class Boss {
     this.emitVisualOnlyLayer("pollen_sparkle");
     const pX = this.x;
     const pY = this.y - 120;
-    const arenaB = { minX: this.config.arena.startX - 50, maxX: this.config.arena.endX + 50 };
+    const arenaB = { minX: this.config.arena.startX - 200, maxX: this.config.arena.endX + 50 };
     const directAngle = Math.atan2(player.y - pY, player.x - pX);
 
     if (this.phase === 1) {
@@ -826,7 +849,7 @@ export class Boss {
     const count = phase2 ? 12 : 7;
     const speed = phase2 ? 145 : 115;
     const damage = phase2 ? 20 : 12;
-    const arenaB = { minX: this.config.arena.startX - 60, maxX: this.config.arena.endX + 60 };
+    const arenaB = { minX: this.config.arena.startX - 200, maxX: this.config.arena.endX + 60 };
     for (let i = 0; i < count; i++) {
       const angle = Math.PI + (i - (count - 1) * 0.5) * 0.22;
       projectiles.spawn({ isPlayer: false, type: 'dream_bubble', x: this.x + Math.cos(angle) * 42, y: this.y - 300 + (i % 4) * 22, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed * 0.35, width: phase2 && i < 3 ? 48 : 38, height: phase2 && i < 3 ? 48 : 38, damage, life: phase2 ? 2.8 : 3.0, burstTimer: phase2 && i < 3 ? 1.4 : null, wobble: 1.0, large: phase2 && i < 3, arenaBounds: arenaB, telegraphShown: true, sourceMonster: 'boss_flower', attackPhase: this.phase, attackType: phase2 ? 'bubble_bloom' : 'dream_bubble' });

@@ -1,10 +1,10 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.9.1 Dual Mood Balance）——
+## —— 象山晨衝・奔向松德（v9.9.2 Boss Arena + Neon Hard-Core）——
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 
-> **v9.9.1 開發中：Dual Mood Balance**
-> HP 調整為 Sandra `120` / Shakira `110` / Yu `100`。Shakira 大招改為由地面湧出、向前推進的 3×7 全波浪蛋捲；Chill Mode 的一般怪物固定維持第一階段，不進入 30 金幣 Predator Mode。Boss 雙階段仍保留。
+> **v9.9.2 開發中：Boss Arena + Neon Hard-Core**
+> 延續 v9.9.1 的 HP、Shakira 全波浪蛋捲與 Chill 怪物第一階段設定。本版新增 Boss Arena 後退邊界：正式進入 Boss 戰後只能在戰區內小幅後退，無法退出戰區遠距離磨 Boss。Hard-Core 的 Boss 對英雄傷害統一小幅提高 10%，Chill 不變；Boss 投射物與招式預警追加螢光光暈、殘影與粒子。
 
 > **🌐 正式公開站**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
 >

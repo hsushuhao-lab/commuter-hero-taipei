@@ -88,8 +88,8 @@ export class Player {
     this.meleeDashCancelTimer = 0;
     this.hitConfirmArmorTimer = 0;
 
-    // v9.5: Shakira Fixed Zone Ult
-    this.ultZoneCenterX = 0;
+    // v9.9.1: Shakira forward ground-emergent egg-wave ultimate
+    this.shakiraWaveOriginX = 0;
 
     // v9.5: Fall Recovery System
     this.fallRecoveryTimer = 0;
@@ -486,32 +486,49 @@ unleashUltimate() {
     }
     else if (this.id === 'shakira') {
       // ═════════════════════════════════════════════════════════════════════════
-      // 夏奇拉大招：半徑 500px 固定戰區，14 顆流星蛋雨 (各 30 dmg = 420 dmg)，回復 30 HP
+      // 夏奇拉大招：由下湧出的全波浪蛋捲，3 waves × 7 eggs，向前推進
       // ═════════════════════════════════════════════════════════════════════════
       this.addHp(this.resonancePhase === 2 ? 45 : 30);
       this.shieldTimer = 3.0;
-      const targetX = this.getUltimateTargetX();
-      const waveOffsets = [
-        [-270, -180, -90, 0, 90, 180, 270],
-        [-225, -150, -75, 35, 105, 180, 255],
-        [-180, -120, -60, 0, 60, 120, 180]
-      ];
-      const waveSpeeds = [540, 630, 720];
+      const waveRange = this.charConfig.ult.waveRange || 920;
+      const baseAmplitude = this.charConfig.ult.waveAmplitude || 72;
+      const baseFrequency = this.charConfig.ult.waveFrequency || 7.8;
       const eggDmg = 23;
-      this.ultZoneCenterX = targetX;
+      const waveSpeeds = [520, 610, 700];
+      const releaseOffsets = [0, 0.22, 0.46];
+      this.shakiraWaveOriginX = this.x;
+
       for (let wave = 0; wave < 3; wave++) {
         for (let index = 0; index < 7; index++) {
-          projectiles.spawn({ isPlayer: true, type: 'egg',
-            x: targetX + waveOffsets[wave][index], y: this.y - 410 - index * 14,
-            vx: 0, vy: waveSpeeds[wave], maxDistance: 560,
-            width: 30 + wave * 3, height: 26 + wave * 3, damage: eggDmg,
+          const phase = (index / 7) * Math.PI * 2 + wave * 0.58;
+          projectiles.spawn({
+            isPlayer: true,
+            type: 'egg_wave',
+            x: this.x - this.facing * (38 + index * 5),
+            y: this.y + 58 + (index % 2) * 10,
+            vx: this.facing * waveSpeeds[wave],
+            vy: 0,
+            maxDistance: waveRange,
+            width: 34 + wave * 2,
+            height: 28 + wave * 2,
+            damage: eggDmg,
             monsterDamage: 40,
-            splashRadius: 75, splashDamage: this.resonancePhase === 2 ? 22 : 18,
-            releaseAfter: [0, 0.26, 0.56][wave], life: 1.5,
-            penetrating: false, zoneCenterX: targetX, zoneRadius: 500, bossTargetAssist: true });
+            splashRadius: 72,
+            splashDamage: this.resonancePhase === 2 ? 22 : 18,
+            releaseAfter: releaseOffsets[wave] + index * 0.035,
+            life: 2.0,
+            penetrating: true,
+            waveCenterY: this.y - 48 - wave * 5,
+            waveStartY: this.y + 58 + (index % 2) * 10,
+            waveAmplitude: baseAmplitude - index * 3,
+            waveFrequency: baseFrequency + wave * 0.65,
+            wavePhase: phase,
+            waveRiseDuration: 0.20 + index * 0.018,
+            canClearEnemyBullets: true
+          });
         }
       }
-      window.activeGame?.camera?.shake(6, 0.12);
+      window.activeGame?.camera?.shake(8, 0.18);
     }
     else {
       // ═════════════════════════════════════════════════════════════════════════

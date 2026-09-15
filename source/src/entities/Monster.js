@@ -66,6 +66,7 @@ export class Monster {
   }
 
   triggerAttackPhase2() {
+    if (typeof window !== 'undefined' && window.__GAME_MODE__ === 'CHILL') return;
     if (this.attackPhase === 2 || this.isDead) return;
     if (this.predatorRole === 'patroller') this.assignPredatorRole('pursuer');
     this.attackPhase = 2;
@@ -163,8 +164,9 @@ export class Monster {
       }
     }
 
-    // 30 金幣觸發怪獸二階段全體進化 (Predator Mode)
-    if (player.coins >= 30 && !this.isPhase2) {
+    // 30 金幣：Hard-Core 觸發怪獸二階段；Chill 永遠維持怪物第一階段。
+    const chillMode = typeof window !== 'undefined' && window.__GAME_MODE__ === 'CHILL';
+    if (!chillMode && player.coins >= 30 && !this.isPhase2) {
       this.evolveToPhase2();
     }
 

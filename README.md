@@ -1,10 +1,10 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.9.0 Dual Mood Preview）——
+## —— 象山晨衝・奔向松德（v9.9.1 Dual Mood Balance）——
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 
-> **v9.9.0 開發中：Dual Mood Edition**
-> 主畫面已新增 `☕ Chill Mood` 與 `🔥 Hard-Core` 模式入口。Hard-Core 完整繼承已驗收的 v9.8.5 gameplay；本次先完成模式選單與 runtime mode state，Chill 的實際難度 modifiers 尚未套用。
+> **v9.9.1 開發中：Dual Mood Balance**
+> HP 調整為 Sandra `120` / Shakira `110` / Yu `100`。Shakira 大招改為由地面湧出、向前推進的 3×7 全波浪蛋捲；Chill Mode 的一般怪物固定維持第一階段，不進入 30 金幣 Predator Mode。Boss 雙階段仍保留。
 
 > **🌐 正式公開站**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
 >
@@ -39,7 +39,7 @@ PI 已於 2026-09-15 完成 browser 實機驗收：Shakira 大招與三人 Victo
 - **大招強度**：Sandra `560` > Yu `516` > Shakira `483`。
 - **大招 CD**：Sandra `7.5s`；Yu `6.0s`；Shakira `6.0s`。
 - **Yu 大招**：3 waves × 4 umbrella-wave fronts，連續風浪式推進。
-- **Shakira 大招**：3 waves × 7 eggs，共 21 顆多層次蛋雨。
+- **Shakira 大招**：3 waves × 7 eggs，共 21 顆由地面湧出並向前推進的全波浪蛋捲。
 - **Boss**：P1 HP `3600`、P2 HP `3050`；P1 interval `0.82s` / cap `28`；P2 interval `0.36s` / cap `56`。
 
 ---

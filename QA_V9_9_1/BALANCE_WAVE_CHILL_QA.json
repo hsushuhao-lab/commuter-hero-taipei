@@ -1,0 +1,21 @@
+{
+  "version": "v9.9.1",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "SHAKIRA_HP_WAVE_ULT_AND_CHILL_MONSTER_PHASE",
+  "hp_yu_100": "PASS",
+  "hp_shakira_110": "PASS",
+  "hp_sandra_120": "PASS",
+  "shakira_ult_three_waves_seven_eggs_each": "PASS",
+  "shakira_ult_ground_emergent_forward_wave_motion": "PASS",
+  "shakira_ult_nominal_damage_483_retained": "PASS",
+  "shakira_ult_heal_and_shield_retained": "PASS",
+  "egg_wave_boss_single_hit_gate": "PASS",
+  "chill_regular_monster_phase2_disabled": "PASS",
+  "hardcore_regular_monster_phase2_retained": "PASS",
+  "boss_two_phase_encounter_retained": "PASS",
+  "yu_and_sandra_ultimate_identity_retained": "PASS",
+  "shakira_v9_8_5_target_bug_regression_not_applicable_forward_wave": "PASS",
+  "three_hero_victory_fix_retained": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

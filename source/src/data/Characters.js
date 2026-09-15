@@ -77,7 +77,7 @@ export const CHARACTERS = {
       bgGlow: 'rgba(206, 147, 216, 0.4)'
     },
     stats: {
-      maxHp: 90,
+      maxHp: 110,
       speed: 320,          // v9.8.4: slowest ranged support
       jumpForce: -640,
       gravity: 1350,
@@ -96,16 +96,18 @@ export const CHARACTERS = {
       desc: '雙發分離半熟蛋彈（CD 0.42s，直擊 38 傷，三人最高小招傷害），射程 600px，命中激發 90px 範圍濺射 (20傷)！'
     },
     ult: {
-      name: '元氣蛋浪・Oeuf Mayo 星雨',
+      name: '元氣蛋浪・Oeuf Mayo 全波浪蛋捲',
       key: 'F / K',
       cooldown: 6.0,
-      damage: 483,          // 14 顆流星蛋 x 30 dmg
+      damage: 483,          // 21 顆波浪蛋 x 23 dmg = 483 nominal
       heal: 30,             // 回復 30 HP
       duration: 2.2,
-      zoneRadius: 500,      // 半徑 500px 固定戰區
+      waveRange: 920,       // 自角色腳下湧出後向面向方向推進
+      waveAmplitude: 72,
+      waveFrequency: 7.8,
       windupDuration: 0.55,
       cutinDuration: 0.70,
-      desc: '蓄力後於 500px 固定戰區內傾瀉 14 顆流星蛋雨，全區轟炸、回復 30 HP 並獲元氣護盾。'
+      desc: '由腳下地面湧出 3 波 × 7 顆蛋捲浪，形成上下起伏的全波浪陣向前推進；回復 30 HP 並獲元氣護盾。'
     }
   },
 

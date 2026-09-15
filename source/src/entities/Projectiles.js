@@ -85,6 +85,13 @@ export class ProjectileManager {
     projectile.burstTriggered = false;
     projectile.armedAfter = p.armedAfter || 0;
     projectile.releaseAfter = p.releaseAfter || 0;
+    projectile.age = 0;
+    projectile.waveCenterY = p.waveCenterY ?? null;
+    projectile.waveStartY = p.waveStartY ?? null;
+    projectile.waveAmplitude = p.waveAmplitude || 0;
+    projectile.waveFrequency = p.waveFrequency || 0;
+    projectile.wavePhase = p.wavePhase || 0;
+    projectile.waveRiseDuration = p.waveRiseDuration || 0.20;
     projectile.hitTargets = new Set();
     this.projectiles.push(projectile);
     return projectile;
@@ -134,8 +141,17 @@ export class ProjectileManager {
         this.projectiles.splice(i, 1);
         continue;
       }
+      p.age += dt;
       p.x += p.vx * dt;
-      p.y += p.vy * dt;
+      if (p.type === 'egg_wave' && p.waveCenterY !== null) {
+        const riseT = Math.min(1, p.age / Math.max(0.01, p.waveRiseDuration));
+        const easedRise = 1 - Math.pow(1 - riseT, 3);
+        const startY = p.waveStartY ?? p.startY;
+        const centerY = startY + (p.waveCenterY - startY) * easedRise;
+        p.y = centerY + Math.sin(p.age * p.waveFrequency + p.wavePhase) * p.waveAmplitude * riseT;
+      } else {
+        p.y += p.vy * dt;
+      }
       if (p.wobble) {
         p.wobblePhase += dt * 4;
         p.x += Math.sin(p.wobblePhase) * p.wobble * dt * 8;
@@ -238,6 +254,37 @@ export class ProjectileManager {
         ctx.lineTo(-p.width * 0.2, 0);
         ctx.lineTo(-p.width * 0.5, p.height * 0.4);
         ctx.closePath();
+        ctx.fill();
+      }
+      else if (p.type === 'egg_wave') {
+        // Shakira v9.9.1: forward Oeuf Mayo wave roll with creamy ribbon wake.
+        const dir = p.vx >= 0 ? 1 : -1;
+        ctx.scale(dir, 1);
+        ctx.shadowColor = '#FFD54F';
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = 'rgba(255, 236, 179, 0.78)';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-p.width * 2.0, p.height * 0.30);
+        ctx.quadraticCurveTo(-p.width * 1.05, -p.height * 1.15, -p.width * 0.20, 0);
+        ctx.stroke();
+        ctx.strokeStyle = '#FFF8E1';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-p.width * 1.8, p.height * 0.20);
+        ctx.quadraticCurveTo(-p.width * 0.95, -p.height * 0.85, -p.width * 0.12, 0);
+        ctx.stroke();
+        ctx.fillStyle = '#FFFDE7';
+        ctx.strokeStyle = '#FFE082';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.width, p.height, -0.10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#FFA000';
+        ctx.beginPath();
+        ctx.arc(p.width * 0.10, 0, p.width * 0.52, 0, Math.PI * 2);
         ctx.fill();
       }
       else if (p.type === 'egg') {

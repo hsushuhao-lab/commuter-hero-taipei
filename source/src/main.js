@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.9.0";
+const GAME_BUILD_VERSION = "v9.9.1";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -650,7 +650,9 @@ class Game {
         this.milestoneBannerTimer = 3.2;
       } else if (c >= 30 && !this.announcedMilestones[30]) {
         this.announcedMilestones[30] = true;
-        this.milestoneBanner = '⚡ 通勤共振 II：雙方進入高強度戰鬥！';
+        this.milestoneBanner = this.difficultyMode === 'chill'
+          ? '🌿 Chill 共振 II：英雄升級，沿途怪物維持第一階段！'
+          : '⚡ 通勤共振 II：雙方進入高強度戰鬥！';
         this.milestoneBannerTimer = 2.0;
       } else if (c >= 60 && !this.announcedMilestones[60]) {
         this.announcedMilestones[60] = true;
@@ -1333,8 +1335,9 @@ updateVictoryRun(dt) {
         const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width + (proj.bossTargetAssist ? 70 : 0);
         const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
-          if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade' || proj.type === 'umbrella_wave') && proj.hitTargets.has('boss')) continue;
-          if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade' || proj.type === 'umbrella_wave') proj.hitTargets.add('boss');
+          const singleHitBossTypes = ['flying_pan', 'sandra_orange_drop', 'wind_blade', 'umbrella_wave', 'egg_wave'];
+          if (singleHitBossTypes.includes(proj.type) && proj.hitTargets.has('boss')) continue;
+          if (singleHitBossTypes.includes(proj.type)) proj.hitTargets.add('boss');
           const bossHpBefore = this.boss.hp;
           const bossHitAccepted = this.boss.takeDamage(proj.damage, proj.id);
           const bossHpAfter = this.boss.hp;
@@ -1602,7 +1605,7 @@ updateVictoryRun(dt) {
     ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 22, 24);
     ctx.textAlign = "center";
 
-    // v9.9.0 Dual Mood mode selection
+    // v9.9.1 Dual Mood mode selection
     ctx.fillStyle = 'rgba(255,255,255,0.82)';
     ctx.font = 'bold 13px sans-serif';
     ctx.textBaseline = 'alphabetic';

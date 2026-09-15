@@ -1,5 +1,5 @@
 name: v9.9.4 final battle hero result and menu art
-# release-approved: 2026-09-16-r3
+# release-approved: 2026-09-16-r4
 
 on:
   push:
@@ -44,7 +44,6 @@ jobs:
       - name: Regression gates
         run: |
           python3 - <<'PY'
-          from pathlib import import_module
           from pathlib import Path
           main = Path('source/src/main.js').read_text(encoding='utf-8')
           hud = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')

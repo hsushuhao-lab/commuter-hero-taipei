@@ -18,60 +18,10 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Apply v9.9.0 mode menu patch
+      - name: Apply deterministic patch
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, re
-          p = Path('source/src/main.js')
-          text = p.read_text(encoding='utf-8')
-          def one(pattern, replacement, label, flags=0):
-              global text
-              text2, n = re.subn(pattern, replacement, text, count=1, flags=flags)
-              if n != 1:
-                  raise SystemExit(f'{label}: match count {n}')
-              text = text2
-              print('PASS', label)
-          one(r'const GAME_BUILD_VERSION = "v9\.8\.5";', 'const GAME_BUILD_VERSION = "v9.9.0";', 'runtime version')
-          one(r'status: "PRODUCTION_VERIFIED"', 'status: "PI_REVIEW_REQUIRED"', 'runtime status')
-          old_ctor = "    this.selectedCharId = 'yu';\n    this.instructionsOpen = false;"
-          new_ctor = "    this.selectedCharId = 'yu';\n    // v9.9.0 Dual Mood: v9.8.5 remains the immutable Hard-Core baseline.\n    this.difficultyMode = 'hardcore';\n    if (typeof window !== 'undefined') window.__GAME_MODE__ = 'HARDCORE';\n    this.instructionsOpen = false;"
-          if text.count(old_ctor) != 1:
-              raise SystemExit('constructor anchor mismatch')
-          text = text.replace(old_ctor, new_ctor, 1)
-          menu = base64.b64decode('ICAgIC8vIE1haW4gTWVudSBGbG93CiAgICBpZiAodGhpcy5zdGF0ZSA9PT0gJ01FTlUnKSB7CiAgICAgIC8vIHY5LjkuMDogY2hvb3NlIGNvbW11dGUgbW9vZCBiZWZvcmUgY2hhcmFjdGVyIHNlbGVjdC4KICAgICAgaWYgKG14ID49IDIzNSAmJiBteCA8PSA0NzAgJiYgbXkgPj0gMzE1ICYmIG15IDw9IDM4OSkgewogICAgICAgIHRoaXMuc2VsZWN0R2FtZU1vZGUoJ2NoaWxsJyk7CiAgICAgIH0KICAgICAgZWxzZSBpZiAobXggPj0gNDkwICYmIG14IDw9IDcyNSAmJiBteSA+PSAzMTUgJiYgbXkgPD0gMzg5KSB7CiAgICAgICAgdGhpcy5zZWxlY3RHYW1lTW9kZSgnaGFyZGNvcmUnKTsKICAgICAgfQogICAgICAvLyBXYXRjaCBPcGVuaW5nIEJ1dHRvbgogICAgICBlbHNlIGlmIChteCA+PSAzNTAgJiYgbXggPD0gNjEwICYmIG15ID49IDQwNCAmJiBteSA8PSA0NDYpIHsKICAgICAgICB0aGlzLnN0YXRlID0gJ09QRU5JTkcnOwogICAgICAgIGludHJvQ2luZW1hdGljLnN0YXJ0KCgpID0+IHsKICAgICAgICAgIHRoaXMuc3RhdGUgPSAnTUVOVSc7CiAgICAgICAgfSk7CiAgICAgICAgYXVkaW8ucGxheUNvaW4oKTsKICAgICAgfQogICAgICAvLyBHYW1lIEluc3RydWN0aW9ucwogICAgICBlbHNlIGlmIChteCA+PSAzNTAgJiYgbXggPD0gNDcwICYmIG15ID49IDQ1NiAmJiBteSA8PSA0OTQpIHsKICAgICAgICB0aGlzLmluc3RydWN0aW9uc09wZW4gPSB0cnVlOwogICAgICB9CiAgICAgIC8vIFN0eWxlIEJpYmxlIEJ1dHRvbgogICAgICBlbHNlIGlmIChteCA+PSA0OTAgJiYgbXggPD0gNjEwICYmIG15ID49IDQ1NiAmJiBteSA8PSA0OTQpIHsKICAgICAgICBzdHlsZUJpYmxlVUkudG9nZ2xlKCk7CiAgICAgIH0KICAgICAgcmV0dXJuOwogICAgfQoKICAgIC8vIENoYXJhY3RlciBTZWxlY3QgRmxvdw==').decode('utf-8')
-          one(r"    // Main Menu Flow\n    if \(this\.state === 'MENU'\) \{.*?\n      return;\n    \}\n\n    // Character Select Flow", menu, 'menu pointer flow', re.S)
-          mode = base64.b64decode('ICBzZWxlY3RHYW1lTW9kZShtb2RlKSB7CiAgICB0aGlzLmRpZmZpY3VsdHlNb2RlID0gbW9kZSA9PT0gJ2NoaWxsJyA/ICdjaGlsbCcgOiAnaGFyZGNvcmUnOwogICAgaWYgKHR5cGVvZiB3aW5kb3cgIT09ICd1bmRlZmluZWQnKSB7CiAgICAgIHdpbmRvdy5fX0dBTUVfTU9ERV9fID0gdGhpcy5kaWZmaWN1bHR5TW9kZSA9PT0gJ2NoaWxsJyA/ICdDSElMTCcgOiAnSEFSRENPUkUnOwogICAgfQogICAgdGhpcy5zdGF0ZSA9ICdTRUxFQ1QnOwogICAgYXVkaW8ucGxheUNvaW4oKTsKICB9CgogIHN0YXJ0R2FtZSgpIHsKICAgIGlmICh0eXBlb2Ygd2luZG93ICE9PSAndW5kZWZpbmVkJykgewogICAgICB3aW5kb3cuX19HQU1FX01PREVfXyA9IHRoaXMuZGlmZmljdWx0eU1vZGUgPT09ICdjaGlsbCcgPyAnQ0hJTEwnIDogJ0hBUkRDT1JFJzsKICAgIH0KICAgIHRoaXMuc3RhdGUgPSAnUExBWUlORyc7').decode('utf-8')
-          if text.count("  startGame() {\n    this.state = 'PLAYING';") != 1:
-              raise SystemExit('startGame anchor mismatch')
-          text = text.replace("  startGame() {\n    this.state = 'PLAYING';", mode, 1)
-          render = base64.b64decode('ICByZW5kZXJNZW51KCkgewogICAgY29uc3QgY3R4ID0gdGhpcy5jdHg7CiAgICBpZiAodGhpcy5tZW51S2V5YXJ0LmNvbXBsZXRlICYmIHRoaXMubWVudUtleWFydC5uYXR1cmFsV2lkdGggPiAwKSB7CiAgICAgIGN0eC5kcmF3SW1hZ2UodGhpcy5tZW51S2V5YXJ0LCAwLCAwLCB0aGlzLnZ3LCB0aGlzLnZoKTsKICAgIH0gZWxzZSB7CiAgICAgIGN0eC5maWxsU3R5bGUgPSAnIzFBMjM3RSc7CiAgICAgIGN0eC5maWxsUmVjdCgwLCAwLCB0aGlzLnZ3LCB0aGlzLnZoKTsKICAgIH0KCiAgICBjb25zdCBncmFkID0gY3R4LmNyZWF0ZUxpbmVhckdyYWRpZW50KDAsIDAsIDAsIHRoaXMudmgpOwogICAgZ3JhZC5hZGRDb2xvclN0b3AoMCwgJ3JnYmEoMTAsIDIwLCA0MCwgMC40KScpOwogICAgZ3JhZC5hZGRDb2xvclN0b3AoMC43LCAncmdiYSgxMCwgMjAsIDQwLCAwLjc1KScpOwogICAgZ3JhZC5hZGRDb2xvclN0b3AoMSwgJ3JnYmEoMTAsIDIwLCA0MCwgMC45NSknKTsKICAgIGN0eC5maWxsU3R5bGUgPSBncmFkOwogICAgY3R4LmZpbGxSZWN0KDAsIDAsIHRoaXMudncsIHRoaXMudmgpOwoKICAgIGN0eC5zYXZlKCk7CiAgICBjdHgudGV4dEFsaWduID0gJ2NlbnRlcic7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkUwODInOwogICAgY3R4LmZvbnQgPSAnYm9sZCA0MnB4ICJQaW5nRmFuZyBTQyIsICJNaWNyb3NvZnQgSmhlbmdIZWkiLCBzYW5zLXNlcmlmJzsKICAgIGN0eC5zaGFkb3dDb2xvciA9ICdyZ2JhKDAsIDAsIDAsIDAuOCknOwogICAgY3R4LnNoYWRvd0JsdXIgPSAxNjsKICAgIGN0eC5maWxsVGV4dCgnMDjpu57kuIrnj63lpKfkvZzmiLDvvJrpgJrli6Toi7Hpm4Tnr4cnLCB0aGlzLnZ3IC8gMiwgMTM1KTsKCiAgICBjdHguZmlsbFN0eWxlID0gJyM4MUQ0RkEnOwogICAgY3R4LmZvbnQgPSAnYm9sZCAyMXB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCfigJTigJQg6LGh5bGx5pmo6KGd44O75aWU5ZCR5p2+5b63IOKAlOKAlCcsIHRoaXMudncgLyAyLCAxODApOwoKICAgIGN0eC5maWxsU3R5bGUgPSAnI0VDRUZGMSc7CiAgICBjdHguZm9udCA9ICcxNHB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCfku4rlpKnmg7PnlKjku4Dpurzlv4Pmg4XkuIrnj63vvJ/pgbjmk4fkvaDnmoTpgJrli6TmqKHlvI8nLCB0aGlzLnZ3IC8gMiwgMjI0KTsKCiAgICBjdHgudGV4dEFsaWduID0gJ3JpZ2h0JzsKICAgIGN0eC5maWxsU3R5bGUgPSAncmdiYSgyNTUsIDI1NSwgMjU1LCAwLjcyKSc7CiAgICBjdHguZm9udCA9ICcxMnB4IG1vbm9zcGFjZSc7CiAgICBjdHguZmlsbFRleHQoKHdpbmRvdy5fX0dBTUVfQlVJTERfXyB8fCBHQU1FX0JVSUxEKS52ZXJzaW9uLCB0aGlzLnZ3IC0gMjIsIDI0KTsKICAgIGN0eC50ZXh0QWxpZ24gPSAnY2VudGVyJzsKCiAgICBjdHguZmlsbFN0eWxlID0gJ3JnYmEoMjU1LDI1NSwyNTUsMC44MiknOwogICAgY3R4LmZvbnQgPSAnYm9sZCAxM3B4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCdTRUxFQ1QgQ09NTVVURSBNT09EJywgdGhpcy52dyAvIDIsIDI4Nyk7CgogICAgY29uc3QgY2hpbGxTZWxlY3RlZCA9IHRoaXMuZGlmZmljdWx0eU1vZGUgPT09ICdjaGlsbCc7CiAgICBjdHguZmlsbFN0eWxlID0gY2hpbGxTZWxlY3RlZCA/ICdyZ2JhKDM4LCAxNjYsIDE1NCwgMC45NCknIDogJ3JnYmEoMzgsIDE2NiwgMTU0LCAwLjc4KSc7CiAgICBjdHguZmlsbFJlY3QoMjM1LCAzMTUsIDIzNSwgNzQpOwogICAgY3R4LnN0cm9rZVN0eWxlID0gJyNCMkRGREInOwogICAgY3R4LmxpbmVXaWR0aCA9IGNoaWxsU2VsZWN0ZWQgPyAzIDogMjsKICAgIGN0eC5zdHJva2VSZWN0KDIzNSwgMzE1LCAyMzUsIDc0KTsKICAgIGN0eC5maWxsU3R5bGUgPSAnI0ZGRkZGRic7CiAgICBjdHguZm9udCA9ICdib2xkIDIwcHggc2Fucy1zZXJpZic7CiAgICBjdHguZmlsbFRleHQoJ+KYlSBDaGlsbCBNb29kJywgMzUyLjUsIDM0Mik7CiAgICBjdHguZm9udCA9ICcxM3B4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxTdHlsZSA9ICcjRTBGMkYxJzsKICAgIGN0eC5maWxsVGV4dCgn57Ch5Zau44O75oKg6ZaS6YCa5YukJywgMzUyLjUsIDM2OCk7CgogICAgY29uc3QgaGFyZFNlbGVjdGVkID0gdGhpcy5kaWZmaWN1bHR5TW9kZSA9PT0gJ2hhcmRjb3JlJzsKICAgIGN0eC5maWxsU3R5bGUgPSBoYXJkU2VsZWN0ZWQgPyAncmdiYSgxOTgsIDQwLCA0MCwgMC45NCknIDogJ3JnYmEoMTk4LCA0MCwgNDAsIDAuNzgpJzsKICAgIGN0eC5maWxsUmVjdCg0OTAsIDMxNSwgMjM1LCA3NCk7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkNEREInOwogICAgY3R4LmxpbmVXaWR0aCA9IGhhcmRTZWxlY3RlZCA/IDMgOiAyOwogICAgY3R4LnN0cm9rZVJlY3QoNDkwLCAzMTUsIDIzNSwgNzQpOwogICAgY3R4LmZpbGxTdHlsZSA9ICcjRkZGRkZGJzsKICAgIGN0eC5mb250ID0gJ2JvbGQgMjBweCBzYW5zLXNlcmlmJzsKICAgIGN0eC5maWxsVGV4dCgn8J+UpSBIYXJkLUNvcmUnLCA2MDcuNSwgMzQyKTsKICAgIGN0eC5mb250ID0gJzEzcHggc2Fucy1zZXJpZic7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkVCRUUnOwogICAgY3R4LmZpbGxUZXh0KCflm7Dpm6vjg7Z2OS44LjUg5Y6f5ZGz5oyR5oi0JywgNjA3LjUsIDM2OCk7CgogICAgY3R4LmZpbGxTdHlsZSA9ICdyZ2JhKDIzMywgMzAsIDk5LCAwLjcyKSc7CiAgICBjdHguZmlsbFJlY3QoMzUwLCA0MDQsIDI2MCwgNDIpOwogICAgY3R4LnN0cm9rZVN0eWxlID0gJyNGRjgwQUInOwogICAgY3R4LmxpbmVXaWR0aCA9IDI7CiAgICBjdHguc3Ryb2tlUmVjdCgzNTAsIDQwNCwgMjYwLCA0Mik7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkYnOwogICAgY3R4LmZvbnQgPSAnYm9sZCAxNHB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCdwn46kIOmWi+evhOW6j+W5leODu+S6uueJqeiIh+aAqueNuOS7i+e0uScsIHRoaXMudncgLyAyLCA0MjUpOwoKICAgIGN0eC5maWxsU3R5bGUgPSAncmdiYSgyNTUsIDI1NSwgMjU1LCAwLjE1KSc7CiAgICBjdHguZmlsbFJlY3QoMzUwLCA0NTYsIDEyMCwgMzgpOwogICAgY3R4LmZpbGxSZWN0KDQ5MCwgNDU2LCAxMjAsIDM4KTsKICAgIGN0eC5zdHJva2VTdHlsZSA9ICdyZ2JhKDI1NSwgMjU1LCAyNTUsIDAuNCknOwogICAgY3R4LnN0cm9rZVJlY3QoMzUwLCA0NTYsIDEyMCwgMzgpOwogICAgY3R4LnN0cm9rZVJlY3QoNDkwLCA0NTYsIDEyMCwgMzgpOwogICAgY3R4LmZpbGxTdHlsZSA9ICcjRkZGJzsKICAgIGN0eC5mb250ID0gJzEzcHggc2Fucy1zZXJpZic7CiAgICBjdHguZmlsbFRleHQoJ+mBi+aIsuqquuaYjiBbSF0nLCA0MTAsIDQ3NSk7CiAgICBjdHguZmlsbFRleHQoJ+ioreWumu 集IFtUQUJdJywgNTUwLCA0NzUpOwoKICAgIGN0eC5maWxsU3R5bGUgPSAncmdiYSgyNTUsMjU1LDI1NSwwLjYwKSc7CiAgICBjdHguZm9udCA9ICcxMXB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCd2OS45LjAgVUkgcHJldmlld++8mkNoaWxsIGJhbGFuY2Ug5bCH5pa85LiL5LiA5q2l5aWX55So77ybSGFyZC1Db3JlIOaVuOWAvOe2reaMgSB2OS44LjXjgIInLCB0aGlzLnZ3IC8gMiwgNTE4KTsKICAgIGN0eC5yZXN0b3JlKCk7CiAgfQoKICByZW5kZXJTZWxlY3QoKSB7').decode('utf-8')
-          one(r"  renderMenu\(\) \{.*?\n  \}\n\n  renderSelect\(\) \{", render, 'render mode menu', re.S)
-          anchor = "    ctx.fillText('寫實立繪與高解析 Q 版 Chibi 對比・每位英雄具備專屬小招與 Anime 大招', this.vw / 2, 75);"
-          badge = anchor + "\n\n    ctx.textAlign = 'right';\n    ctx.fillStyle = this.difficultyMode === 'chill' ? '#80CBC4' : '#FF8A80';\n    ctx.font = 'bold 12px sans-serif';\n    ctx.fillText(this.difficultyMode === 'chill' ? '☕ CHILL MOOD' : '🔥 HARD-CORE', 925, 28);\n    ctx.textAlign = 'center';"
-          if text.count(anchor) != 1:
-              raise SystemExit('character select badge anchor mismatch')
-          text = text.replace(anchor, badge, 1)
-          p.write_text(text, encoding='utf-8')
-          bp = Path('scripts/build_single_file.py')
-          b = bp.read_text(encoding='utf-8')
-          if b.count('BUILD_VERSION = "v9.8.5"') != 1 or b.count('status: "PRODUCTION_VERIFIED",') != 1:
-              raise SystemExit('build metadata anchor mismatch')
-          b = b.replace('BUILD_VERSION = "v9.8.5"', 'BUILD_VERSION = "v9.9.0"', 1)
-          b = b.replace('status: "PRODUCTION_VERIFIED",', 'status: "PI_REVIEW_REQUIRED",', 1)
-          b = b.replace('({BUILD_VERSION} Gameplay Polish)', '({BUILD_VERSION} Dual Mood Preview)', 1)
-          bp.write_text(b, encoding='utf-8')
-          rp = Path('README.md')
-          r = rp.read_text(encoding='utf-8')
-          r = r.replace('v9.8.5 正式版', 'v9.9.0 Dual Mood Preview', 1)
-          marker = '一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。\n'
-          note = '\n> **v9.9.0 開發中：Dual Mood Edition**\n> 主畫面已新增 `☕ Chill Mood` 與 `🔥 Hard-Core` 模式入口。Hard-Core 完整繼承已驗收的 v9.8.5 gameplay；本次先完成模式選單與 runtime mode state，Chill 的實際難度 modifiers 尚未套用。\n'
-          if marker not in r:
-              raise SystemExit('README anchor mismatch')
-          r = r.replace(marker, marker + note, 1)
-          rp.write_text(r, encoding='utf-8')
-          print('PATCH PASS')
-          PY
+          python3 -m py_compile scripts/patch_v990_mode_menu.py
+          python3 scripts/patch_v990_mode_menu.py
 
       - name: Regression gates
         run: |
@@ -83,15 +33,18 @@ jobs:
           p=Path('source/src/entities/Player.js').read_text(encoding='utf-8')
           assert 'const GAME_BUILD_VERSION = "v9.9.0";' in m
           assert 'status: "PI_REVIEW_REQUIRED"' in m
-          assert "this.selectGameMode('chill')" in m and "this.selectGameMode('hardcore')" in m
-          assert '☕ Chill Mood' in m and '🔥 Hard-Core' in m and '__GAME_MODE__' in m
+          assert "this.selectGameMode('chill')" in m
+          assert "this.selectGameMode('hardcore')" in m
+          assert "window.__GAME_MODE__ = this.difficultyMode === 'chill' ? 'CHILL' : 'HARDCORE'" in m
+          assert '☕ Chill Mood' in m and '🔥 Hard-Core' in m
           assert 'game.boss.entranceTriggered' in p
-          assert 'for (let wave = 0; wave < 3; wave++)' in p and 'for (let index = 0; index < 7; index++)' in p
+          assert 'for (let wave = 0; wave < 3; wave++)' in p
+          assert 'for (let index = 0; index < 7; index++)' in p
           assert '[this.player.id, ...this.companions.map(comp => comp.id)]' in m
           for t in ['speed: 370','speed: 345','speed: 320','skillCooldown: 0.10','skillCooldown: 0.40','ultCooldown: 6.0','ultCooldown: 7.5','damage: 18','damage: 40','damage: 60','damage: 516','damage: 483','damage: 560']:
               assert t in c, t
           assert 'phase1Hp: 3600' in b and 'phase2Hp: 3050' in b
-          print('HARD-CORE V9.8.5 BASELINE PASS')
+          print('HARD-CORE V9.8.5 BASELINE REGRESSION PASS')
           PY
 
       - name: Build and verify

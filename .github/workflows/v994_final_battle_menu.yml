@@ -1,5 +1,5 @@
 name: v9.9.4 final battle hero result and menu art
-# release-approved: 2026-09-16
+# release-approved: 2026-09-16-r2
 
 on:
   push:
@@ -28,6 +28,12 @@ jobs:
           s = ''.join(p.read_text(encoding='ascii').strip() for p in files)
           print('ART_BASE64_FILES', [(p.name, len(p.read_text(encoding='ascii').strip())) for p in files])
           print('ART_BASE64_TOTAL', len(s), 'MOD4', len(s) % 4, 'TAIL', s[-24:])
+          pad = (-len(s)) % 4
+          if pad:
+              last = files[-1]
+              last.write_text(last.read_text(encoding='ascii').strip() + ('=' * pad), encoding='ascii')
+              s += '=' * pad
+              print('ART_BASE64_PADDING_ADDED', pad, 'NORMALIZED_MOD4', len(s) % 4)
           PY
           cat scripts/patch_v994_part_aa.txt scripts/patch_v994_part_ab.txt scripts/patch_v994_part_ac.txt > /tmp/patch_v994.py
           python3 -m py_compile /tmp/patch_v994.py

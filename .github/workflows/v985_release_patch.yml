@@ -1,0 +1,240 @@
+name: v9.8.5 production patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v985_release_patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch v9.8.5 source only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly 1 match, found {count}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          # Shakira ultimate: Boss assist only after the boss encounter is actually triggered.
+          # Otherwise target the nearest local monster, then fall back to a visible forward zone.
+          replace_once(
+              'source/src/entities/Player.js',
+              '''  getUltimateTargetX() {
+              const game = typeof window !== 'undefined' ? window.activeGame : null;
+              if (game?.boss && !game.boss.isDead) return game.boss.x;
+              const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
+                .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
+              return nearest && Math.abs(nearest.x - this.x) <= 650 ? nearest.x : this.x;
+            }''',
+              '''  getUltimateTargetX() {
+              const game = typeof window !== 'undefined' ? window.activeGame : null;
+              const bossReady = game?.boss && !game.boss.isDead && game.boss.entranceTriggered;
+              if (bossReady) return game.boss.x;
+              const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
+                .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
+              if (nearest && Math.abs(nearest.x - this.x) <= 650) return nearest.x;
+              return this.x + this.facing * 260;
+            }'''
+          )
+
+          # Freeze v9.8.4 and identify this narrowly scoped bugfix as v9.8.5 candidate.
+          replace_once('source/src/main.js', 'const GAME_BUILD_VERSION = "v9.8.4";', 'const GAME_BUILD_VERSION = "v9.8.5";')
+          replace_once('source/src/main.js', 'status: "PI_DECISION_REQUIRED"', 'status: "PI_REVIEW_REQUIRED"')
+
+          # Preserve the two companion identities into the final VICTORY state instead of clearing them.
+          replace_once(
+              'source/src/main.js',
+              '''    this.milestoneBanner = null;
+              this.milestoneBannerTimer = 0;
+              this.companions = [];
+              window.__VISIBLE_HERO_IDS__ = [];
+              hud.triggerVictory(this.player);''',
+              '''    this.milestoneBanner = null;
+              this.milestoneBannerTimer = 0;
+              if (this.companions.length !== 2) this._prepareVictoryCompanions();
+              window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+              hud.triggerVictory(this.player);'''
+          )
+          replace_once(
+              'source/src/main.js',
+              '''      if (this.state === 'VICTORY') {
+                window.__VISIBLE_HERO_IDS__ = [];
+                hud.render(this.ctx, this.player, this.boss, this.level, this.camera);''',
+              '''      if (this.state === 'VICTORY') {
+                window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+                hud.render(this.ctx, this.player, this.boss, this.level, this.camera);'''
+          )
+
+          # Final result screen: show all three approved chibi identities exactly once.
+          hud_path = Path('source/src/ui/HUD.js')
+          hud = hud_path.read_text(encoding='utf-8')
+          old_start = hud.index('    // Chibi portrait on left side\n')
+          old_end = hud.index("\n    ctx.fillStyle = '#FFD700';", old_start)
+          group_block = '''    // Final group pose: exactly one approved chibi for each hero.
+            const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
+            const groupIds = ['yu', 'shakira', 'sandra'];
+            const groupColors = { yu: '#4FC3F7', shakira: '#FFD54F', sandra: '#FF7043' };
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.fillRect(cx - 264, cy - 191, 122, 155);
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx - 264, cy - 191, 122, 155);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('三人打卡・全員歡呼', cx - 203, cy - 198);
+            groupIds.forEach((id, index) => {
+              const img = chibiImages && chibiImages[id];
+              if (!img || !img.complete || img.naturalWidth <= 0) return;
+              const x = cx - 258 + index * 29;
+              const y = cy - 163 + (index === 1 ? -10 : 7);
+              ctx.save();
+              ctx.shadowColor = groupColors[id];
+              ctx.shadowBlur = 8;
+              ctx.strokeStyle = groupColors[id];
+              ctx.lineWidth = 2;
+              ctx.strokeRect(x - 2, y - 2, 60, 77);
+              ctx.drawImage(img, x, y, 56, 73);
+              ctx.restore();
+            });
+            ctx.restore();
+          '''
+          hud_path.write_text(hud[:old_start] + group_block + hud[old_end:], encoding='utf-8')
+
+          # Build metadata normalization for v9.8.5 candidate.
+          replace_once('scripts/build_single_file.py', 'BUILD_VERSION = "v9.8.4"', 'BUILD_VERSION = "v9.8.5"')
+          replace_once('scripts/build_single_file.py', 'status: "PI_DECISION_REQUIRED",', 'status: "PI_REVIEW_REQUIRED",')
+          PY
+
+      - name: Isolate historical root files without deleting them
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p archive/legacy
+          legacy_paths=(
+            '08workbattle_v9_3_MASTER_HANDOFF_PROMPT.md'
+            '08workbattle_v9_6_MASTER_PROMPT.md'
+            'AGENT_HANDOFF.md'
+            'ATTACK_RANGE_AUDIT.md'
+            'CAMERA_WORLD_BOUNDS_AUDIT.md'
+            'COFFEE_PLACEMENT_AUDIT.csv'
+            'COIN_PLACEMENT_AUDIT.csv'
+            'COMBAT_BALANCE_AUDIT.md'
+            'FULL_ROUTE_DAMAGE_TRACE.csv'
+            'ITEM_ART_AUDIT.md'
+            'ITEM_SYSTEM_AUDIT.md'
+            'MANUAL_BROWSER_QA_CHECKLIST_v9_8_1.md'
+            'MAP_REFERENCE_AUDIT.md'
+            'MAP_REFERENCE_AUDIT_v9_2.md'
+            'PI_DIRECTIVE_v9_7_1.md'
+            'PLAYTEST_REPORT.md'
+            'REAL_E2E_PLAYTEST.md'
+            'RECOVERY_AUDIT_v9_7_1.md'
+            'ROUTE_CONTINUITY_AUDIT.md'
+            'SANDRA_P2_ULT_REAL_DAMAGE.txt'
+            'SCENE_ASSET_MANIFEST_v9_2.md'
+            'V9_7_1_RECOVERY_MATRIX.md'
+            'PI_QA_v9_8_1_round2'
+            'PI_QA_v9_8_1_round3'
+            'QA_SCREENSHOTS'
+            'QA_V9_8_3'
+            'RUNTIME_RECOVERY_v9_8_2'
+            'work'
+          )
+          for p in "${legacy_paths[@]}"; do
+            if [ -e "$p" ]; then
+              dest="archive/legacy/$p"
+              mkdir -p "$(dirname "$dest")"
+              git mv "$p" "$dest"
+            fi
+          done
+          cat > archive/legacy/README.md <<'EOF'
+          # Legacy archive
+
+          Historical prompts, audits, recovery bundles, QA artifacts, and WIP from releases before the current production line are retained here for provenance only.
+
+          These files are **not production build inputs**. The authoritative runtime is generated from `source/` + `assets/` by `scripts/build_single_file.py`.
+          EOF
+
+      - name: Static regression gates
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          m = Path('source/src/main.js').read_text(encoding='utf-8')
+          h = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
+          c = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          b = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert "if (game?.boss && !game.boss.isDead) return game.boss.x;" not in p
+          assert "game.boss.entranceTriggered" in p
+          assert "return this.x + this.facing * 260;" in p
+          assert "for (let wave = 0; wave < 3; wave++)" in p
+          assert "for (let index = 0; index < 7; index++)" in p
+          assert "releaseAfter: [0, 0.26, 0.56][wave]" in p
+          assert "groupIds = ['yu', 'shakira', 'sandra']" in h
+          assert "[this.player.id, ...this.companions.map(comp => comp.id)]" in m
+          assert 'const GAME_BUILD_VERSION = "v9.8.5";' in m
+          assert 'status: "PI_REVIEW_REQUIRED"' in m
+
+          # v9.8.4 accepted balance invariants: no rebalance in this patch.
+          for token in [
+              'speed: 370', 'speed: 345', 'speed: 320',
+              'skillCooldown: 0.10', 'skillCooldown: 0.40',
+              'ultCooldown: 6.0', 'ultCooldown: 7.5',
+              'damage: 18', 'damage: 40', 'damage: 60',
+              'damage: 516', 'damage: 483', 'damage: 560'
+          ]:
+              assert token in c, token
+          assert 'phase1Hp: 3600' in b
+          assert 'phase2Hp: 3050' in b
+          print('STATIC QA PASS')
+          PY
+
+      - name: Build authoritative root and dist
+        run: python3 scripts/build_single_file.py
+
+      - name: Production parity and bundle gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp -s index.html dist/index.html
+          grep -q 'v9.8.5' index.html
+          grep -q 'PI_REVIEW_REQUIRED' index.html
+          grep -q 'entranceTriggered' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          echo 'ROOT/DIST PARITY PASS'
+          cat SHA256.txt
+
+      - name: Commit verified patch to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u
+          git add archive source scripts index.html dist/index.html SHA256.txt
+          git status --short
+          git diff --cached --check
+          git commit -m 'fix(v9.8.5): restore Shakira ult and group victory'
+          git push origin HEAD:main

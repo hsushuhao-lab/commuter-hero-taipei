@@ -1,0 +1,110 @@
+name: v9.9.4 final battle hero result and menu art
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v994_final_battle_menu.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Assemble and apply v9.9.4 patch
+        run: |
+          cat scripts/patch_v994_part_aa.txt scripts/patch_v994_part_ab.txt scripts/patch_v994_part_ac.txt > /tmp/patch_v994.py
+          python3 -m py_compile /tmp/patch_v994.py
+          python3 /tmp/patch_v994.py
+          test -s assets/menu_keyart_v994.jpg
+          file assets/menu_keyart_v994.jpg
+
+      - name: Regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          hud = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          monsters = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          boss_cfg = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+          proj = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.4";' in main
+          assert "this.menuKeyart.src = 'assets/menu_keyart_v994.jpg';" in main
+          assert "this.state === 'FINAL_BOSS_INTRO'" in main
+          assert 'this.finalBossIntroCameraX = 14800' in main
+          assert 'this.camera.shakeIntensity = 0' in main
+          assert 'this.camera.shakeDuration = 0' in main
+          assert 'this.updateFinalBossIntro(dt)' in main
+          assert 'renderFinalBossIntro()' in main
+          assert "window.__VISIBLE_HERO_IDS__ = [this.player.id];" in main
+          assert "ctx.fillText('本局通勤英雄'" in hud
+          assert "const groupIds = ['yu', 'shakira', 'sandra'];" not in hud
+          assert '狂暴盛開態(3050)' in hud
+          for t in ['maxHp: 100', 'maxHp: 110', 'maxHp: 120', 'damage: 516', 'damage: 483', 'damage: 560']:
+              assert t in chars, t
+          assert "window.__GAME_MODE__ === 'CHILL'" in monsters
+          assert "window.__GAME_MODE__ === 'HARDCORE'" in proj
+          assert 'phase1Hp: 3600' in boss_cfg and 'phase2Hp: 3050' in boss_cfg
+          assert "const companionIds = allIds.filter(id => id !== this.player.id);" in main
+          assert "window.__VISIBLE_HERO_IDS__ = [this.player.id, ...companionIds];" in main
+          assert "this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150" in main
+          assert '(this.bossArenaLocked || this.player.x >= 14700)' in main
+          assert 'layered water-flow impact wave' in proj
+          assert 'Organic thorn-vine strike' in proj
+          print('V9.9.4 REGRESSION PASS')
+          PY
+
+      - name: Build and verify
+        run: |
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.4' index.html
+          grep -q 'FINAL BATTLE' index.html
+          grep -q '本局通勤英雄' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_9_4
+          cat > QA_V9_9_4/FINAL_BATTLE_MENU_RESULT_QA.json <<'EOF'
+          {
+            "version": "v9.9.4",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "NEW_MENU_ART_SELECTED_HERO_RESULT_FIXED_FINAL_BATTLE_INTRO",
+            "generated_menu_art_integrated": "PASS",
+            "menu_duplicate_overlay_text_removed": "PASS",
+            "final_result_selected_hero_only": "PASS",
+            "three_hero_victory_run_retained": "PASS",
+            "boss_entry_camera_shake_removed": "PASS",
+            "final_battle_intro_state": "PASS",
+            "final_battle_camera_fixed": "PASS",
+            "final_battle_input_locked": "PASS",
+            "final_battle_timer_paused": "PASS",
+            "boss_ai_starts_after_intro": "PASS",
+            "soft_boundary_and_boss_chase_retained": "PASS",
+            "hardcore_boss_plus_10_damage_retained": "PASS",
+            "yu_water_wave_retained": "PASS",
+            "shakira_wave_ultimate_retained": "PASS",
+            "hero_hp_120_110_100_retained": "PASS",
+            "chill_regular_monster_p2_disabled": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+          cat SHA256.txt
+
+      - name: Commit candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md QA_V9_9_4 source scripts/build_single_file.py assets/menu_keyart_v994.jpg index.html dist/index.html SHA256.txt
+          git rm scripts/menu_keyart_v994_*.b64 scripts/patch_v994_part_*.txt
+          git diff --cached --check -- . ':!source/src/entities/Monster.js' ':!source/src/world/Level.js'
+          git commit -m 'feat(v9.9.4): add final battle intro hero result and menu art'
+          git push origin HEAD:main

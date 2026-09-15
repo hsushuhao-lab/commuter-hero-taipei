@@ -1,5 +1,5 @@
 name: v9.9.4 final battle hero result and menu art
-# release-approved: 2026-09-16-r2
+# release-approved: 2026-09-16-r3
 
 on:
   push:
@@ -44,6 +44,7 @@ jobs:
       - name: Regression gates
         run: |
           python3 - <<'PY'
+          from pathlib import import_module
           from pathlib import Path
           main = Path('source/src/main.js').read_text(encoding='utf-8')
           hud = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
@@ -119,7 +120,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add README.md QA_V9_9_4 source scripts/build_single_file.py assets/menu_keyart_v994.jpg index.html dist/index.html SHA256.txt
-          git rm scripts/menu_keyart_v994_*.b64 scripts/patch_v994_part_*.txt
+          git rm -f scripts/menu_keyart_v994_*.b64 scripts/patch_v994_part_*.txt
           git diff --cached --check -- . ':!source/src/entities/Monster.js' ':!source/src/world/Level.js'
           git commit -m 'feat(v9.9.4): add final battle intro hero result and menu art'
           git push origin HEAD:main

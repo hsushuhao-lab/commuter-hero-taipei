@@ -1,0 +1,23 @@
+{
+  "version": "v9.9.4",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "NEW_MENU_ART_SELECTED_HERO_RESULT_FIXED_FINAL_BATTLE_INTRO",
+  "generated_menu_art_integrated": "PASS",
+  "menu_duplicate_overlay_text_removed": "PASS",
+  "final_result_selected_hero_only": "PASS",
+  "three_hero_victory_run_retained": "PASS",
+  "boss_entry_camera_shake_removed": "PASS",
+  "final_battle_intro_state": "PASS",
+  "final_battle_camera_fixed": "PASS",
+  "final_battle_input_locked": "PASS",
+  "final_battle_timer_paused": "PASS",
+  "boss_ai_starts_after_intro": "PASS",
+  "soft_boundary_and_boss_chase_retained": "PASS",
+  "hardcore_boss_plus_10_damage_retained": "PASS",
+  "yu_water_wave_retained": "PASS",
+  "shakira_wave_ultimate_retained": "PASS",
+  "hero_hp_120_110_100_retained": "PASS",
+  "chill_regular_monster_p2_disabled": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

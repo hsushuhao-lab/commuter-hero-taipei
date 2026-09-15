@@ -795,35 +795,31 @@ export class HUD {
     ctx.lineWidth = 1;
     ctx.strokeRect(cx - 272, cy - 197, 544, 394);
 
-    // Final group pose: approved Yu, Shakira, Sandra chibis exactly once each.
-  const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
-  const groupIds = ['yu', 'shakira', 'sandra'];
-  const groupColors = { yu: '#4FC3F7', shakira: '#FFD54F', sandra: '#FF7043' };
-  ctx.save();
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-  ctx.fillRect(cx - 264, cy - 191, 122, 155);
-  ctx.strokeStyle = '#FFD700';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(cx - 264, cy - 191, 122, 155);
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 11px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('三人打卡・全員歡呼', cx - 203, cy - 198);
-  groupIds.forEach((id, index) => {
-    const img = chibiImages && chibiImages[id];
-    if (!img || !img.complete || img.naturalWidth <= 0) return;
-    const x = cx - 258 + index * 29;
-    const y = cy - 163 + (index === 1 ? -10 : 7);
+    // v9.9.4 Final result card: selected hero only. The three-person celebration remains in VICTORY_RUN.
+    const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
+    const selectedImg = chibiImages && chibiImages[player.id];
     ctx.save();
-    ctx.shadowColor = groupColors[id];
-    ctx.shadowBlur = 8;
-    ctx.strokeStyle = groupColors[id];
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fillRect(cx - 264, cy - 191, 122, 155);
+    ctx.strokeStyle = player.charConfig.colors?.accent || '#FFD700';
     ctx.lineWidth = 2;
-    ctx.strokeRect(x - 2, y - 2, 60, 77);
-    ctx.drawImage(img, x, y, 56, 73);
+    ctx.shadowColor = player.charConfig.colors?.accent || '#FFD700';
+    ctx.shadowBlur = 10;
+    ctx.strokeRect(cx - 264, cy - 191, 122, 155);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('本局通勤英雄', cx - 203, cy - 198);
+    if (selectedImg && selectedImg.complete && selectedImg.naturalWidth > 0) {
+      ctx.drawImage(selectedImg, cx - 252, cy - 169, 98, 127);
+    } else if (player.spriteSheet && player.spriteSheet.complete && player.spriteSheet.naturalWidth > 0) {
+      ctx.drawImage(player.spriteSheet, 0, 0, 512, 512, cx - 252, cy - 169, 98, 127);
+    }
+    ctx.fillStyle = player.charConfig.colors?.accent || '#FFD54F';
+    ctx.font = 'bold 13px "PingFang SC", sans-serif';
+    ctx.fillText(player.name, cx - 203, cy - 44);
     ctx.restore();
-  });
-  ctx.restore();
 
     ctx.fillStyle = '#FFD700';
     ctx.font = 'bold 24px "PingFang SC", "Microsoft JhengHei", sans-serif';
@@ -856,7 +852,7 @@ export class HUD {
     ctx.fillText(`全程路線：象山捷運站 ➔ 松德院區 (18,000px)`, statsX, cy - 73);
     ctx.fillText(`剩餘時間：${Math.ceil(this.timeRemaining)} 秒 (3分滿載) | 體力：${Math.ceil(player.hp)} / ${player.maxHp}`, statsX, cy - 51);
     ctx.fillText(`收集金幣：${player.coins} 枚 | 墜崖失誤：${player.fallCount || 0} 次`, statsX, cy - 29);
-    ctx.fillText(`雙階巨花王：夢境安撫態(3600) + 狂暴盛開態(5200) 討伐確認`, statsX, cy - 7);
+    ctx.fillText(`雙階巨花王：夢境安撫態(3600) + 狂暴盛開態(3050) 討伐確認`, statsX, cy - 7);
 
     // Rank — centered
     ctx.fillStyle = '#FFD700';

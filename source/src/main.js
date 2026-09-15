@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.9.3";
+const GAME_BUILD_VERSION = "v9.9.4";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -35,7 +35,7 @@ class Game {
     this.canvas.width = this.vw;
     this.canvas.height = this.vh;
 
-    this.state = 'OPENING'; // OPENING, MENU, INTRO, SELECT, PLAYING, PAUSE, VICTORY_RUN, VICTORY, GAMEOVER
+    this.state = 'OPENING'; // OPENING, MENU, INTRO, SELECT, PLAYING, FINAL_BOSS_INTRO, PAUSE, VICTORY_RUN, VICTORY, GAMEOVER
     this.selectedCharId = 'yu';
     // v9.9.0 Dual Mood: v9.8.5 is the immutable Hard-Core baseline.
     this.difficultyMode = 'hardcore';
@@ -81,12 +81,19 @@ class Game {
     this.bossArenaLocked = false;
     this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150;
 
+    // v9.9.4 Final Battle Intro: fixed-camera cinematic before Boss combat.
+    this.finalBossIntroStarted = false;
+    this.finalBossIntroDone = false;
+    this.finalBossIntroTimer = 0;
+    this.finalBossIntroDuration = 3.8;
+    this.finalBossIntroCameraX = 14800;
+
     // Joystick touch tracking
     this.joystickPointerId = null;
 
     // Assets for Menu
     this.menuKeyart = new Image();
-    this.menuKeyart.src = 'assets/menu_keyart.jpg';
+    this.menuKeyart.src = 'assets/menu_keyart_v994.jpg';
 
     // v9.4: Preload chibi sprites for victory companion rendering
     this.chibiImages = {};
@@ -333,14 +340,14 @@ class Game {
     // Main Menu Flow
     if (this.state === 'MENU') {
       // v9.9.0: select commute mood before character select.
-      if (mx >= 225 && mx <= 465 && my >= 330 && my <= 392) {
+      if (mx >= 225 && mx <= 478 && my >= 338 && my <= 402) {
         this.selectGameMode('chill');
       }
-      else if (mx >= 495 && mx <= 735 && my >= 330 && my <= 392) {
+      else if (mx >= 482 && mx <= 735 && my >= 338 && my <= 402) {
         this.selectGameMode('hardcore');
       }
       // Watch Opening Button
-      else if (mx >= 350 && mx <= 610 && my >= 402 && my <= 452) {
+      else if (mx >= 330 && mx <= 630 && my >= 410 && my <= 456) {
         this.state = 'OPENING';
         introCinematic.start(() => {
           this.state = 'MENU';
@@ -348,11 +355,11 @@ class Game {
         audio.playCoin();
       }
       // Game Instructions
-      else if (mx >= 350 && mx <= 470 && my >= 462 && my <= 505) {
+      else if (mx >= 330 && mx <= 478 && my >= 464 && my <= 506) {
         this.instructionsOpen = true;
       }
       // Style Bible Button
-      else if (mx >= 490 && mx <= 610 && my >= 462 && my <= 505) {
+      else if (mx >= 484 && mx <= 632 && my >= 464 && my <= 506) {
         styleBibleUI.toggle();
       }
       return;
@@ -560,6 +567,10 @@ class Game {
     this.bossEntranceDone = false;  // reset boss entrance for new game
     this.bossArenaLocked = false;
     this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150;
+    this.finalBossIntroStarted = false;
+    this.finalBossIntroDone = false;
+    this.finalBossIntroTimer = 0;
+    if (typeof window !== 'undefined') window.gameCutsceneActive = false;
     this.joystickPointerId = null;
     this.companions = [];
     this.dialogueBubbles = [];
@@ -604,6 +615,11 @@ class Game {
       return;
     }
 
+    if (this.state === 'FINAL_BOSS_INTRO') {
+      this.updateFinalBossIntro(dt);
+      return;
+    }
+
     if (this.state === 'PLAYING') {
       if (this.levelIntroTimer > 0) {
         this.levelIntroTimer -= dt;
@@ -626,6 +642,12 @@ class Game {
       this.level.update(dt, this.player, this.camera);
       this.pm.update(dt, this.player);
 
+      // v9.9.4: first entry into the Boss arena starts a fixed-camera Final Battle cinematic.
+      if (!this.finalBossIntroDone && !this.finalBossIntroStarted && !this.boss.isDead && this.player.x >= 14750) {
+        this.beginFinalBossIntro();
+        return;
+      }
+
       // v9.9.2 Boss Arena containment: entering the encounter locks the rear boundary.
       if (!this.boss.isDead && this.player.x >= 14700) this.bossArenaLocked = true;
       if (this.bossArenaLocked && !this.boss.isDead && this.player.x < this.bossRetreatMinX) {
@@ -636,12 +658,11 @@ class Game {
       // v9.9.3: once locked, Boss AI remains active across the entire soft-boundary zone.
       // The hero can retreat to bossRetreatMinX, but cannot make the Boss freeze by stepping left of 14700.
       if ((this.bossArenaLocked || this.player.x >= 14700) && !this.boss.isDead) {
-        // Show boss entrance banner and shake camera (first time only)
+        // v9.9.4 fallback only: Boss entry has no camera shake.
         if (!this.bossEntranceDone && this.player.x >= 14750) {
           this.bossEntranceDone = true;
-          this.camera.shake(12, 1.5);
           this.milestoneBanner = '🌹 決戰松德！夢影巨花王現身！';
-          this.milestoneBannerTimer = 3.5;
+          this.milestoneBannerTimer = 2.0;
         }
         this.boss.update(dt, this.player, this.camera);
         // v9.5 BGM Rule: Single boss_theme for entire boss battle (P2 layers intensity via setBossIntensity)
@@ -728,6 +749,103 @@ class Game {
     }
   }
 
+  beginFinalBossIntro() {
+    this.finalBossIntroStarted = true;
+    this.finalBossIntroTimer = this.finalBossIntroDuration;
+    this.state = 'FINAL_BOSS_INTRO';
+    this.bossArenaLocked = true;
+    this.pm.arenaGateActive = true;
+
+    // Put the selected hero just inside the arena so both hero and Boss fit a fixed composition.
+    this.player.x = Math.max(this.player.x, 14920);
+    this.player.vx = 0;
+    this.player.vy = 0;
+    this.player.facing = 1;
+    this.player.animState = 'idle';
+    input.reset();
+    this.activePointers.clear();
+    projectiles.clear();
+
+    if (typeof window !== 'undefined') window.gameCutsceneActive = true;
+
+    // Hard lock the camera: no follow, no pan, no shake during the entire intro.
+    this.camera.shakeIntensity = 0;
+    this.camera.shakeDuration = 0;
+    this.camera.shakeOffsetX = 0;
+    this.camera.shakeOffsetY = 0;
+    this.camera.setZoom(1.0);
+    this.camera.x = this.finalBossIntroCameraX;
+    this.camera.y = 0;
+
+    // Start a controlled Boss-rise animation without enabling combat AI.
+    this.boss.entranceTriggered = true;
+    this.boss.entranceDone = false;
+    this.boss.entranceTimer = 1.9;
+    this.boss._entranceYOffset = 300;
+    this.boss.attackTimer = Math.max(this.boss.attackTimer, 1.2);
+    audio.playBossRoar();
+    audio.playBgm('boss_theme');
+
+    for (let i = 0; i < 34; i++) {
+      const a = (i / 34) * Math.PI * 2;
+      particles.emit({
+        x: this.boss.x + Math.cos(a) * (35 + Math.random() * 55),
+        y: this.boss.y - 80 + Math.sin(a) * 65,
+        vx: Math.cos(a) * (70 + Math.random() * 70),
+        vy: -80 - Math.random() * 120,
+        size: 4 + Math.random() * 6,
+        color: Math.random() < 0.5 ? '#FF2BD6' : '#FFD54F',
+        life: 1.4,
+        shape: 'petal',
+        fade: true,
+        visualOnly: true
+      });
+    }
+  }
+
+  updateFinalBossIntro(dt) {
+    this.finalBossIntroTimer = Math.max(0, this.finalBossIntroTimer - dt);
+
+    // Camera coordinates are reasserted every frame so the arena never drifts.
+    this.camera.x = this.finalBossIntroCameraX;
+    this.camera.y = 0;
+    this.camera.shakeIntensity = 0;
+    this.camera.shakeDuration = 0;
+    this.camera.shakeOffsetX = 0;
+    this.camera.shakeOffsetY = 0;
+
+    this.player.vx = 0;
+    this.player.vy = 0;
+    this.player.facing = 1;
+    this.player.updateAnimation(dt);
+
+    if (this.boss.entranceTimer > 0) {
+      this.boss.entranceTimer = Math.max(0, this.boss.entranceTimer - dt);
+      const progress = 1.0 - this.boss.entranceTimer / 1.9;
+      const smooth = progress * progress * (3 - 2 * progress);
+      this.boss._entranceYOffset = (1.0 - smooth) * 300;
+      if (this.boss.entranceTimer <= 0) {
+        this.boss._entranceYOffset = 0;
+        this.boss.entranceDone = true;
+      }
+    }
+    this.boss.bobTimer += dt * 1.2;
+    particles.update(dt);
+
+    if (this.finalBossIntroTimer <= 0) {
+      this.finalBossIntroDone = true;
+      this.bossEntranceDone = true;
+      this.boss.entranceDone = true;
+      this.boss.entranceTimer = 0;
+      this.boss._entranceYOffset = 0;
+      this.boss.attackTimer = Math.max(this.boss.attackTimer, 0.9);
+      this.state = 'PLAYING';
+      if (typeof window !== 'undefined') window.gameCutsceneActive = false;
+      this.milestoneBanner = '⚔️ FINAL BATTLE：夢影巨花王・決戰開始！';
+      this.milestoneBannerTimer = 2.2;
+    }
+  }
+
   _prepareVictoryCompanions() {
     const allIds = ['yu', 'shakira', 'sandra'];
     const companionIds = allIds.filter(id => id !== this.player.id);
@@ -745,7 +863,8 @@ class Game {
   this.milestoneBanner = null;
   this.milestoneBannerTimer = 0;
   if (this.companions.length !== 2) this._prepareVictoryCompanions();
-  window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+  // v9.9.4 final result card intentionally shows only the selected hero.
+  window.__VISIBLE_HERO_IDS__ = [this.player.id];
   hud.triggerVictory(this.player);
 }
 
@@ -1465,7 +1584,7 @@ updateVictoryRun(dt) {
       this.renderSelect();
     } else {
       if (this.state === 'VICTORY') {
-        window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+        window.__VISIBLE_HERO_IDS__ = [this.player.id];
         hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
         if (this.instructionsOpen) this.renderInstructionsOverlay();
         styleBibleUI.render(this.ctx, this.vw, this.vh);
@@ -1489,8 +1608,14 @@ updateVictoryRun(dt) {
 
       this.camera.restore(this.ctx);
 
-      // 3. Screen-Space HUD & UI
-      hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
+      // 3. Screen-Space HUD & UI. Final Battle intro uses its own cinematic overlay only.
+      if (this.state !== 'FINAL_BOSS_INTRO') {
+        hud.render(this.ctx, this.player, this.boss, this.level, this.camera);
+      }
+
+      if (this.state === 'FINAL_BOSS_INTRO') {
+        this.renderFinalBossIntro();
+      }
 
       // Commuter Resonance Floating Milestone Banner
       if (this.milestoneBannerTimer > 0 && this.milestoneBanner) {
@@ -1539,6 +1664,99 @@ updateVictoryRun(dt) {
     styleBibleUI.render(this.ctx, this.vw, this.vh);
   }
 
+  renderFinalBossIntro() {
+    const ctx = this.ctx;
+    const elapsed = this.finalBossIntroDuration - this.finalBossIntroTimer;
+    const fadeIn = Math.min(1, elapsed / 0.45);
+    const fadeOut = Math.min(1, this.finalBossIntroTimer / 0.45);
+    const alpha = Math.min(fadeIn, fadeOut);
+    const pulse = 0.78 + Math.sin(elapsed * 6.0) * 0.12;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    const vignette = ctx.createRadialGradient(this.vw / 2, this.vh / 2, 80, this.vw / 2, this.vh / 2, 560);
+    vignette.addColorStop(0, 'rgba(20, 0, 25, 0.10)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.76)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, this.vw, this.vh);
+
+    // Letterbox keeps the camera composition visually locked.
+    ctx.fillStyle = '#02040A';
+    ctx.fillRect(0, 0, this.vw, 62);
+    ctx.fillRect(0, this.vh - 62, this.vw, 62);
+
+    // Hero vs Boss identity panels.
+    const heroColor = this.player.charConfig.colors?.accent || '#00E5FF';
+    ctx.fillStyle = 'rgba(5, 18, 35, 0.74)';
+    ctx.fillRect(26, 102, 210, 270);
+    ctx.strokeStyle = heroColor;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = heroColor;
+    ctx.shadowBlur = 18;
+    ctx.strokeRect(26, 102, 210, 270);
+    ctx.shadowBlur = 0;
+    this.drawRemasteredChibiFrame(ctx, this.player.spriteSheet, 0, 131, 334, 205);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px "PingFang SC", sans-serif';
+    ctx.fillText(this.player.name, 131, 354);
+    ctx.fillStyle = heroColor;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('COMMUTER HERO', 131, 371);
+
+    ctx.fillStyle = 'rgba(45, 0, 22, 0.76)';
+    ctx.fillRect(this.vw - 246, 102, 220, 270);
+    ctx.strokeStyle = '#FF2BD6';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#FF2BD6';
+    ctx.shadowBlur = 20;
+    ctx.strokeRect(this.vw - 246, 102, 220, 270);
+    ctx.shadowBlur = 0;
+    if (this.boss.imgPhase1 && this.boss.imgPhase1.complete && this.boss.imgPhase1.naturalWidth > 0) {
+      ctx.drawImage(this.boss.imgPhase1, this.vw - 231, 118, 190, 205);
+    }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 19px "PingFang SC", sans-serif';
+    ctx.fillText('夢影巨花王', this.vw - 136, 354);
+    ctx.fillStyle = '#FF80AB';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('FINAL BOSS', this.vw - 136, 371);
+
+    // Central title card animation; screen-space only, camera never moves.
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#FFD54F';
+    ctx.shadowBlur = 28 * pulse;
+    ctx.fillStyle = '#FFF59D';
+    ctx.font = '900 46px "Arial Black", "PingFang SC", sans-serif';
+    ctx.fillText('FINAL BATTLE', this.vw / 2, 176);
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 24px "PingFang SC", sans-serif';
+    ctx.fillText('最 終 決 戰', this.vw / 2, 214);
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText(this.difficultyMode === 'hardcore' ? '🔥 HARD-CORE ・ NO RETREAT' : '☕ CHILL MOOD ・ FINAL ENCOUNTER', this.vw / 2, 248);
+
+    // VS slash and fight cue.
+    ctx.save();
+    ctx.translate(this.vw / 2, 310);
+    ctx.rotate(-0.12);
+    ctx.fillStyle = '#FF1744';
+    ctx.fillRect(-42, -4, 84, 8);
+    ctx.rotate(0.12);
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = '900 40px "Arial Black", sans-serif';
+    ctx.fillText(elapsed > 2.65 ? 'FIGHT!' : 'VS', 0, 8);
+    ctx.restore();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('鏡頭鎖定・倒數暫停・決戰準備', this.vw / 2, this.vh - 26);
+    ctx.restore();
+  }
+
   renderMilestoneBanner(text) {
     const ctx = this.ctx;
     ctx.save();
@@ -1580,100 +1798,47 @@ updateVictoryRun(dt) {
 
   renderMenu() {
     const ctx = this.ctx;
-    // Draw Keyart
     if (this.menuKeyart.complete && this.menuKeyart.naturalWidth > 0) {
       ctx.drawImage(this.menuKeyart, 0, 0, this.vw, this.vh);
     } else {
-      ctx.fillStyle = '#1A237E';
+      const fallback = ctx.createLinearGradient(0, 0, 0, this.vh);
+      fallback.addColorStop(0, '#90CAF9');
+      fallback.addColorStop(1, '#0D47A1');
+      ctx.fillStyle = fallback;
       ctx.fillRect(0, 0, this.vw, this.vh);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 34px sans-serif';
+      ctx.fillText('08點上班大作戰・通勤英雄篇', this.vw / 2, 110);
     }
 
-    // Dark gradient overlay
-    const grad = ctx.createLinearGradient(0, 0, 0, this.vh);
-    grad.addColorStop(0, 'rgba(10, 20, 40, 0.4)');
-    grad.addColorStop(0.7, 'rgba(10, 20, 40, 0.75)');
-    grad.addColorStop(1, 'rgba(10, 20, 40, 0.95)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.vw, this.vh);
-
-    // Title
+    // The generated art already contains the complete menu typography and panels.
+    // Only draw interaction feedback and a live build badge, preventing duplicate text overlap.
     ctx.save();
+    const modeRect = this.difficultyMode === 'chill'
+      ? { x: 225, y: 338, w: 253, h: 64, color: '#00FFF0' }
+      : { x: 482, y: 338, w: 253, h: 64, color: '#FFD54F' };
+    ctx.strokeStyle = modeRect.color;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = modeRect.color;
+    ctx.shadowBlur = 14;
+    ctx.strokeRect(modeRect.x + 2, modeRect.y + 2, modeRect.w - 4, modeRect.h - 4);
+    ctx.shadowBlur = 0;
+
+    // Cover the baked v9.9.3 corner label from the generated concept art with the live runtime version.
+    ctx.fillStyle = 'rgba(12, 40, 75, 0.72)';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(this.vw - 78, 7, 68, 22, 7);
+      ctx.fill();
+    } else {
+      ctx.fillRect(this.vw - 78, 7, 68, 22);
+    }
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 12px monospace';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 42px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-    ctx.shadowBlur = 16;
-    ctx.fillText('08點上班大作戰：通勤英雄篇', this.vw / 2, 145);
-
-    ctx.fillStyle = '#81D4FA';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillText('—— 象山晨衝・奔向松德 ——', this.vw / 2, 192);
-
-    ctx.fillStyle = '#ECEFF1';
-    ctx.font = '14px sans-serif';
-    ctx.fillText('台北 08:00 晨間通勤冒險 × 奇幻花系怪獸大作戰', this.vw / 2, 235);
-
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
-    ctx.font = "12px monospace";
-    ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 22, 24);
-    ctx.textAlign = "center";
-
-    // v9.9.1 Dual Mood mode selection
-    ctx.fillStyle = 'rgba(255,255,255,0.82)';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText('SELECT COMMUTE MOOD', this.vw / 2, 315);
-
-    const chillSelected = this.difficultyMode === 'chill';
-    ctx.fillStyle = chillSelected ? 'rgba(38, 166, 154, 0.96)' : 'rgba(38, 166, 154, 0.80)';
-    ctx.fillRect(225, 330, 240, 62);
-    ctx.strokeStyle = '#B2DFDB';
-    ctx.lineWidth = chillSelected ? 3 : 2;
-    ctx.strokeRect(225, 330, 240, 62);
-    ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillText('☕ Chill Mood', 345, 354);
-    ctx.fillStyle = '#E0F2F1';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('簡單・悠閒通勤', 345, 378);
-
-    const hardSelected = this.difficultyMode === 'hardcore';
-    ctx.fillStyle = hardSelected ? 'rgba(198, 40, 40, 0.96)' : 'rgba(198, 40, 40, 0.80)';
-    ctx.fillRect(495, 330, 240, 62);
-    ctx.strokeStyle = '#FFCDD2';
-    ctx.lineWidth = hardSelected ? 3 : 2;
-    ctx.strokeRect(495, 330, 240, 62);
-    ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillText('🔥 Hard-Core', 615, 354);
-    ctx.fillStyle = '#FFEBEE';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('困難・v9.8.5 原味挑戰', 615, 378);
-
-    // 2. Watch Intro Button (人物與怪獸開頭動畫)
-    ctx.fillStyle = 'rgba(233, 30, 99, 0.75)';
-    ctx.fillRect(350, 402, 260, 48);
-    ctx.strokeStyle = '#FF80AB';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(350, 402, 260, 48);
-    ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillText('🎬 開篇序幕 (人物與怪獸介紹)', this.vw / 2, 426);
-
-    // 3. Quick help and style bible buttons
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(350, 462, 120, 42);
-    ctx.fillRect(490, 462, 120, 42);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.strokeRect(350, 462, 120, 42);
-    ctx.strokeRect(490, 462, 120, 42);
-    ctx.fillStyle = '#FFF';
-    ctx.font = '14px sans-serif';
-    ctx.fillText('遊戲說明 [H]', 410, 483);
-    ctx.fillText('設定集 [TAB]', 550, 483);
-
-
+    ctx.textBaseline = 'middle';
+    ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 44, 18);
     ctx.restore();
   }
 
@@ -1967,7 +2132,7 @@ function debugRuntime() {
     },
     yu: { runAssetIds: ["08", "09", "10", "11", "12", "13"], speed: CHARACTERS.yu.stats.speed, skillDamage: 18, skillCooldown: 0.10, ultWaves: 3, ultFronts: 12, ultDamage: 516, ultCooldown: 6.0 },
     shakira: { speed: CHARACTERS.shakira.stats.speed, skillDamage: 40, skillProjectiles: 2, skillCooldown: 0.40, ultWaves: 3, ultEggs: 21, ultDamage: 483, ultCooldown: 6.0 },
-    victory: { selectedPlayerRenderCount: 1, companionRenderCount: 2, totalHeroRenders: 3, duplicateSelectedPlayer: false },
+    victory: { worldSelectedPlayerRenderCount: 1, worldCompanionRenderCount: 2, worldTotalHeroRenders: 3, finalResultHeroRenders: 1, duplicateSelectedPlayer: false },
     bossDensity: { phase1Interval: 0.82, phase2Interval: 0.36, phase1Cap: 28, phase2Cap: 56 },
     sandra: { speed: CHARACTERS.sandra.stats.speed, skillDamage: 60, skillCooldown: 0.40, ultDamage: 560, ultCooldown: 7.5 }
   };

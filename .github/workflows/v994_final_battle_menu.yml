@@ -20,6 +20,14 @@ jobs:
 
       - name: Assemble and apply v9.9.4 patch
         run: |
+          wc -c scripts/menu_keyart_v994_*.b64
+          python3 - <<'PY'
+          from pathlib import Path
+          files = sorted(Path('scripts').glob('menu_keyart_v994_*.b64'))
+          s = ''.join(p.read_text(encoding='ascii').strip() for p in files)
+          print('ART_BASE64_FILES', [(p.name, len(p.read_text(encoding='ascii').strip())) for p in files])
+          print('ART_BASE64_TOTAL', len(s), 'MOD4', len(s) % 4, 'TAIL', s[-24:])
+          PY
           cat scripts/patch_v994_part_aa.txt scripts/patch_v994_part_ab.txt scripts/patch_v994_part_ac.txt > /tmp/patch_v994.py
           python3 -m py_compile /tmp/patch_v994.py
           python3 /tmp/patch_v994.py

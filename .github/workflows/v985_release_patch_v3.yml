@@ -1,0 +1,230 @@
+name: v9.8.5 corrected production patch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v985_release_patch_v3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply narrow source fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          def sub1(path, pattern, replacement, label, flags=0):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              out, n = re.subn(pattern, replacement, text, count=1, flags=flags)
+              if n != 1:
+                  raise SystemExit(f'{label}: match count {n}')
+              p.write_text(out, encoding='utf-8')
+              print('PASS', label)
+
+          sub1(
+              'source/src/entities/Player.js',
+              r"  getUltimateTargetX\(\) \{.*?\n  \}\n\n  unleashUltimate\(\)",
+              '''  getUltimateTargetX() {
+            const game = typeof window !== 'undefined' ? window.activeGame : null;
+            const bossReady = game?.boss && !game.boss.isDead && game.boss.entranceTriggered;
+            if (bossReady) return game.boss.x;
+            const nearest = game?.level?.monsters?.filter(monster => !monster.isDead)
+              .sort((left, right) => Math.abs(left.x - this.x) - Math.abs(right.x - this.x))[0];
+            if (nearest && Math.abs(nearest.x - this.x) <= 650) return nearest.x;
+            return this.x + this.facing * 260;
+          }
+
+          unleashUltimate()''',
+              'Shakira ultimate local target', re.S)
+
+          sub1('source/src/main.js', r'const GAME_BUILD_VERSION = "v9\.8\.4";', 'const GAME_BUILD_VERSION = "v9.8.5";', 'runtime version')
+          sub1('source/src/main.js', r'(const GAME_BUILD = Object\.freeze\(\{[^\n]*status: ")[A-Z_]+("[^\n]*\}\);)', r'\1PI_REVIEW_REQUIRED\2', 'runtime status')
+
+          sub1(
+              'source/src/main.js',
+              r"  _finishVictory\(\) \{.*?\n  \}\n\n  updateVictoryRun\(dt\) \{",
+              '''  _finishVictory() {
+            this.state = 'VICTORY';
+            this.victorySubState = '';
+            this.dialogueBubbles = [];
+            this.milestoneBanner = null;
+            this.milestoneBannerTimer = 0;
+            if (this.companions.length !== 2) this._prepareVictoryCompanions();
+            window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];
+            hud.triggerVictory(this.player);
+          }
+
+          updateVictoryRun(dt) {''',
+              'preserve victory companions', re.S)
+          sub1(
+              'source/src/main.js',
+              r"(if \(this\.state === 'VICTORY'\) \{\n\s*)window\.__VISIBLE_HERO_IDS__ = \[\];",
+              r"\1window.__VISIBLE_HERO_IDS__ = [this.player.id, ...this.companions.map(comp => comp.id)];",
+              'victory visible heroes')
+
+          hp = Path('source/src/ui/HUD.js')
+          h = hp.read_text(encoding='utf-8')
+          marker = '    // Chibi portrait on left side\n'
+          if h.count(marker) != 1:
+              raise SystemExit(f'victory HUD marker count {h.count(marker)}')
+          a = h.index(marker)
+          z = h.index("\n    ctx.fillStyle = '#FFD700';", a)
+          group = '''    // Final group pose: approved Yu, Shakira, Sandra chibis exactly once each.
+            const chibiImages = (typeof window !== 'undefined' && window.activeGame) ? window.activeGame.chibiImages : null;
+            const groupIds = ['yu', 'shakira', 'sandra'];
+            const groupColors = { yu: '#4FC3F7', shakira: '#FFD54F', sandra: '#FF7043' };
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.fillRect(cx - 264, cy - 191, 122, 155);
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx - 264, cy - 191, 122, 155);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('三人打卡・全員歡呼', cx - 203, cy - 198);
+            groupIds.forEach((id, index) => {
+              const img = chibiImages && chibiImages[id];
+              if (!img || !img.complete || img.naturalWidth <= 0) return;
+              const x = cx - 258 + index * 29;
+              const y = cy - 163 + (index === 1 ? -10 : 7);
+              ctx.save();
+              ctx.shadowColor = groupColors[id];
+              ctx.shadowBlur = 8;
+              ctx.strokeStyle = groupColors[id];
+              ctx.lineWidth = 2;
+              ctx.strokeRect(x - 2, y - 2, 60, 77);
+              ctx.drawImage(img, x, y, 56, 73);
+              ctx.restore();
+            });
+            ctx.restore();
+          '''
+          hp.write_text(h[:a] + group + h[z:], encoding='utf-8')
+          print('PASS final group HUD')
+
+          sub1('scripts/build_single_file.py', r'BUILD_VERSION = "v9\.8\.4"', 'BUILD_VERSION = "v9.8.5"', 'build version')
+          sub1('scripts/build_single_file.py', r'status: "PI_DECISION_REQUIRED",', 'status: "PI_REVIEW_REQUIRED",', 'build status')
+          PY
+
+      - name: Archive historical files
+        run: |
+          set -euo pipefail
+          mkdir -p archive/legacy archive/releases/v9.8.4
+          old=(
+            08workbattle_v9_3_MASTER_HANDOFF_PROMPT.md
+            08workbattle_v9_6_MASTER_PROMPT.md
+            AGENT_HANDOFF.md
+            ATTACK_RANGE_AUDIT.md
+            CAMERA_WORLD_BOUNDS_AUDIT.md
+            COFFEE_PLACEMENT_AUDIT.csv
+            COIN_PLACEMENT_AUDIT.csv
+            COMBAT_BALANCE_AUDIT.md
+            FULL_ROUTE_DAMAGE_TRACE.csv
+            ITEM_ART_AUDIT.md
+            ITEM_SYSTEM_AUDIT.md
+            MANUAL_BROWSER_QA_CHECKLIST_v9_8_1.md
+            MAP_REFERENCE_AUDIT.md
+            MAP_REFERENCE_AUDIT_v9_2.md
+            PI_DIRECTIVE_v9_7_1.md
+            PLAYTEST_REPORT.md
+            REAL_E2E_PLAYTEST.md
+            RECOVERY_AUDIT_v9_7_1.md
+            ROUTE_CONTINUITY_AUDIT.md
+            SANDRA_P2_ULT_REAL_DAMAGE.txt
+            SCENE_ASSET_MANIFEST_v9_2.md
+            V9_7_1_RECOVERY_MATRIX.md
+            PI_QA_v9_8_1_round2
+            PI_QA_v9_8_1_round3
+            QA_SCREENSHOTS
+            QA_V9_8_3
+            RUNTIME_RECOVERY_v9_8_2
+            work
+          )
+          for p in "${old[@]}"; do
+            if [ -e "$p" ]; then
+              mkdir -p "archive/legacy/$(dirname "$p")"
+              git mv "$p" "archive/legacy/$p"
+            fi
+          done
+          for p in QA_V9_8_4 V984_RECOVERY; do
+            [ ! -e "$p" ] || git mv "$p" "archive/releases/v9.8.4/$p"
+          done
+          cat > archive/README.md <<'EOF'
+          # Archive
+          Historical QA, recovery work, prompts, audits, and WIP are retained here for provenance only and are not production build inputs.
+          Production is built from `source/` + `assets/` by `scripts/build_single_file.py`.
+          EOF
+
+      - name: Static regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          m=Path('source/src/main.js').read_text(encoding='utf-8')
+          h=Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
+          c=Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          b=Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+          assert "if (game?.boss && !game.boss.isDead) return game.boss.x;" not in p
+          assert 'game.boss.entranceTriggered' in p
+          assert 'return this.x + this.facing * 260;' in p
+          assert 'for (let wave = 0; wave < 3; wave++)' in p
+          assert 'for (let index = 0; index < 7; index++)' in p
+          assert "groupIds = ['yu', 'shakira', 'sandra']" in h
+          assert '[this.player.id, ...this.companions.map(comp => comp.id)]' in m
+          assert 'const GAME_BUILD_VERSION = "v9.8.5";' in m
+          for t in ['speed: 370','speed: 345','speed: 320','skillCooldown: 0.10','skillCooldown: 0.40','ultCooldown: 6.0','ultCooldown: 7.5','damage: 18','damage: 40','damage: 60','damage: 516','damage: 483','damage: 560']:
+              assert t in c, t
+          assert 'phase1Hp: 3600' in b and 'phase2Hp: 3050' in b
+          print('STATIC QA PASS')
+          PY
+
+      - name: Build authoritative bundle
+        run: python3 scripts/build_single_file.py
+
+      - name: Verify bundle parity and write QA
+        run: |
+          set -euo pipefail
+          cmp -s index.html dist/index.html
+          grep -q 'v9.8.5' index.html
+          grep -q 'PI_REVIEW_REQUIRED' index.html
+          grep -q 'entranceTriggered' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_8_5
+          cat > QA_V9_8_5/STATIC_RELEASE_QA.json <<'EOF'
+          {
+            "version": "v9.8.5",
+            "scope": "STATIC_AND_BUILD_QA",
+            "shakira_ultimate_local_release": "PASS",
+            "shakira_ultimate_three_waves_seven_eggs_each": "PASS",
+            "boss_assist_only_after_encounter_trigger": "PASS",
+            "victory_unique_hero_ids": ["yu", "shakira", "sandra"],
+            "final_group_pose": "PASS",
+            "accepted_balance_unchanged": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+          cat SHA256.txt
+
+      - name: Commit verified v9.8.5 candidate
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u
+          git add archive QA_V9_8_5 source scripts index.html dist/index.html SHA256.txt
+          git diff --cached --check
+          git commit -m 'fix(v9.8.5): restore Shakira ult and group victory'
+          git push origin HEAD:main

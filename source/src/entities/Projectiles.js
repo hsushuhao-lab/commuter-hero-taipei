@@ -198,6 +198,21 @@ export class ProjectileManager {
       }
 
       // Particle trails
+      if (p.isPlayer && p.type === 'umbrella_wave' && Math.random() < 0.82) {
+        const foam = Math.random() < 0.55 ? '#E1F5FE' : '#80DEEA';
+        particles.emit({
+          x: p.x - p.vx * 0.028 + (Math.random() - 0.5) * 22,
+          y: p.y + (Math.random() - 0.5) * Math.max(18, p.height * 0.8),
+          vx: -p.vx * (0.08 + Math.random() * 0.05),
+          vy: -30 - Math.random() * 55,
+          size: 3 + Math.random() * 6,
+          color: foam,
+          life: 0.25 + Math.random() * 0.22,
+          shape: Math.random() < 0.65 ? 'circle' : 'spark',
+          fade: true,
+          visualOnly: true
+        });
+      }
       if (p.isPlayer && p.type === 'wind_blade' && Math.random() < 0.4) {
         particles.emit({
           x: p.x - p.vx * 0.03,
@@ -277,13 +292,58 @@ export class ProjectileManager {
         ctx.fill();
       }
       else if (p.type === 'umbrella_wave') {
+        // v9.9.3 Yu ultimate: layered water-flow impact wave, not a rigid crescent blade.
         const dir = p.vx >= 0 ? 1 : -1;
         ctx.scale(dir, 1);
-        ctx.fillStyle = 'rgba(79,195,247,0.72)'; ctx.strokeStyle = '#E0F7FA'; ctx.lineWidth = 4;
-        ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 16;
-        ctx.beginPath(); ctx.arc(0, 0, p.width, -0.7, 0.7); ctx.lineTo(-p.width * 0.55, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(-12, 0, p.width * 0.72, -0.55, 0.55); ctx.stroke();
-        ctx.beginPath(); ctx.arc(-24, 0, p.width * 0.5, -0.4, 0.4); ctx.stroke();
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.shadowColor = '#00E5FF';
+        ctx.shadowBlur = 22;
+
+        // Main surge body: curling water crest with a broad impact front.
+        const waterGrad = ctx.createLinearGradient(-p.width * 1.25, 0, p.width * 0.9, 0);
+        waterGrad.addColorStop(0, 'rgba(3,169,244,0.16)');
+        waterGrad.addColorStop(0.50, 'rgba(41,182,246,0.58)');
+        waterGrad.addColorStop(1, 'rgba(128,222,234,0.92)');
+        ctx.fillStyle = waterGrad;
+        ctx.beginPath();
+        ctx.moveTo(-p.width * 1.20, p.height * 0.48);
+        ctx.bezierCurveTo(-p.width * 0.70, p.height * 0.95, p.width * 0.05, p.height * 0.70, p.width * 0.72, p.height * 0.18);
+        ctx.bezierCurveTo(p.width * 0.98, -p.height * 0.08, p.width * 0.72, -p.height * 0.92, p.width * 0.28, -p.height * 0.72);
+        ctx.bezierCurveTo(-p.width * 0.08, -p.height * 0.56, -p.width * 0.18, -p.height * 0.12, -p.width * 0.50, p.height * 0.08);
+        ctx.bezierCurveTo(-p.width * 0.78, p.height * 0.28, -p.width * 0.96, p.height * 0.30, -p.width * 1.20, p.height * 0.48);
+        ctx.closePath();
+        ctx.fill();
+
+        // White foam crest and inner stream lines give the attack a fluid direction.
+        ctx.strokeStyle = 'rgba(240,253,255,0.96)';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-p.width * 0.55, -p.height * 0.05);
+        ctx.bezierCurveTo(-p.width * 0.12, -p.height * 0.62, p.width * 0.44, -p.height * 0.80, p.width * 0.76, -p.height * 0.24);
+        ctx.stroke();
+        ctx.globalAlpha = 0.72;
+        ctx.strokeStyle = '#B3E5FC';
+        ctx.lineWidth = 3;
+        for (let lane = 0; lane < 3; lane++) {
+          const y = (lane - 1) * p.height * 0.25;
+          ctx.beginPath();
+          ctx.moveTo(-p.width * (1.10 - lane * 0.08), y + p.height * 0.22);
+          ctx.bezierCurveTo(-p.width * 0.45, y - p.height * 0.22, p.width * 0.12, y + p.height * 0.16, p.width * 0.62, y - p.height * 0.10);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Spray droplets at the leading edge.
+        ctx.fillStyle = '#E1F5FE';
+        for (let d = 0; d < 4; d++) {
+          const dx = p.width * (0.55 + d * 0.10);
+          const dy = -p.height * (0.20 + (d % 2) * 0.28);
+          ctx.beginPath();
+          ctx.arc(dx, dy, 2.5 + d * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
       else if (p.type === 'umbrella_bullet') {
         // Needle wind bullet from umbrella machine gun
@@ -424,17 +484,50 @@ export class ProjectileManager {
         ctx.fill();
       }
       else if (p.type === 'vine') {
-        // Vine thorn thrust
-        ctx.fillStyle = '#2E7D32';
-        ctx.strokeStyle = '#1B5E20';
-        ctx.lineWidth = 2;
+        // v9.9.3 Organic thorn-vine strike: curved stalk + barbs + luminous tip.
+        const h = Math.max(34, p.height);
+        const w = Math.max(16, p.width);
+        ctx.save();
+        ctx.shadowColor = p.bossGlow ? (p.attackPhase === 2 ? '#FF2BD6' : '#00F5D4') : '#66BB6A';
+        ctx.shadowBlur = p.bossGlow ? 20 : 10;
+        ctx.lineCap = 'round';
+
+        // Main curved stalk.
+        ctx.strokeStyle = p.attackPhase === 2 ? '#6A1B9A' : '#2E7D32';
+        ctx.lineWidth = Math.max(7, w * 0.24);
         ctx.beginPath();
-        ctx.moveTo(0, -p.height);
-        ctx.lineTo(p.width * 0.5, 0);
-        ctx.lineTo(-p.width * 0.5, 0);
-        ctx.closePath();
-        ctx.fill();
+        ctx.moveTo(-w * 0.08, h * 0.44);
+        ctx.bezierCurveTo(-w * 0.26, h * 0.18, w * 0.24, -h * 0.18, 0, -h * 0.48);
         ctx.stroke();
+
+        // Bright inner sap line.
+        ctx.strokeStyle = p.attackPhase === 2 ? '#EA80FC' : '#9CCC65';
+        ctx.lineWidth = Math.max(2, w * 0.07);
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.06, h * 0.42);
+        ctx.bezierCurveTo(-w * 0.20, h * 0.17, w * 0.18, -h * 0.17, 0, -h * 0.46);
+        ctx.stroke();
+
+        // Alternating natural barbs instead of a flat triangle silhouette.
+        for (let b = 0; b < 4; b++) {
+          const by = h * 0.24 - b * h * 0.17;
+          const side = b % 2 === 0 ? -1 : 1;
+          ctx.strokeStyle = p.attackPhase === 2 ? '#CE93D8' : '#81C784';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(side * w * 0.02, by);
+          ctx.quadraticCurveTo(side * w * 0.26, by - h * 0.03, side * w * 0.36, by - h * 0.12);
+          ctx.stroke();
+        }
+
+        // Tapered luminous thorn tip.
+        ctx.fillStyle = p.attackPhase === 2 ? '#F3E5F5' : '#E8F5E9';
+        ctx.beginPath();
+        ctx.moveTo(0, -h * 0.66);
+        ctx.quadraticCurveTo(w * 0.14, -h * 0.49, 0, -h * 0.42);
+        ctx.quadraticCurveTo(-w * 0.14, -h * 0.49, 0, -h * 0.66);
+        ctx.fill();
+        ctx.restore();
       }
       else if (p.type === 'transit_beam') {
         // Glowing cyan/green transit card laser beam

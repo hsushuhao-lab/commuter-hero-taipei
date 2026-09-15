@@ -442,7 +442,7 @@ export class Boss {
     this.y = this.config.arena.groundY + floatY;
 
     // Clamp inside flat arena bounds
-    const minX = this.config.arena.startX + 200;
+    const minX = this.config.arena.startX - 80;
     const maxX = this.config.arena.endX - 150;
     this.x = Math.max(minX, Math.min(maxX, this.x));
 
@@ -450,7 +450,7 @@ export class Boss {
     if (this.isLunging) {
       this.lungeTimer -= dt;
       this.x += this.lungeVx * dt;
-      const minX = this.config.arena.startX + 200;
+      const minX = this.config.arena.startX - 80;
       const maxX = this.config.arena.endX - 150;
       this.x = Math.max(minX, Math.min(maxX, this.x));
       if (player && !player.isDead) {

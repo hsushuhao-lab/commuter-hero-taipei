@@ -1,0 +1,18 @@
+{
+  "version": "v9.9.3",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "SOFT_BOUNDARY_MASK_BOSS_CHASE_VINE_ART_YU_WATER_WAVE",
+  "soft_boundary_mask_matches_boss_palette": "PASS",
+  "boss_ai_stays_active_inside_soft_boundary": "PASS",
+  "boss_can_reposition_toward_soft_boundary": "PASS",
+  "boss_green_triangle_replaced_with_organic_vine": "PASS",
+  "yu_ultimate_water_shockwave_visual": "PASS",
+  "yu_ultimate_damage_and_hitbox_retained": "PASS",
+  "hardcore_boss_damage_v9_9_2_retained": "PASS",
+  "chill_monster_phase2_disabled_retained": "PASS",
+  "hero_hp_120_110_100_retained": "PASS",
+  "shakira_wave_ultimate_retained": "PASS",
+  "three_hero_victory_fix_retained": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

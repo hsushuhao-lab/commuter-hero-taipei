@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.9.2";
+const GAME_BUILD_VERSION = "v9.9.3";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -633,8 +633,9 @@ class Game {
         if (this.player.vx < 0) this.player.vx = 0;
       }
 
-      // Check Boss Arena trigger (Arena entrance at x >= 14700)
-      if (this.player.x >= 14700 && !this.boss.isDead) {
+      // v9.9.3: once locked, Boss AI remains active across the entire soft-boundary zone.
+      // The hero can retreat to bossRetreatMinX, but cannot make the Boss freeze by stepping left of 14700.
+      if ((this.bossArenaLocked || this.player.x >= 14700) && !this.boss.isDead) {
         // Show boss entrance banner and shake camera (first time only)
         if (!this.bossEntranceDone && this.player.x >= 14750) {
           this.bossEntranceDone = true;
@@ -647,7 +648,7 @@ class Game {
         if (audio.currentBgmType !== 'boss_theme') {
           audio.playBgm('boss_theme');
         }
-      } else if (this.player.x < 14700) {
+      } else if (!this.bossArenaLocked && this.player.x < 14700) {
         // v9.5 BGM Rule: Scenes 1–4 strictly keep commute_theme (no rainy_park or city_pop switch)
         if (audio.currentBgmType !== 'commute_theme') {
           audio.playBgm('commute_theme');

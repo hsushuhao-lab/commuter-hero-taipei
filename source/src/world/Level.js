@@ -594,10 +594,10 @@ export class Level {
       }
     }
 
-    // Boss Arena Atmospheric Enhancement (14800 ~ 16500)
-    if (camX + vw >= 14800 && camX <= 16500) {
+    // v9.9.3 Boss Arena Atmospheric Enhancement includes the 150px left soft-boundary strip.
+    if (camX + vw >= 14650 && camX <= 16500) {
       ctx.save();
-      const arenaScreenLeft = Math.max(0, 14800 - camX);
+      const arenaScreenLeft = Math.max(0, 14650 - camX);
       const arenaScreenRight = Math.min(vw, 16500 - camX);
       const arenaW = arenaScreenRight - arenaScreenLeft;
       if (arenaW > 0) {
@@ -608,6 +608,18 @@ export class Level {
         const pulse = 0.04 + 0.02 * Math.sin(Date.now() * 0.003);
         ctx.fillStyle = `rgba(233, 30, 99, ${pulse})`;
         ctx.fillRect(arenaScreenLeft, vh * 0.5, arenaW, vh * 0.5);
+
+        // Soft-boundary mist: same Boss palette, visually communicates that combat pressure continues here.
+        const softLeft = Math.max(0, 14650 - camX);
+        const softRight = Math.min(vw, 14800 - camX);
+        if (softRight > softLeft) {
+          const softGrad = ctx.createLinearGradient(softLeft, 0, softRight, 0);
+          softGrad.addColorStop(0, 'rgba(136, 14, 79, 0.30)');
+          softGrad.addColorStop(0.55, 'rgba(233, 30, 99, 0.18)');
+          softGrad.addColorStop(1, 'rgba(40, 5, 20, 0.18)');
+          ctx.fillStyle = softGrad;
+          ctx.fillRect(softLeft, 0, softRight - softLeft, vh);
+        }
       }
       ctx.restore();
     }

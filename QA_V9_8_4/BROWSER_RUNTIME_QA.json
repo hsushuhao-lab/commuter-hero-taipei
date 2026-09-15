@@ -1,9 +1,12 @@
 {
   "build": {
     "version": "v9.8.4",
-    "status": "PI_DECISION_REQUIRED",
+    "status": "PRODUCTION_VERIFIED",
     "sha": "4102179e42fbc77c",
-    "builtAt": "2026-09-15T03:01:59.662659+00:00"
+    "builtAt": "2026-09-15T03:01:59.662659+00:00",
+    "piManualAcceptance": true,
+    "piAcceptedAt": "2026-09-15",
+    "acceptanceNote": "PI completed live playtest of v9.8.4 and approved this build for formal production release."
   },
   "sandra": {
     "speed": 345,
@@ -48,7 +51,8 @@
     "ultWaves": 3,
     "ultEggs": 21,
     "ultDamage": 483,
-    "ultCooldown": 6
+    "ultCooldown": 6,
+    "automatedFullRouteKnownIssue": "Automated route can still end in GAMEOVER; accepted by PI after live manual playtest under two-strike release policy."
   },
   "victory": {
     "selectedPlayerRenderCount": 1,

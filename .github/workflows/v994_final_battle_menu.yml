@@ -1,4 +1,5 @@
 name: v9.9.4 final battle hero result and menu art
+# release-approved: 2026-09-16
 
 on:
   push:

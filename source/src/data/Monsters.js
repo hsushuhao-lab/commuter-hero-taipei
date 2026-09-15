@@ -266,7 +266,7 @@ export const BOSS_CONFIG = {
   phase1: {
     name: '夢影巨花王・夢境安撫態',
     bannerText: 'FINAL BOSS：松德正門前・夢影巨花王！「再睡一下……就……一下下……」',
-    attackCooldown: 1.15,   // 9-way spiral petals
+    attackCooldown: 0.82, // 9-way spiral petals
     petalDamage: 14,        // v9.7.2: lower Phase 1 burst while Phase 2 keeps Predator pressure
     petalCount: 11,          // 9-way interlaced spiral
     petalSpeed: 345,        // px/s
@@ -281,7 +281,7 @@ export const BOSS_CONFIG = {
   phase2: {
     name: '夢影巨花王・狂暴盛開態',
     bannerText: 'PHASE 2：狂暴盛開！「現在……沒有人能逃離我的夢境！！」',
-    attackCooldown: 0.58,   // v9.7.1: faster attack cadence
+    attackCooldown: 0.36, // v9.7.1: faster attack cadence
     petalDamage: 32,        // v9.7.1: 20 * 1.5 = 30
     petalCount: 18,         // 360° 16-way crimson petal storm
     petalSpeed: 405,        // px/s

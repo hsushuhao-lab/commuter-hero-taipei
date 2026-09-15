@@ -32,7 +32,7 @@ export class ProjectileManager {
     const attackPhase = p.attackPhase || source.attackPhase;
     const sourceMonster = p.sourceMonster || source.sourceMonster;
     if (!p.isPlayer && (attackPhase === 1 || attackPhase === 2)) {
-      const pressureLimit = sourceMonster === "boss_flower" ? (attackPhase === 2 ? 48 : 24) : 3;
+      const pressureLimit = sourceMonster === "boss_flower" ? (attackPhase === 2 ? 56 : 28) : 3;
       if (this.projectiles.filter(projectile => !projectile.isPlayer).length >= pressureLimit) {
         if (typeof window !== "undefined" && window.__RUNTIME_QA__) {
           const phase = "P" + attackPhase;
@@ -57,6 +57,7 @@ export class ProjectileManager {
       width: p.width || 16,
       height: p.height || 16,
       damage: p.damage || 10,
+      monsterDamage: p.monsterDamage || p.damage || 10,
       life: p.life || 2.0,
       maxLife: p.life || 2.0,
       color: p.color || '#fff',
@@ -214,6 +215,15 @@ export class ProjectileManager {
         ctx.lineTo(-p.width * 0.5, 0);
         ctx.closePath();
         ctx.fill();
+      }
+      else if (p.type === 'umbrella_wave') {
+        const dir = p.vx >= 0 ? 1 : -1;
+        ctx.scale(dir, 1);
+        ctx.fillStyle = 'rgba(79,195,247,0.72)'; ctx.strokeStyle = '#E0F7FA'; ctx.lineWidth = 4;
+        ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.arc(0, 0, p.width, -0.7, 0.7); ctx.lineTo(-p.width * 0.55, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(-12, 0, p.width * 0.72, -0.55, 0.55); ctx.stroke();
+        ctx.beginPath(); ctx.arc(-24, 0, p.width * 0.5, -0.4, 0.4); ctx.stroke();
       }
       else if (p.type === 'umbrella_bullet') {
         // Needle wind bullet from umbrella machine gun

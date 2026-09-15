@@ -48,7 +48,7 @@ export class HUD {
     this.btnSkill = { x: 775, y: 430, w: 64, h: 64, isPressed: false };
     this.btnUlt = { x: 865, y: 345, w: 68, h: 68, isPressed: false };
     this.btnDash = { x: 775, y: 345, w: 64, h: 64, isPressed: false };
-    this.btnPause = { x: 812, y: 18, w: 62, h: 32, isPressed: false };
+    this.btnPause = { x: 882, y: 18, w: 62, h: 32, isPressed: false };
     this.btnBible = { x: 890, y: 20, w: 50, h: 32, isPressed: false };
 
     this.compactLayout = null;
@@ -76,7 +76,7 @@ export class HUD {
       Object.assign(this.btnSkill, { x: 758, y: 416, w: 76, h: 76 });
       Object.assign(this.btnDash, { x: 758, y: 322, w: 76, h: 76 });
       Object.assign(this.btnUlt, { x: 856, y: 322, w: 80, h: 80 });
-      Object.assign(this.btnPause, { x: 792, y: 18, w: 80, h: 34 });
+      Object.assign(this.btnPause, { x: 864, y: 18, w: 80, h: 34 });
       Object.assign(this.btnBible, { x: 882, y: 18, w: 58, h: 34 });
     } else {
       this.showDPad = true;
@@ -87,7 +87,7 @@ export class HUD {
       Object.assign(this.btnSkill, { x: 775, y: 430, w: 64, h: 64 });
       Object.assign(this.btnDash, { x: 775, y: 345, w: 64, h: 64 });
       Object.assign(this.btnUlt, { x: 865, y: 345, w: 68, h: 68 });
-      Object.assign(this.btnPause, { x: 812, y: 18, w: 62, h: 32 });
+      Object.assign(this.btnPause, { x: 882, y: 18, w: 62, h: 32 });
       Object.assign(this.btnBible, { x: 890, y: 20, w: 50, h: 32 });
     }
   }

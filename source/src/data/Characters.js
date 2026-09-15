@@ -26,16 +26,16 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 100,
-      speed: 320,          // v9.7.1: 三人最慢 (Sandra 370 > Shakira 345 > Yu 320)
+      speed: 370,          // v9.8.4: fastest commuter
       jumpForce: -620,
       gravity: 1400,
-      skillCooldown: 0.16, // v9.7.1: 三人最高射速機關槍 (0.16s CD)
-      ultCooldown: 7.0     // v9.5: 7.0s 760px 貫穿走廊
+      skillCooldown: 0.10, // v9.7.1: 三人最高射速機關槍 (0.16s CD)
+      ultCooldown: 6.0     // v9.5: 7.0s 760px 貫穿走廊
     },
     skill: {
       name: '雨傘機關槍',
       key: 'S / J',
-      cooldown: 0.16,
+      cooldown: 0.10,
       damage: 18,           // Boss-zone runtime raises this to 22; Phase II retains 1.25x
       range: 480,           // 射程 480px
       bulletSpeed: 750,
@@ -45,8 +45,8 @@ export const CHARACTERS = {
     ult: {
       name: '準時衝刺・逆風傘幕',
       key: 'F / K',
-      cooldown: 7.0,
-      damage: 304,
+      cooldown: 6.0,
+      damage: 516,
       corridorWidth: 760,   // v9.5: 760px 貫穿走廊
       corridorHeight: 180,  // v9.5: 180px 高風壓
       duration: 1.3,
@@ -78,17 +78,17 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 90,
-      speed: 345,          // v9.7.1: 第二快 (Sandra 370 > Shakira 345 > Yu 320)
+      speed: 320,          // v9.8.4: slowest ranged support
       jumpForce: -640,
       gravity: 1350,
-      skillCooldown: 0.42, // v9.5: 0.42s
-      ultCooldown: 8.0     // v9.5: 8.0s
+      skillCooldown: 0.40, // v9.5: 0.42s
+      ultCooldown: 6.0     // v9.5: 8.0s
     },
     skill: {
       name: '蛋能雙彈',
       key: 'S / J',
-      cooldown: 0.42,
-      damage: 42,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
+      cooldown: 0.40,
+      damage: 40,           // v9.7.2: Phase I 微升；Phase II 再乘 1.25
       range: 600,           // 射程 600px
       splashRadius: 90,     // 濺射半徑 90px
       splashDamage: 22,     // v9.7.2: Phase I 微升；Phase II 再乘 1.25
@@ -98,8 +98,8 @@ export const CHARACTERS = {
     ult: {
       name: '元氣蛋浪・Oeuf Mayo 星雨',
       key: 'F / K',
-      cooldown: 8.0,
-      damage: 420,          // 14 顆流星蛋 x 30 dmg
+      cooldown: 6.0,
+      damage: 483,          // 14 顆流星蛋 x 30 dmg
       heal: 30,             // 回復 30 HP
       duration: 2.2,
       zoneRadius: 500,      // 半徑 500px 固定戰區
@@ -131,17 +131,17 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 120,
-      speed: 370,          // v9.7.1: 三人最快 (Sandra 370 > Shakira 345 > Yu 320)
+      speed: 345,          // v9.8.4: middle-speed heavy hitter
       jumpForce: -635,
       gravity: 1450,
-      skillCooldown: 0.38, // v9.7.1: 0.38s
-      ultCooldown: 8.2     // v9.5: 8.2s
+      skillCooldown: 0.40, // v9.7.1: 0.38s
+      ultCooldown: 7.5     // v9.5: 8.2s
     },
     skill: {
       name: '平底鍋揮舞・怒火鍋氣',
       key: 'S / J',
-      cooldown: 0.38,
-      damage: 70,           // v9.7.7: +25% small-skill damage; Phase II 再乘 1.25
+      cooldown: 0.40,
+      damage: 60,           // v9.7.7: +25% small-skill damage; Phase II 再乘 1.25
       range: 550,           // v9.7.7: +25% reach to 550px
       meleeRange: 550,      // v9.7.7: 前方 550px
       fanAngle: 110,        // 扇形 110 度
@@ -151,9 +151,9 @@ export const CHARACTERS = {
     ult: {
       name: '主廚旋風鍋・料理風暴',
       key: 'F / K',
-      cooldown: 8.2,
-      damage: 420,          // v9.8.1: 14 道鍋氣 x 30 dmg
-      phase1ProjectileDamage: 30,
+      cooldown: 7.5,
+      damage: 560,          // v9.8.1: 14 道鍋氣 x 30 dmg
+      phase1ProjectileDamage: 40,
       duration: 2.0,
       coreRadius: 350,      // 核心吸附半徑 350px
       gustRange: 420,       // 14 道鍋氣射程 420px

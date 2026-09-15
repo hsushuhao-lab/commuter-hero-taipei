@@ -110,7 +110,7 @@ def load_yu_run_keyframe(sub_idx, target_height):
 
 def load_shakira_run_keyframe(sub_idx, target_height):
     """Load one dedicated, right-facing Shakira locomotion pose."""
-    path = os.path.join(assets_dir, "shakira_run_keyframes", SHAKIRA_RUN_KEYFRAME_FILES[sub_idx])
+    path = os.path.join(assets_dir, "shakira_run_keyframes_v2", SHAKIRA_RUN_KEYFRAME_FILES[sub_idx])
     keyframe = Image.open(path).convert("RGBA")
     bbox = keyframe.getbbox()
     if bbox:
@@ -556,7 +556,7 @@ for character_key in CHARACTER_Q_FILES:
     prepare_character_art(character_key)
 
 
-def build_shakira_run_keyframes():
+def legacy_shakira_run_preview_only():
     """Write six non-sine, individually stored run poses for production use."""
     base = Image.open(os.path.join(assets_dir, 'chibi_shakira_clean.png')).convert('RGBA')
     bbox = base.getbbox()
@@ -571,7 +571,7 @@ def build_shakira_run_keyframes():
             pose.save(os.path.join(output_dir, f'shakira_run_{index:02d}.png'), optimize=True)
 
 
-build_shakira_run_keyframes()
+# Legacy affine previews are intentionally excluded from production generation.
 
 layout = {
     'version': 'v9.8.0',

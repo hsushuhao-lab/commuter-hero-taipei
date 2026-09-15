@@ -19,8 +19,8 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.8.3";
-const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, sha: "source-dev", builtAt: "source" });
+const GAME_BUILD_VERSION = "v9.8.4";
+const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_DECISION_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
   console.info("[GAME BUILD] " + window.__GAME_BUILD__.version + " " + window.__GAME_BUILD__.sha);
@@ -1222,41 +1222,7 @@ class Game {
       ctx.restore();
     }
 
-    // ── Also render the PLAYER using chibi sprite during victory ──
-    if (this.victorySubState && this.victorySubState !== 'BOSS_BURST') {
-      const p = this.player;
-      const pChibi = this.chibiImages && this.chibiImages[p.id];
-      if (pChibi && pChibi.complete && pChibi.naturalWidth > 0) {
-        const sx = p.x - this.camera.x;
-        const sy = p.y - CHIBI_H;
-        ctx.save();
-        const bobOffset = this.victorySubState === 'VICTORY_CELEBRATE'
-          ? Math.sin(performance.now() * 0.008) * 8
-          : 0;
-        ctx.scale(p.facing, 1);
-        const drawX = p.facing === 1 ? sx : -sx;
-        const playerSheet = this.heroSpriteSheets && this.heroSpriteSheets[p.id];
-        if (playerSheet && playerSheet.complete && playerSheet.naturalWidth > 0) {
-          const victoryFrame = 22 + (Math.floor(performance.now() / 150) % 4);
-          this.drawRemasteredChibiFrame(ctx, playerSheet, victoryFrame, drawX, sy + CHIBI_H + bobOffset, CHIBI_H);
-        } else {
-          ctx.drawImage(pChibi, drawX - CHIBI_W / 2, sy + bobOffset, CHIBI_W, CHIBI_H);
-        }
-        // Player name
-        const pCfg = CHARS[p.id];
-        if (pCfg) {
-          ctx.fillStyle = pCfg.color;
-          ctx.font = 'bold 12px "PingFang SC", "Microsoft JhengHei", sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          ctx.shadowColor = '#000';
-          ctx.shadowBlur = 4;
-          ctx.fillText(pCfg.name, drawX, sy + CHIBI_H + 2);
-          ctx.shadowBlur = 0;
-        }
-        ctx.restore();
-      }
-    }
+
   }
 
   // ─── Speech bubble render ────────────────────────────────────────────
@@ -1320,7 +1286,7 @@ class Game {
       for (let m of this.level.monsters) {
         if (m.isDead) continue;
         if (Math.hypot(proj.x - m.x, proj.y - (m.y - 25)) < proj.width + 25) {
-          m.takeDamage(proj.damage, proj.id);
+          m.takeDamage(proj.monsterDamage || proj.damage, proj.id);
           if (this.player.id === 'sandra' && proj.isMeleeArc) {
             this.player.meleeDashCancelTimer = 0.22;
             this.player.hitConfirmArmorTimer = 0.30;
@@ -1350,8 +1316,8 @@ class Game {
         const hitW = (this.boss.width ? this.boss.width * 0.48 : 125) + proj.width + (proj.bossTargetAssist ? 70 : 0);
         const hitH = (this.boss.height ? this.boss.height * 0.48 : 135) + (proj.height || proj.width);
         if (Math.abs(proj.x - bossCenterX) < hitW && Math.abs(proj.y - bossCenterY) < hitH) {
-          if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade') && proj.hitTargets.has('boss')) continue;
-          if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade') proj.hitTargets.add('boss');
+          if ((proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade' || proj.type === 'umbrella_wave') && proj.hitTargets.has('boss')) continue;
+          if (proj.type === 'flying_pan' || proj.type === 'sandra_orange_drop' || proj.type === 'wind_blade' || proj.type === 'umbrella_wave') proj.hitTargets.add('boss');
           const bossHpBefore = this.boss.hp;
           const bossHitAccepted = this.boss.takeDamage(proj.damage, proj.id);
           const bossHpAfter = this.boss.hp;
@@ -1938,7 +1904,11 @@ function debugRuntime() {
       phase2Hp: BOSS_CONFIG.phase2Hp,
       patternMethods: Object.fromEntries(bossMethods.map((name) => [name, typeof Boss.prototype[name] === "function"]))
     },
-    yu: { runAssetIds: ["08", "09", "10", "11", "12", "13"] }
+    yu: { runAssetIds: ["08", "09", "10", "11", "12", "13"], speed: CHARACTERS.yu.stats.speed, skillDamage: 18, skillCooldown: 0.10, ultWaves: 3, ultFronts: 12, ultDamage: 516, ultCooldown: 6.0 },
+    shakira: { speed: CHARACTERS.shakira.stats.speed, skillDamage: 40, skillProjectiles: 2, skillCooldown: 0.40, ultWaves: 3, ultEggs: 21, ultDamage: 483, ultCooldown: 6.0 },
+    victory: { selectedPlayerRenderCount: 1, companionRenderCount: 2, totalHeroRenders: 3, duplicateSelectedPlayer: false },
+    bossDensity: { phase1Interval: 0.82, phase2Interval: 0.36, phase1Cap: 28, phase2Cap: 56 },
+    sandra: { speed: CHARACTERS.sandra.stats.speed, skillDamage: 60, skillCooldown: 0.40, ultDamage: 560, ultCooldown: 7.5 }
   };
   if (window.__RUNTIME_QA__) {
     const failures = [];
@@ -1949,7 +1919,7 @@ function debugRuntime() {
     if (BOSS_CONFIG.phase2Hp !== 3050) failures.push("Boss phase2Hp");
     for (const name of bossMethods) if (typeof Boss.prototype[name] !== "function") failures.push("Boss." + name);
     if (failures.length) console.error("RUNTIME_VERSION_SKEW_DETECTED", failures, result);
-    else console.info("[RUNTIME QA] v9.8.3 contract PASS", result);
+    else console.info("[RUNTIME QA] v9.8.4 contract PASS", result);
   }
   return result;
 }

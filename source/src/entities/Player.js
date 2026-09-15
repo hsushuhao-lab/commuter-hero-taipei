@@ -327,7 +327,7 @@ export class Player {
         maxDistance: 480,
         width: 32,
         height: 18,
-        damage: this.phaseDamage(this.x >= 14600 ? 22 : 18),
+        damage: this.phaseDamage(18),
         life: 0.65,
         knockback: true,
         penetrating: false
@@ -359,7 +359,7 @@ export class Player {
       this.animTimer = 0;
       audio.playSkill(this.id);
 
-      const directDmg = this.phaseDamage(42);
+      const directDmg = this.phaseDamage(40);
       const splashRad = 90;
       const splashDmg = this.phaseDamage(22);
       const offsets = [-16, 16]; // 上下分離，無近戰判定
@@ -407,7 +407,7 @@ export class Player {
         maxDistance: 550,
         width: 64,
         height: 64,
-        damage: this.phaseDamage(70),
+        damage: this.phaseDamage(60),
         knockback: 380,
         life: 1.1,
         penetrating: true,
@@ -464,25 +464,22 @@ export class Player {
       // ═════════════════════════════════════════════════════════════════════════
       this.vx = this.facing * 850;
       const corridorLength = 760;
-      const bladeCount = 8;
-      const bladeDmg = this.resonancePhase === 2 ? 65 : 50;
-      for (let i = 0; i < bladeCount; i++) {
-        projectiles.spawn({
-          isPlayer: true,
-          type: 'wind_blade',
-          x: this.x + i * 40 * this.facing,
-          y: this.y - 70 + (i % 4) * 18 - 25,
-          vx: this.facing * (550 + i * 25),
-          vy: (Math.random() - 0.5) * 30,
-          maxDistance: corridorLength,
-          width: 48,
-          height: 48,
-          damage: bladeDmg,
-          life: 0.85,
-          penetrating: true,
-          corridorZone: true,
-          canClearEnemyBullets: true
-        });
+      const waveOffsets = [-60, -20, 20, 60];
+      const waveSpeeds = [560, 620, 690];
+      const waveDamage = 43;
+      for (let wave = 0; wave < 3; wave++) {
+        for (let front = 0; front < waveOffsets.length; front++) {
+          projectiles.spawn({
+            isPlayer: true, type: 'umbrella_wave',
+            x: this.x + wave * 18 * this.facing,
+            y: this.y - 70 + waveOffsets[front],
+            vx: this.facing * waveSpeeds[wave], vy: 0,
+            maxDistance: 760, width: 72, height: 44,
+            damage: waveDamage, life: 1.35,
+            releaseAfter: [0, 0.18, 0.36][wave],
+            penetrating: true, corridorZone: true, canClearEnemyBullets: true
+          });
+        }
       }
     }
     else if (this.id === 'shakira') {
@@ -492,36 +489,27 @@ export class Player {
       this.addHp(this.resonancePhase === 2 ? 45 : 30);
       this.shieldTimer = 3.0;
       const targetX = this.getUltimateTargetX();
-      const waveOffsets = [-240, -160, -80, 0, 80, 160, 240];
-      const eggDmg = this.resonancePhase === 2 ? 50 : 42;
-      const splashDmg = this.resonancePhase === 2 ? 22 : 18;
-      const waveShift = this.resonancePhase === 2 ? 35 : -35;
+      const waveOffsets = [
+        [-270, -180, -90, 0, 90, 180, 270],
+        [-225, -150, -75, 35, 105, 180, 255],
+        [-180, -120, -60, 0, 60, 120, 180]
+      ];
+      const waveSpeeds = [540, 630, 720];
+      const eggDmg = 23;
       this.ultZoneCenterX = targetX;
-      for (let wave = 0; wave < 2; wave++) {
-        for (let index = 0; index < waveOffsets.length; index++) {
-          projectiles.spawn({
-            isPlayer: true,
-            type: 'egg',
-            x: targetX + waveOffsets[index] + (wave === 1 ? waveShift : 0),
-            y: this.y - 360 - index * 18,
-            vx: 0,
-            vy: 620,
-            maxDistance: 560,
-            width: 32,
-            height: 28,
-            damage: eggDmg,
-            splashRadius: 75,
-            splashDamage: splashDmg,
-            releaseAfter: wave === 1 ? 0.32 : 0,
-            life: 1.3,
-            penetrating: false,
-            zoneCenterX: targetX,
-            zoneRadius: 500,
-            bossTargetAssist: true
-          });
+      for (let wave = 0; wave < 3; wave++) {
+        for (let index = 0; index < 7; index++) {
+          projectiles.spawn({ isPlayer: true, type: 'egg',
+            x: targetX + waveOffsets[wave][index], y: this.y - 410 - index * 14,
+            vx: 0, vy: waveSpeeds[wave], maxDistance: 560,
+            width: 30 + wave * 3, height: 26 + wave * 3, damage: eggDmg,
+            monsterDamage: 40,
+            splashRadius: 75, splashDamage: this.resonancePhase === 2 ? 22 : 18,
+            releaseAfter: [0, 0.26, 0.56][wave], life: 1.5,
+            penetrating: false, zoneCenterX: targetX, zoneRadius: 500, bossTargetAssist: true });
         }
       }
-      window.activeGame?.camera?.shake(5, 0.14);
+      window.activeGame?.camera?.shake(6, 0.12);
     }
     else {
       // ═════════════════════════════════════════════════════════════════════════

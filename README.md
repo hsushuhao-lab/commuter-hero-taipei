@@ -1,8 +1,8 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.9.4 Boss Arena + Neon Hard-Core）——
+## —— 象山晨衝・奔向松德（v9.9.5 Boss Arena + Neon Hard-Core）——
 
 
-> **v9.9.4**：soft-boundary arena mask + persistent Boss chase + organic vine attack + Yu water shockwave VFX。
+> **v9.9.5**：soft-boundary arena mask + persistent Boss chase + organic vine attack + Yu water shockwave VFX。
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 
@@ -11,6 +11,9 @@
 
 > **v9.9.4 Final Battle + Hero Result + Menu Art**
 > 主畫面正式換入新生成的清晰 key art，移除程式層重複標題/按鈕文字；最終結算卡只顯示本局 selected hero。首次進入 Boss 區改為 3.8 秒固定鏡頭 FINAL BATTLE 過場，玩家不可操作、倒數暫停、無 camera shake，結束後才恢復 Boss AI。三人 Victory Run / 打卡演出仍保留。
+
+> **v9.9.5 UI Repair + Fixed Boss Arena**
+> 修復 v9.9.4 主畫面 keyart 封裝損毀：回復已驗證 production keyart，重新以玻璃式 UI 排版模式選擇按鈕；HUD 左上角改為四欄式不重疊資訊。Final Battle Intro 後整場 Boss 戰使用固定鏡頭、不跟隨英雄、不震動，並在英雄側新增四階跳躍樓梯；Boss 擊破後才恢復跟隨鏡頭進入三人 Victory Run。
 
 > **🌐 正式公開站**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
 >

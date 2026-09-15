@@ -194,8 +194,15 @@ export class Level {
     // Scene 5 Forecourt: 14000 ~ 14850 (flat continuous floor)
     this.pm.addPlatform(14000, groundY, 850, 40, 'stone');
 
-    // Scene 5 Boss Arena: 14800 ~ 16550 (100% flat continuous arena floor, 0 gaps)
+    // Scene 5 Boss Arena: 14800 ~ 16550 (continuous safe floor).
     this.pm.addPlatform(14800, groundY, 1750, 60, 'stone');
+
+    // v9.9.5 Fixed-camera battle stairs: four ascending jump steps on the hero side.
+    // They create vertical dodging choices without introducing pits or blocking the Boss half.
+    this.pm.addPlatform(14900, 510, 120, 24, 'brick');
+    this.pm.addPlatform(15020, 470, 120, 24, 'brick');
+    this.pm.addPlatform(15140, 430, 120, 24, 'brick');
+    this.pm.addPlatform(15260, 390, 160, 24, 'brick');
 
     // Scene 5 Interior Lobby: 16500 ~ 18050 (100% flat continuous lobby floor, 0 gaps)
     this.pm.addPlatform(16500, groundY, 1550, 60, 'stone');

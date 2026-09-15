@@ -278,116 +278,106 @@ export class HUD {
 
   renderTopBar(ctx, player, level, vw) {
     ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
 
-    // Top translucent bar
-    ctx.fillStyle = 'rgba(18, 24, 38, 0.86)';
-    ctx.fillRect(16, 10, vw - 32, 64);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    const barX = 16;
+    const barY = 10;
+    const barH = 72;
+    ctx.fillStyle = 'rgba(12, 20, 34, 0.90)';
+    ctx.fillRect(barX, barY, vw - 32, barH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.20)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(16, 10, vw - 32, 64);
+    ctx.strokeRect(barX, barY, vw - 32, barH);
 
-    // 1. Hero Avatar & Info
+    // Column separators keep long Chinese labels from visually colliding.
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    [238, 450, 640, 842].forEach(x => {
+      ctx.beginPath();
+      ctx.moveTo(x, barY + 8);
+      ctx.lineTo(x, barY + barH - 8);
+      ctx.stroke();
+    });
+
+    // Hero block
     const avatarX = 26;
-    const avatarY = 16;
+    const avatarY = 20;
     ctx.fillStyle = player.charConfig.colors.primary;
-    ctx.fillRect(avatarX, avatarY, 50, 50);
-    ctx.strokeStyle = '#fff';
+    ctx.fillRect(avatarX, avatarY, 48, 48);
+    ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 1.5;
-    ctx.strokeRect(avatarX, avatarY, 50, 50);
-
+    ctx.strokeRect(avatarX, avatarY, 48, 48);
     if (player.spriteSheet && player.spriteSheet.complete) {
-      // Idle frame 0
-      ctx.drawImage(player.spriteSheet, 0, 0, 512, 512, avatarX, avatarY, 50, 50);
+      ctx.drawImage(player.spriteSheet, 0, 0, 512, 512, avatarX, avatarY, 48, 48);
     }
 
-    // Name & Title
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 14px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.fillText(player.name, avatarX + 58, avatarY + 16);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(player.charConfig.title, avatarX + 58, avatarY + 30);
+    const heroX = 84;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 13px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText(player.name, heroX, 29);
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.font = '9.5px "PingFang SC", "Microsoft JhengHei", sans-serif';
+    ctx.fillText(player.charConfig.title, heroX, 43, 142);
 
-    // HP Bar
-    const hpX = avatarX + 58;
-    const hpY = avatarY + 36;
-    const hpW = 135;
-    const hpH = 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(hpX, hpY, hpW, hpH);
+    const hpY = 51;
+    const hpW = 142;
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    ctx.fillRect(heroX, hpY, hpW, 11);
     const hpRatio = Math.max(0, player.hp / player.maxHp);
     ctx.fillStyle = hpRatio > 0.3 ? '#00E676' : '#FF1744';
-    ctx.fillRect(hpX, hpY, hpW * hpRatio, hpH);
-    ctx.fillStyle = '#fff';
+    ctx.fillRect(heroX, hpY, hpW * hpRatio, 11);
+    ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 9px monospace';
-    ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, hpX + 42, hpY + 8);
+    ctx.textAlign = 'center';
+    ctx.fillText(`${Math.ceil(player.hp)}/${player.maxHp}`, heroX + hpW / 2, 60);
 
-    // 2. Commute Resonance & Coins (🪙 x / 15 / 30 / 60)
-    const coinX = 275;
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText(`🪙 金幣: ${player.coins}`, coinX, 32);
-
-    // Milestone text
-    let milestoneText = '🔒 15幣 大招解鎖';
-    if (player.coins >= 60) milestoneText = '🔥 魔王狂暴 (雙倍掉落)';
-    else if (player.coins >= 30) milestoneText = '⚡ 共振 II｜英雄強化 × 怪獸攻勢提升';
-    else if (player.coins >= 15) milestoneText = '⚔️ 大招已永久解鎖！';
-
+    // Coins / resonance block
+    ctx.textAlign = 'left';
+    const coinX = 252;
+    ctx.fillStyle = '#FFD54F';
+    ctx.font = 'bold 14px "PingFang SC", sans-serif';
+    ctx.fillText(`🪙 金幣 ${player.coins}`, coinX, 31);
+    let resonance = '15 幣解鎖大招';
+    if (player.coins >= 60) resonance = '魔王狂暴共振';
+    else if (player.coins >= 30) resonance = '共振 II 已啟動';
+    else if (player.coins >= 15) resonance = '大招已解鎖';
     ctx.fillStyle = '#81D4FA';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(`共振: ${milestoneText}`, coinX, 48);
+    ctx.font = '10px "PingFang SC", sans-serif';
+    ctx.fillText(`共振｜${resonance}`, coinX, 48, 184);
 
-    // Active Buffs Row
-    let buffX = coinX;
-    ctx.font = 'bold 10px sans-serif';
-    if (player.invulnerableTimer > 0) {
-      ctx.fillStyle = '#FFD54F';
-      ctx.fillText(`🛡️防護${player.invulnerableTimer.toFixed(1)}s `, buffX, 64);
-      buffX += 58;
-    }
-    if (player.dashCooldown <= 0) {
-      ctx.fillStyle = '#69F0AE';
-      ctx.fillText(`⚡衝刺可 `, buffX, 64);
-      buffX += 50;
-    }
-    // v9.5: ULT WIND-UP indicator
-    if (player.isUlting && player.ultPhase === 'WINDUP') {
-      ctx.fillStyle = '#FFD700';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.shadowColor = '#FFA000';
-      ctx.shadowBlur = 8;
-      ctx.fillText(`⚡ ULT WIND-UP`, buffX, 64);
-      ctx.shadowBlur = 0;
-      buffX += 95;
-    }
+    const status = [];
+    if (player.invulnerableTimer > 0) status.push(`防護 ${player.invulnerableTimer.toFixed(1)}s`);
+    if (player.dashCooldown <= 0) status.push('衝刺 READY');
+    if (player.isUlting && player.ultPhase === 'WINDUP') status.push('ULT WIND-UP');
+    ctx.fillStyle = status.length ? '#69F0AE' : 'rgba(255,255,255,0.48)';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText(status.length ? status.join(' ・ ') : '狀態｜NORMAL', coinX, 65, 184);
 
-    // 3. Commute Clock Countdown (120s)
-    const clockX = 490;
+    // Clock block
+    const clockX = 464;
     const timeFormatted = Math.ceil(this.timeRemaining);
     const clockStr = this.getFormattedClockTime();
+    ctx.fillStyle = this.timeRemaining < 25 ? '#FF5252' : '#FFFFFF';
+    ctx.font = 'bold 17px monospace';
+    ctx.fillText(`⏱ ${clockStr}`, clockX, 34);
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.font = '10px "PingFang SC", sans-serif';
+    ctx.fillText(`打卡倒數 ${timeFormatted} 秒`, clockX, 52);
 
-    ctx.fillStyle = this.timeRemaining < 25 ? '#FF5252' : '#FFF';
-    ctx.font = 'bold 16px monospace';
-    ctx.fillText(`⏱️ ${clockStr}`, clockX, 34);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(`上班打卡倒數: ${timeFormatted} 秒`, clockX, 50);
-
-    // 4. Stage Title & Progress
+    // Stage block
     const curStage = level.getCurrentStage(player.x);
-    const stageX = 680;
+    const stageX = 654;
     ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.fillText(curStage.name, stageX, 34);
-
+    ctx.font = 'bold 11px "PingFang SC", sans-serif';
+    ctx.fillText(curStage.name, stageX, 30, 178);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '9px "PingFang SC", sans-serif';
+    ctx.fillText(curStage.subtitle || '', stageX, 45, 178);
     const progressRatio = Math.min(1.0, player.x / level.totalLength);
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(stageX, 42, 120, 8);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(stageX, 54, 150, 8);
     ctx.fillStyle = '#4FC3F7';
-    ctx.fillRect(stageX, 42, 120 * progressRatio, 8);
-
-    // Settings remain available through the keyboard Tab shortcut only.
+    ctx.fillRect(stageX, 54, 150 * progressRatio, 8);
 
     ctx.restore();
   }
@@ -397,7 +387,7 @@ export class HUD {
     const barW = 460;
     const barH = 14;
     const barX = (vw - barW) / 2;
-    const barY = 82;
+    const barY = 94;
 
     // Boss Name & Phase (v9.7.1 8800 HP staged bar)
     ctx.font = 'bold 14px sans-serif';
@@ -409,7 +399,7 @@ export class HUD {
       title = '🌹【變身中・100%無敵】PHASE 2：狂暴盛開！';
       barColor = '#FF1744';
     } else if (boss.phase === 2) {
-      title = '🌹【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王 (HP 5200)';
+      title = '🌹【PHASE 2：狂暴盛開態】松德院區門前・夢影巨花王 (HP 3050)';
       if (boss.isRaging) {
         title += ' 🔥 狂怒爆發！';
       }
@@ -427,7 +417,7 @@ export class HUD {
     ctx.strokeRect(barX, barY, barW, barH);
 
     // HP Fill
-    const maxHp = boss.phase === 2 ? 5200 : 3600;
+    const maxHp = boss.phase === 2 ? 3050 : 3600;
     const ratio = Math.max(0, boss.hp / (boss.maxHp || maxHp));
     ctx.fillStyle = barColor;
     ctx.fillRect(barX, barY, barW * ratio, barH);

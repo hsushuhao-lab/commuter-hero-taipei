@@ -375,11 +375,11 @@ export class Boss {
         this.isTransforming = false;
         this.phase = 2;
         this.phase2Triggered = true;
-        this.hp = this.config.phase2Hp || 5200;
-        this.maxHp = this.config.phase2Hp || 5200;
+        this.hp = this.config.phase2Hp || 3050;
+        this.maxHp = this.config.phase2Hp || 3050;
         this.roarTimer = 0;
         this.attackTimer = 1.2;
-        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 5200', '#FF1744');
+        particles.emitFloatingText(this.x, this.y - 240, '⚡ 狂暴盛開態！HP 3050', '#FF1744');
       }
       return; // 100% frozen during transform!
     }

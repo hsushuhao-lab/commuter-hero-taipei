@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.9.4";
+const GAME_BUILD_VERSION = "v9.9.5";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -88,12 +88,18 @@ class Game {
     this.finalBossIntroDuration = 3.8;
     this.finalBossIntroCameraX = 14800;
 
+    // v9.9.5: after the intro, the entire Boss fight uses one fixed arena shot.
+    this.bossBattleCameraX = 14800;
+    this.bossBattleZoom = 0.82;
+    this.bossBattleMinX = 14720;
+    this.bossBattleMaxX = 15810;
+
     // Joystick touch tracking
     this.joystickPointerId = null;
 
     // Assets for Menu
     this.menuKeyart = new Image();
-    this.menuKeyart.src = 'assets/menu_keyart_v994.jpg';
+    this.menuKeyart.src = 'assets/menu_keyart.jpg';
 
     // v9.4: Preload chibi sprites for victory companion rendering
     this.chibiImages = {};
@@ -549,6 +555,11 @@ class Game {
     this.level.buildLevelGeometry();
     this.camera.setBounds(0, this.level.totalLength, 0, 200);
     this.camera.setTarget(this.player);
+    this.camera.setZoom(1.0);
+    this.camera.shakeIntensity = 0;
+    this.camera.shakeDuration = 0;
+    this.camera.shakeOffsetX = 0;
+    this.camera.shakeOffsetY = 0;
     this.boss = new Boss();
     this.boss.minions = this.level.monsters;
     projectiles.reset();
@@ -665,6 +676,7 @@ class Game {
           this.milestoneBannerTimer = 2.0;
         }
         this.boss.update(dt, this.player, this.camera);
+        if (this.finalBossIntroDone) this.lockBossBattleCamera();
         // v9.5 BGM Rule: Single boss_theme for entire boss battle (P2 layers intensity via setBossIntensity)
         if (audio.currentBgmType !== 'boss_theme') {
           audio.playBgm('boss_theme');
@@ -731,6 +743,12 @@ class Game {
 
       // Boss Defeated Check -> Transition to VICTORY_RUN animation!
       if (this.boss.isDead && !this.player.isDead) {
+        this.camera.setTarget(this.player);
+        this.camera.setZoom(1.0);
+        this.camera.shakeIntensity = 0;
+        this.camera.shakeDuration = 0;
+        this.camera.shakeOffsetX = 0;
+        this.camera.shakeOffsetY = 0;
         this.state = 'VICTORY_RUN';
         this.victoryTimer = 0;
         this.victorySubState = 'BOSS_BURST';
@@ -747,6 +765,33 @@ class Game {
     else if (this.state === 'VICTORY_RUN') {
       this.updateVictoryRun(dt);
     }
+  }
+
+  lockBossBattleCamera() {
+    if (!this.bossArenaLocked || this.boss.isDead) return;
+
+    // One fixed shot for the whole fight: no horizontal/vertical follow and no shake drift.
+    this.camera.setTarget(null);
+    this.camera.setZoom(this.bossBattleZoom);
+    this.camera.x = this.bossBattleCameraX;
+    this.camera.y = 0;
+    this.camera.shakeIntensity = 0;
+    this.camera.shakeDuration = 0;
+    this.camera.shakeOffsetX = 0;
+    this.camera.shakeOffsetY = 0;
+
+    // Keep both combatants inside the visible fixed frame.
+    if (this.player.x < this.bossBattleMinX) {
+      this.player.x = this.bossBattleMinX;
+      if (this.player.vx < 0) this.player.vx = 0;
+    }
+    if (this.player.x > this.bossBattleMaxX) {
+      this.player.x = this.bossBattleMaxX;
+      if (this.player.vx > 0) this.player.vx = 0;
+    }
+    const bossMinX = this.bossBattleCameraX + 170;
+    const bossMaxX = this.bossBattleCameraX + 820;
+    this.boss.x = Math.max(bossMinX, Math.min(bossMaxX, this.boss.x));
   }
 
   beginFinalBossIntro() {
@@ -840,6 +885,9 @@ class Game {
       this.boss._entranceYOffset = 0;
       this.boss.attackTimer = Math.max(this.boss.attackTimer, 0.9);
       this.state = 'PLAYING';
+      this.camera.setTarget(null);
+      this.camera.setZoom(this.bossBattleZoom);
+      this.lockBossBattleCamera();
       if (typeof window !== 'undefined') window.gameCutsceneActive = false;
       this.milestoneBanner = '⚔️ FINAL BATTLE：夢影巨花王・決戰開始！';
       this.milestoneBannerTimer = 2.2;
@@ -1798,47 +1846,105 @@ updateVictoryRun(dt) {
 
   renderMenu() {
     const ctx = this.ctx;
+
+    // v9.9.5: use the known-good production keyart. The v9.9.4 generated JPEG was truncated in packaging.
     if (this.menuKeyart.complete && this.menuKeyart.naturalWidth > 0) {
       ctx.drawImage(this.menuKeyart, 0, 0, this.vw, this.vh);
     } else {
       const fallback = ctx.createLinearGradient(0, 0, 0, this.vh);
-      fallback.addColorStop(0, '#90CAF9');
-      fallback.addColorStop(1, '#0D47A1');
+      fallback.addColorStop(0, '#6FB9EA');
+      fallback.addColorStop(1, '#123B78');
       ctx.fillStyle = fallback;
       ctx.fillRect(0, 0, this.vw, this.vh);
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
-      ctx.font = 'bold 34px sans-serif';
-      ctx.fillText('08點上班大作戰・通勤英雄篇', this.vw / 2, 110);
+      ctx.font = 'bold 34px "PingFang SC", sans-serif';
+      ctx.fillText('08點上班大作戰・通勤英雄篇', this.vw / 2, 105);
     }
 
-    // The generated art already contains the complete menu typography and panels.
-    // Only draw interaction feedback and a live build badge, preventing duplicate text overlap.
     ctx.save();
-    const modeRect = this.difficultyMode === 'chill'
-      ? { x: 225, y: 338, w: 253, h: 64, color: '#00FFF0' }
-      : { x: 482, y: 338, w: 253, h: 64, color: '#FFD54F' };
-    ctx.strokeStyle = modeRect.color;
-    ctx.lineWidth = 3;
-    ctx.shadowColor = modeRect.color;
-    ctx.shadowBlur = 14;
-    ctx.strokeRect(modeRect.x + 2, modeRect.y + 2, modeRect.w - 4, modeRect.h - 4);
+    // Preserve the original illustrated logo area; clean only the menu zone below it.
+    const menuGrad = ctx.createLinearGradient(0, 250, 0, this.vh);
+    menuGrad.addColorStop(0, 'rgba(5, 18, 35, 0.18)');
+    menuGrad.addColorStop(0.24, 'rgba(5, 18, 35, 0.72)');
+    menuGrad.addColorStop(1, 'rgba(5, 12, 28, 0.93)');
+    ctx.fillStyle = menuGrad;
+    ctx.fillRect(0, 250, this.vw, this.vh - 250);
+
+    // Compact heading — no duplicate game title over the baked logo.
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 14px "Arial Black", sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.75)';
+    ctx.shadowBlur = 8;
+    ctx.fillText('SELECT COMMUTE MOOD', this.vw / 2, 310);
     ctx.shadowBlur = 0;
 
-    // Cover the baked v9.9.3 corner label from the generated concept art with the live runtime version.
-    ctx.fillStyle = 'rgba(12, 40, 75, 0.72)';
+    const chillSelected = this.difficultyMode === 'chill';
+    const hardSelected = this.difficultyMode === 'hardcore';
+
+    // Chill Mood button
+    ctx.fillStyle = chillSelected ? 'rgba(28, 210, 194, 0.96)' : 'rgba(20, 165, 158, 0.88)';
+    ctx.fillRect(225, 330, 253, 64);
+    ctx.strokeStyle = chillSelected ? '#B9FFF8' : 'rgba(220,255,252,0.75)';
+    ctx.lineWidth = chillSelected ? 4 : 2;
+    ctx.strokeRect(225, 330, 253, 64);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 19px "Arial Black", sans-serif';
+    ctx.fillText('☕  Chill Mood', 351.5, 352);
+    ctx.font = 'bold 11px "PingFang SC", sans-serif';
+    ctx.fillStyle = '#E7FFFC';
+    ctx.fillText('簡單・悠閒通勤', 351.5, 376);
+
+    // Hard-Core button
+    ctx.fillStyle = hardSelected ? 'rgba(244, 67, 54, 0.97)' : 'rgba(198, 40, 40, 0.88)';
+    ctx.fillRect(482, 330, 253, 64);
+    ctx.strokeStyle = hardSelected ? '#FFE082' : 'rgba(255,235,238,0.75)';
+    ctx.lineWidth = hardSelected ? 4 : 2;
+    ctx.strokeRect(482, 330, 253, 64);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 19px "Arial Black", sans-serif';
+    ctx.fillText('🔥  Hard-Core', 608.5, 352);
+    ctx.font = 'bold 11px "PingFang SC", sans-serif';
+    ctx.fillStyle = '#FFEBEE';
+    ctx.fillText('困難・原味挑戰', 608.5, 376);
+
+    // Opening / cast introduction
+    ctx.fillStyle = 'rgba(233, 30, 99, 0.90)';
+    ctx.fillRect(330, 410, 300, 46);
+    ctx.strokeStyle = '#FF80AB';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(330, 410, 300, 46);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 15px "PingFang SC", sans-serif';
+    ctx.fillText('🎬  劇情序幕（人物與怪獸介紹）', this.vw / 2, 433);
+
+    // Utility buttons
+    ctx.fillStyle = 'rgba(255,255,255,0.11)';
+    ctx.fillRect(330, 466, 148, 40);
+    ctx.fillRect(484, 466, 148, 40);
+    ctx.strokeStyle = 'rgba(255,255,255,0.60)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(330, 466, 148, 40);
+    ctx.strokeRect(484, 466, 148, 40);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 13px "PingFang SC", sans-serif';
+    ctx.fillText('遊戲說明 [H]', 404, 486);
+    ctx.fillText('設定集 [TAB]', 558, 486);
+
+    // Live build badge
+    ctx.fillStyle = 'rgba(8, 32, 60, 0.82)';
     if (ctx.roundRect) {
       ctx.beginPath();
-      ctx.roundRect(this.vw - 78, 7, 68, 22, 7);
+      ctx.roundRect(this.vw - 78, 7, 68, 23, 7);
       ctx.fill();
     } else {
-      ctx.fillRect(this.vw - 78, 7, 68, 22);
+      ctx.fillRect(this.vw - 78, 7, 68, 23);
     }
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 12px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 44, 18);
+    ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 44, 18.5);
     ctx.restore();
   }
 

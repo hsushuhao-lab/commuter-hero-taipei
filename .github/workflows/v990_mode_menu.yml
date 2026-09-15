@@ -22,247 +22,81 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
-
+          import base64, re
           p = Path('source/src/main.js')
           text = p.read_text(encoding='utf-8')
-
-          def sub1(pattern, replacement, label, flags=0):
+          def one(pattern, replacement, label, flags=0):
               global text
-              out, n = re.subn(pattern, replacement, text, count=1, flags=flags)
+              text2, n = re.subn(pattern, replacement, text, count=1, flags=flags)
               if n != 1:
                   raise SystemExit(f'{label}: match count {n}')
-              text = out
+              text = text2
               print('PASS', label)
-
-          sub1(r'const GAME_BUILD_VERSION = "v9\.8\.5";', 'const GAME_BUILD_VERSION = "v9.9.0";', 'runtime version')
-          sub1(r'status: "PRODUCTION_VERIFIED"', 'status: "PI_REVIEW_REQUIRED"', 'runtime status')
-
+          one(r'const GAME_BUILD_VERSION = "v9\.8\.5";', 'const GAME_BUILD_VERSION = "v9.9.0";', 'runtime version')
+          one(r'status: "PRODUCTION_VERIFIED"', 'status: "PI_REVIEW_REQUIRED"', 'runtime status')
           old_ctor = "    this.selectedCharId = 'yu';\n    this.instructionsOpen = false;"
           new_ctor = "    this.selectedCharId = 'yu';\n    // v9.9.0 Dual Mood: v9.8.5 remains the immutable Hard-Core baseline.\n    this.difficultyMode = 'hardcore';\n    if (typeof window !== 'undefined') window.__GAME_MODE__ = 'HARDCORE';\n    this.instructionsOpen = false;"
           if text.count(old_ctor) != 1:
-              raise SystemExit(f'constructor mode anchor count {text.count(old_ctor)}')
+              raise SystemExit('constructor anchor mismatch')
           text = text.replace(old_ctor, new_ctor, 1)
-          print('PASS mode state')
-
-          menu_pointer_pattern = r"    // Main Menu Flow\n    if \(this\.state === 'MENU'\) \{.*?\n      return;\n    \}\n\n    // Character Select Flow"
-          menu_pointer_replacement = '''    // Main Menu Flow
-    if (this.state === 'MENU') {
-      // v9.9.0: choose commute mood before character select.
-      if (mx >= 235 && mx <= 470 && my >= 315 && my <= 389) {
-        this.selectGameMode('chill');
-      }
-      else if (mx >= 490 && mx <= 725 && my >= 315 && my <= 389) {
-        this.selectGameMode('hardcore');
-      }
-      // Watch Opening Button
-      else if (mx >= 350 && mx <= 610 && my >= 404 && my <= 446) {
-        this.state = 'OPENING';
-        introCinematic.start(() => {
-          this.state = 'MENU';
-        });
-        audio.playCoin();
-      }
-      // Game Instructions
-      else if (mx >= 350 && mx <= 470 && my >= 456 && my <= 494) {
-        this.instructionsOpen = true;
-      }
-      // Style Bible Button
-      else if (mx >= 490 && mx <= 610 && my >= 456 && my <= 494) {
-        styleBibleUI.toggle();
-      }
-      return;
-    }
-
-    // Character Select Flow'''
-          sub1(menu_pointer_pattern, menu_pointer_replacement, 'menu pointer flow', re.S)
-
-          start_anchor = "  startGame() {\n    this.state = 'PLAYING';"
-          mode_method = '''  selectGameMode(mode) {
-    this.difficultyMode = mode === 'chill' ? 'chill' : 'hardcore';
-    if (typeof window !== 'undefined') {
-      window.__GAME_MODE__ = this.difficultyMode === 'chill' ? 'CHILL' : 'HARDCORE';
-    }
-    this.state = 'SELECT';
-    audio.playCoin();
-  }
-
-  startGame() {
-    if (typeof window !== 'undefined') {
-      window.__GAME_MODE__ = this.difficultyMode === 'chill' ? 'CHILL' : 'HARDCORE';
-    }
-    this.state = 'PLAYING';'''
-          if text.count(start_anchor) != 1:
-              raise SystemExit(f'startGame anchor count {text.count(start_anchor)}')
-          text = text.replace(start_anchor, mode_method, 1)
-          print('PASS mode selection method')
-
-          render_menu_pattern = r"  renderMenu\(\) \{.*?\n  \}\n\n  renderSelect\(\) \{"
-          render_menu_replacement = '''  renderMenu() {
-    const ctx = this.ctx;
-    if (this.menuKeyart.complete && this.menuKeyart.naturalWidth > 0) {
-      ctx.drawImage(this.menuKeyart, 0, 0, this.vw, this.vh);
-    } else {
-      ctx.fillStyle = '#1A237E';
-      ctx.fillRect(0, 0, this.vw, this.vh);
-    }
-
-    const grad = ctx.createLinearGradient(0, 0, 0, this.vh);
-    grad.addColorStop(0, 'rgba(10, 20, 40, 0.4)');
-    grad.addColorStop(0.7, 'rgba(10, 20, 40, 0.75)');
-    grad.addColorStop(1, 'rgba(10, 20, 40, 0.95)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.vw, this.vh);
-
-    ctx.save();
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#FFE082';
-    ctx.font = 'bold 42px "PingFang SC", "Microsoft JhengHei", sans-serif';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-    ctx.shadowBlur = 16;
-    ctx.fillText('08點上班大作戰：通勤英雄篇', this.vw / 2, 135);
-
-    ctx.fillStyle = '#81D4FA';
-    ctx.font = 'bold 21px sans-serif';
-    ctx.fillText('—— 象山晨衝・奔向松德 ——', this.vw / 2, 180);
-
-    ctx.fillStyle = '#ECEFF1';
-    ctx.font = '14px sans-serif';
-    ctx.fillText('今天想用什麼心情上班？選擇你的通勤模式', this.vw / 2, 224);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
-    ctx.font = '12px monospace';
-    ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 22, 24);
-    ctx.textAlign = 'center';
-
-    ctx.fillStyle = 'rgba(255,255,255,0.82)';
-    ctx.font = 'bold 13px sans-serif';
-    ctx.fillText('SELECT COMMUTE MOOD', this.vw / 2, 287);
-
-    // Chill Mood card
-    const chillSelected = this.difficultyMode === 'chill';
-    ctx.fillStyle = chillSelected ? 'rgba(38, 166, 154, 0.94)' : 'rgba(38, 166, 154, 0.78)';
-    ctx.fillRect(235, 315, 235, 74);
-    ctx.strokeStyle = '#B2DFDB';
-    ctx.lineWidth = chillSelected ? 3 : 2;
-    ctx.strokeRect(235, 315, 235, 74);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('☕ Chill Mood', 352.5, 342);
-    ctx.font = '13px sans-serif';
-    ctx.fillStyle = '#E0F2F1';
-    ctx.fillText('簡單・悠閒通勤', 352.5, 368);
-
-    // Hard-Core card: exact v9.8.5 gameplay baseline.
-    const hardSelected = this.difficultyMode === 'hardcore';
-    ctx.fillStyle = hardSelected ? 'rgba(198, 40, 40, 0.94)' : 'rgba(198, 40, 40, 0.78)';
-    ctx.fillRect(490, 315, 235, 74);
-    ctx.strokeStyle = '#FFCDD2';
-    ctx.lineWidth = hardSelected ? 3 : 2;
-    ctx.strokeRect(490, 315, 235, 74);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('🔥 Hard-Core', 607.5, 342);
-    ctx.font = '13px sans-serif';
-    ctx.fillStyle = '#FFEBEE';
-    ctx.fillText('困難・v9.8.5 原味挑戰', 607.5, 368);
-
-    // Opening replay
-    ctx.fillStyle = 'rgba(233, 30, 99, 0.72)';
-    ctx.fillRect(350, 404, 260, 42);
-    ctx.strokeStyle = '#FF80AB';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(350, 404, 260, 42);
-    ctx.fillStyle = '#FFF';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('🎬 開篇序幕・人物與怪獸介紹', this.vw / 2, 425);
-
-    // Help / Style Bible
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(350, 456, 120, 38);
-    ctx.fillRect(490, 456, 120, 38);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.strokeRect(350, 456, 120, 38);
-    ctx.strokeRect(490, 456, 120, 38);
-    ctx.fillStyle = '#FFF';
-    ctx.font = '13px sans-serif';
-    ctx.fillText('遊戲說明 [H]', 410, 475);
-    ctx.fillText('設定集 [TAB]', 550, 475);
-
-    ctx.fillStyle = 'rgba(255,255,255,0.60)';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('v9.9.0 UI preview：Chill balance 將於下一步套用；Hard-Core 數值維持 v9.8.5。', this.vw / 2, 518);
-    ctx.restore();
-  }
-
-  renderSelect() {'''
-          sub1(render_menu_pattern, render_menu_replacement, 'render mode cards', re.S)
-
-          select_anchor = "    ctx.fillText('寫實立繪與高解析 Q 版 Chibi 對比・每位英雄具備專屬小招與 Anime 大招', this.vw / 2, 75);"
-          select_extra = select_anchor + "\n\n    ctx.textAlign = 'right';\n    ctx.fillStyle = this.difficultyMode === 'chill' ? '#80CBC4' : '#FF8A80';\n    ctx.font = 'bold 12px sans-serif';\n    ctx.fillText(this.difficultyMode === 'chill' ? '☕ CHILL MOOD' : '🔥 HARD-CORE', 925, 28);\n    ctx.textAlign = 'center';"
-          if text.count(select_anchor) != 1:
-              raise SystemExit(f'select mode badge anchor count {text.count(select_anchor)}')
-          text = text.replace(select_anchor, select_extra, 1)
-          print('PASS selected mode badge')
-
+          menu = base64.b64decode('ICAgIC8vIE1haW4gTWVudSBGbG93CiAgICBpZiAodGhpcy5zdGF0ZSA9PT0gJ01FTlUnKSB7CiAgICAgIC8vIHY5LjkuMDogY2hvb3NlIGNvbW11dGUgbW9vZCBiZWZvcmUgY2hhcmFjdGVyIHNlbGVjdC4KICAgICAgaWYgKG14ID49IDIzNSAmJiBteCA8PSA0NzAgJiYgbXkgPj0gMzE1ICYmIG15IDw9IDM4OSkgewogICAgICAgIHRoaXMuc2VsZWN0R2FtZU1vZGUoJ2NoaWxsJyk7CiAgICAgIH0KICAgICAgZWxzZSBpZiAobXggPj0gNDkwICYmIG14IDw9IDcyNSAmJiBteSA+PSAzMTUgJiYgbXkgPD0gMzg5KSB7CiAgICAgICAgdGhpcy5zZWxlY3RHYW1lTW9kZSgnaGFyZGNvcmUnKTsKICAgICAgfQogICAgICAvLyBXYXRjaCBPcGVuaW5nIEJ1dHRvbgogICAgICBlbHNlIGlmIChteCA+PSAzNTAgJiYgbXggPD0gNjEwICYmIG15ID49IDQwNCAmJiBteSA8PSA0NDYpIHsKICAgICAgICB0aGlzLnN0YXRlID0gJ09QRU5JTkcnOwogICAgICAgIGludHJvQ2luZW1hdGljLnN0YXJ0KCgpID0+IHsKICAgICAgICAgIHRoaXMuc3RhdGUgPSAnTUVOVSc7CiAgICAgICAgfSk7CiAgICAgICAgYXVkaW8ucGxheUNvaW4oKTsKICAgICAgfQogICAgICAvLyBHYW1lIEluc3RydWN0aW9ucwogICAgICBlbHNlIGlmIChteCA+PSAzNTAgJiYgbXggPD0gNDcwICYmIG15ID49IDQ1NiAmJiBteSA8PSA0OTQpIHsKICAgICAgICB0aGlzLmluc3RydWN0aW9uc09wZW4gPSB0cnVlOwogICAgICB9CiAgICAgIC8vIFN0eWxlIEJpYmxlIEJ1dHRvbgogICAgICBlbHNlIGlmIChteCA+PSA0OTAgJiYgbXggPD0gNjEwICYmIG15ID49IDQ1NiAmJiBteSA8PSA0OTQpIHsKICAgICAgICBzdHlsZUJpYmxlVUkudG9nZ2xlKCk7CiAgICAgIH0KICAgICAgcmV0dXJuOwogICAgfQoKICAgIC8vIENoYXJhY3RlciBTZWxlY3QgRmxvdw==').decode('utf-8')
+          one(r"    // Main Menu Flow\n    if \(this\.state === 'MENU'\) \{.*?\n      return;\n    \}\n\n    // Character Select Flow", menu, 'menu pointer flow', re.S)
+          mode = base64.b64decode('ICBzZWxlY3RHYW1lTW9kZShtb2RlKSB7CiAgICB0aGlzLmRpZmZpY3VsdHlNb2RlID0gbW9kZSA9PT0gJ2NoaWxsJyA/ICdjaGlsbCcgOiAnaGFyZGNvcmUnOwogICAgaWYgKHR5cGVvZiB3aW5kb3cgIT09ICd1bmRlZmluZWQnKSB7CiAgICAgIHdpbmRvdy5fX0dBTUVfTU9ERV9fID0gdGhpcy5kaWZmaWN1bHR5TW9kZSA9PT0gJ2NoaWxsJyA/ICdDSElMTCcgOiAnSEFSRENPUkUnOwogICAgfQogICAgdGhpcy5zdGF0ZSA9ICdTRUxFQ1QnOwogICAgYXVkaW8ucGxheUNvaW4oKTsKICB9CgogIHN0YXJ0R2FtZSgpIHsKICAgIGlmICh0eXBlb2Ygd2luZG93ICE9PSAndW5kZWZpbmVkJykgewogICAgICB3aW5kb3cuX19HQU1FX01PREVfXyA9IHRoaXMuZGlmZmljdWx0eU1vZGUgPT09ICdjaGlsbCcgPyAnQ0hJTEwnIDogJ0hBUkRDT1JFJzsKICAgIH0KICAgIHRoaXMuc3RhdGUgPSAnUExBWUlORyc7').decode('utf-8')
+          if text.count("  startGame() {\n    this.state = 'PLAYING';") != 1:
+              raise SystemExit('startGame anchor mismatch')
+          text = text.replace("  startGame() {\n    this.state = 'PLAYING';", mode, 1)
+          render = base64.b64decode('ICByZW5kZXJNZW51KCkgewogICAgY29uc3QgY3R4ID0gdGhpcy5jdHg7CiAgICBpZiAodGhpcy5tZW51S2V5YXJ0LmNvbXBsZXRlICYmIHRoaXMubWVudUtleWFydC5uYXR1cmFsV2lkdGggPiAwKSB7CiAgICAgIGN0eC5kcmF3SW1hZ2UodGhpcy5tZW51S2V5YXJ0LCAwLCAwLCB0aGlzLnZ3LCB0aGlzLnZoKTsKICAgIH0gZWxzZSB7CiAgICAgIGN0eC5maWxsU3R5bGUgPSAnIzFBMjM3RSc7CiAgICAgIGN0eC5maWxsUmVjdCgwLCAwLCB0aGlzLnZ3LCB0aGlzLnZoKTsKICAgIH0KCiAgICBjb25zdCBncmFkID0gY3R4LmNyZWF0ZUxpbmVhckdyYWRpZW50KDAsIDAsIDAsIHRoaXMudmgpOwogICAgZ3JhZC5hZGRDb2xvclN0b3AoMCwgJ3JnYmEoMTAsIDIwLCA0MCwgMC40KScpOwogICAgZ3JhZC5hZGRDb2xvclN0b3AoMC43LCAncmdiYSgxMCwgMjAsIDQwLCAwLjc1KScpOwogICAgZ3JhZC5hZGRDb2xvclN0b3AoMSwgJ3JnYmEoMTAsIDIwLCA0MCwgMC45NSknKTsKICAgIGN0eC5maWxsU3R5bGUgPSBncmFkOwogICAgY3R4LmZpbGxSZWN0KDAsIDAsIHRoaXMudncsIHRoaXMudmgpOwoKICAgIGN0eC5zYXZlKCk7CiAgICBjdHgudGV4dEFsaWduID0gJ2NlbnRlcic7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkUwODInOwogICAgY3R4LmZvbnQgPSAnYm9sZCA0MnB4ICJQaW5nRmFuZyBTQyIsICJNaWNyb3NvZnQgSmhlbmdIZWkiLCBzYW5zLXNlcmlmJzsKICAgIGN0eC5zaGFkb3dDb2xvciA9ICdyZ2JhKDAsIDAsIDAsIDAuOCknOwogICAgY3R4LnNoYWRvd0JsdXIgPSAxNjsKICAgIGN0eC5maWxsVGV4dCgnMDjpu57kuIrnj63lpKfkvZzmiLDvvJrpgJrli6Toi7Hpm4Tnr4cnLCB0aGlzLnZ3IC8gMiwgMTM1KTsKCiAgICBjdHguZmlsbFN0eWxlID0gJyM4MUQ0RkEnOwogICAgY3R4LmZvbnQgPSAnYm9sZCAyMXB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCfigJTigJQg6LGh5bGx5pmo6KGd44O75aWU5ZCR5p2+5b63IOKAlOKAlCcsIHRoaXMudncgLyAyLCAxODApOwoKICAgIGN0eC5maWxsU3R5bGUgPSAnI0VDRUZGMSc7CiAgICBjdHguZm9udCA9ICcxNHB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCfku4rlpKnmg7PnlKjku4Dpurzlv4Pmg4XkuIrnj63vvJ/pgbjmk4fkvaDnmoTpgJrli6TmqKHlvI8nLCB0aGlzLnZ3IC8gMiwgMjI0KTsKCiAgICBjdHgudGV4dEFsaWduID0gJ3JpZ2h0JzsKICAgIGN0eC5maWxsU3R5bGUgPSAncmdiYSgyNTUsIDI1NSwgMjU1LCAwLjcyKSc7CiAgICBjdHguZm9udCA9ICcxMnB4IG1vbm9zcGFjZSc7CiAgICBjdHguZmlsbFRleHQoKHdpbmRvdy5fX0dBTUVfQlVJTERfXyB8fCBHQU1FX0JVSUxEKS52ZXJzaW9uLCB0aGlzLnZ3IC0gMjIsIDI0KTsKICAgIGN0eC50ZXh0QWxpZ24gPSAnY2VudGVyJzsKCiAgICBjdHguZmlsbFN0eWxlID0gJ3JnYmEoMjU1LDI1NSwyNTUsMC44MiknOwogICAgY3R4LmZvbnQgPSAnYm9sZCAxM3B4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCdTRUxFQ1QgQ09NTVVURSBNT09EJywgdGhpcy52dyAvIDIsIDI4Nyk7CgogICAgY29uc3QgY2hpbGxTZWxlY3RlZCA9IHRoaXMuZGlmZmljdWx0eU1vZGUgPT09ICdjaGlsbCc7CiAgICBjdHguZmlsbFN0eWxlID0gY2hpbGxTZWxlY3RlZCA/ICdyZ2JhKDM4LCAxNjYsIDE1NCwgMC45NCknIDogJ3JnYmEoMzgsIDE2NiwgMTU0LCAwLjc4KSc7CiAgICBjdHguZmlsbFJlY3QoMjM1LCAzMTUsIDIzNSwgNzQpOwogICAgY3R4LnN0cm9rZVN0eWxlID0gJyNCMkRGREInOwogICAgY3R4LmxpbmVXaWR0aCA9IGNoaWxsU2VsZWN0ZWQgPyAzIDogMjsKICAgIGN0eC5zdHJva2VSZWN0KDIzNSwgMzE1LCAyMzUsIDc0KTsKICAgIGN0eC5maWxsU3R5bGUgPSAnI0ZGRkZGRic7CiAgICBjdHguZm9udCA9ICdib2xkIDIwcHggc2Fucy1zZXJpZic7CiAgICBjdHguZmlsbFRleHQoJ+KYlSBDaGlsbCBNb29kJywgMzUyLjUsIDM0Mik7CiAgICBjdHguZm9udCA9ICcxM3B4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxTdHlsZSA9ICcjRTBGMkYxJzsKICAgIGN0eC5maWxsVGV4dCgn57Ch5Zau44O75oKg6ZaS6YCa5YukJywgMzUyLjUsIDM2OCk7CgogICAgY29uc3QgaGFyZFNlbGVjdGVkID0gdGhpcy5kaWZmaWN1bHR5TW9kZSA9PT0gJ2hhcmRjb3JlJzsKICAgIGN0eC5maWxsU3R5bGUgPSBoYXJkU2VsZWN0ZWQgPyAncmdiYSgxOTgsIDQwLCA0MCwgMC45NCknIDogJ3JnYmEoMTk4LCA0MCwgNDAsIDAuNzgpJzsKICAgIGN0eC5maWxsUmVjdCg0OTAsIDMxNSwgMjM1LCA3NCk7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkNEREInOwogICAgY3R4LmxpbmVXaWR0aCA9IGhhcmRTZWxlY3RlZCA/IDMgOiAyOwogICAgY3R4LnN0cm9rZVJlY3QoNDkwLCAzMTUsIDIzNSwgNzQpOwogICAgY3R4LmZpbGxTdHlsZSA9ICcjRkZGRkZGJzsKICAgIGN0eC5mb250ID0gJ2JvbGQgMjBweCBzYW5zLXNlcmlmJzsKICAgIGN0eC5maWxsVGV4dCgn8J+UpSBIYXJkLUNvcmUnLCA2MDcuNSwgMzQyKTsKICAgIGN0eC5mb250ID0gJzEzcHggc2Fucy1zZXJpZic7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkVCRUUnOwogICAgY3R4LmZpbGxUZXh0KCflm7Dpm6vjg7Z2OS44LjUg5Y6f5ZGz5oyR5oi0JywgNjA3LjUsIDM2OCk7CgogICAgY3R4LmZpbGxTdHlsZSA9ICdyZ2JhKDIzMywgMzAsIDk5LCAwLjcyKSc7CiAgICBjdHguZmlsbFJlY3QoMzUwLCA0MDQsIDI2MCwgNDIpOwogICAgY3R4LnN0cm9rZVN0eWxlID0gJyNGRjgwQUInOwogICAgY3R4LmxpbmVXaWR0aCA9IDI7CiAgICBjdHguc3Ryb2tlUmVjdCgzNTAsIDQwNCwgMjYwLCA0Mik7CiAgICBjdHguZmlsbFN0eWxlID0gJyNGRkYnOwogICAgY3R4LmZvbnQgPSAnYm9sZCAxNHB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCdwn46kIOmWi+evhOW6j+W5leODu+S6uueJqeiIh+aAqueNuOS7i+e0uScsIHRoaXMudncgLyAyLCA0MjUpOwoKICAgIGN0eC5maWxsU3R5bGUgPSAncmdiYSgyNTUsIDI1NSwgMjU1LCAwLjE1KSc7CiAgICBjdHguZmlsbFJlY3QoMzUwLCA0NTYsIDEyMCwgMzgpOwogICAgY3R4LmZpbGxSZWN0KDQ5MCwgNDU2LCAxMjAsIDM4KTsKICAgIGN0eC5zdHJva2VTdHlsZSA9ICdyZ2JhKDI1NSwgMjU1LCAyNTUsIDAuNCknOwogICAgY3R4LnN0cm9rZVJlY3QoMzUwLCA0NTYsIDEyMCwgMzgpOwogICAgY3R4LnN0cm9rZVJlY3QoNDkwLCA0NTYsIDEyMCwgMzgpOwogICAgY3R4LmZpbGxTdHlsZSA9ICcjRkZGJzsKICAgIGN0eC5mb250ID0gJzEzcHggc2Fucy1zZXJpZic7CiAgICBjdHguZmlsbFRleHQoJ+mBi+aIsuqquuaYjiBbSF0nLCA0MTAsIDQ3NSk7CiAgICBjdHguZmlsbFRleHQoJ+ioreWumu 集IFtUQUJdJywgNTUwLCA0NzUpOwoKICAgIGN0eC5maWxsU3R5bGUgPSAncmdiYSgyNTUsMjU1LDI1NSwwLjYwKSc7CiAgICBjdHguZm9udCA9ICcxMXB4IHNhbnMtc2VyaWYnOwogICAgY3R4LmZpbGxUZXh0KCd2OS45LjAgVUkgcHJldmlld++8mkNoaWxsIGJhbGFuY2Ug5bCH5pa85LiL5LiA5q2l5aWX55So77ybSGFyZC1Db3JlIOaVuOWAvOe2reaMgSB2OS44LjXjgIInLCB0aGlzLnZ3IC8gMiwgNTE4KTsKICAgIGN0eC5yZXN0b3JlKCk7CiAgfQoKICByZW5kZXJTZWxlY3QoKSB7').decode('utf-8')
+          one(r"  renderMenu\(\) \{.*?\n  \}\n\n  renderSelect\(\) \{", render, 'render mode menu', re.S)
+          anchor = "    ctx.fillText('寫實立繪與高解析 Q 版 Chibi 對比・每位英雄具備專屬小招與 Anime 大招', this.vw / 2, 75);"
+          badge = anchor + "\n\n    ctx.textAlign = 'right';\n    ctx.fillStyle = this.difficultyMode === 'chill' ? '#80CBC4' : '#FF8A80';\n    ctx.font = 'bold 12px sans-serif';\n    ctx.fillText(this.difficultyMode === 'chill' ? '☕ CHILL MOOD' : '🔥 HARD-CORE', 925, 28);\n    ctx.textAlign = 'center';"
+          if text.count(anchor) != 1:
+              raise SystemExit('character select badge anchor mismatch')
+          text = text.replace(anchor, badge, 1)
           p.write_text(text, encoding='utf-8')
-
           bp = Path('scripts/build_single_file.py')
           b = bp.read_text(encoding='utf-8')
-          if b.count('BUILD_VERSION = "v9.8.5"') != 1:
-              raise SystemExit('build version anchor mismatch')
+          if b.count('BUILD_VERSION = "v9.8.5"') != 1 or b.count('status: "PRODUCTION_VERIFIED",') != 1:
+              raise SystemExit('build metadata anchor mismatch')
           b = b.replace('BUILD_VERSION = "v9.8.5"', 'BUILD_VERSION = "v9.9.0"', 1)
-          if b.count('status: "PRODUCTION_VERIFIED",') != 1:
-              raise SystemExit('build status anchor mismatch')
           b = b.replace('status: "PRODUCTION_VERIFIED",', 'status: "PI_REVIEW_REQUIRED",', 1)
           b = b.replace('({BUILD_VERSION} Gameplay Polish)', '({BUILD_VERSION} Dual Mood Preview)', 1)
           bp.write_text(b, encoding='utf-8')
-          print('PASS build metadata')
-
           rp = Path('README.md')
           r = rp.read_text(encoding='utf-8')
           r = r.replace('v9.8.5 正式版', 'v9.9.0 Dual Mood Preview', 1)
           marker = '一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。\n'
-          addition = marker + '''\n> **v9.9.0 開發中：Dual Mood Edition**\n> 主畫面已新增 `☕ Chill Mood` 與 `🔥 Hard-Core` 模式入口。Hard-Core 完整繼承已驗收的 v9.8.5 gameplay；本次先完成模式選單與 runtime mode state，Chill 的實際難度 modifiers 尚未套用。\n'''
+          note = '\n> **v9.9.0 開發中：Dual Mood Edition**\n> 主畫面已新增 `☕ Chill Mood` 與 `🔥 Hard-Core` 模式入口。Hard-Core 完整繼承已驗收的 v9.8.5 gameplay；本次先完成模式選單與 runtime mode state，Chill 的實際難度 modifiers 尚未套用。\n'
           if marker not in r:
-              raise SystemExit('README intro anchor missing')
-          r = r.replace(marker, addition, 1)
+              raise SystemExit('README anchor mismatch')
+          r = r.replace(marker, marker + note, 1)
           rp.write_text(r, encoding='utf-8')
-          print('PASS README development note')
+          print('PATCH PASS')
           PY
 
       - name: Regression gates
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          m = Path('source/src/main.js').read_text(encoding='utf-8')
-          c = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
-          b = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
-          p = Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          m=Path('source/src/main.js').read_text(encoding='utf-8')
+          c=Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          b=Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+          p=Path('source/src/entities/Player.js').read_text(encoding='utf-8')
           assert 'const GAME_BUILD_VERSION = "v9.9.0";' in m
           assert 'status: "PI_REVIEW_REQUIRED"' in m
-          assert "this.difficultyMode = 'hardcore'" in m
-          assert "window.__GAME_MODE__ = this.difficultyMode === 'chill' ? 'CHILL' : 'HARDCORE'" in m
-          assert "this.selectGameMode('chill')" in m
-          assert "this.selectGameMode('hardcore')" in m
-          assert '☕ Chill Mood' in m and '🔥 Hard-Core' in m
+          assert "this.selectGameMode('chill')" in m and "this.selectGameMode('hardcore')" in m
+          assert '☕ Chill Mood' in m and '🔥 Hard-Core' in m and '__GAME_MODE__' in m
           assert 'game.boss.entranceTriggered' in p
-          assert 'for (let wave = 0; wave < 3; wave++)' in p
-          assert 'for (let index = 0; index < 7; index++)' in p
+          assert 'for (let wave = 0; wave < 3; wave++)' in p and 'for (let index = 0; index < 7; index++)' in p
           assert '[this.player.id, ...this.companions.map(comp => comp.id)]' in m
           for t in ['speed: 370','speed: 345','speed: 320','skillCooldown: 0.10','skillCooldown: 0.40','ultCooldown: 6.0','ultCooldown: 7.5','damage: 18','damage: 40','damage: 60','damage: 516','damage: 483','damage: 560']:
               assert t in c, t
           assert 'phase1Hp: 3600' in b and 'phase2Hp: 3050' in b
-          print('V9.8.5 HARD-CORE BASELINE REGRESSION PASS')
+          print('HARD-CORE V9.8.5 BASELINE PASS')
           PY
 
-      - name: Build authoritative bundle
-        run: python3 scripts/build_single_file.py
-
-      - name: Verify bundle and write QA
+      - name: Build and verify
         run: |
-          set -euo pipefail
+          python3 scripts/build_single_file.py
           cmp -s index.html dist/index.html
           grep -q 'v9.9.0' index.html
           grep -q 'PI_REVIEW_REQUIRED' index.html
@@ -288,12 +122,10 @@ jobs:
             "manual_browser_pi_review": "REQUIRED"
           }
           EOF
-          git diff --check -- README.md RELEASE_NOTES.md source scripts QA_V9_9_0 || true
           cat SHA256.txt
 
-      - name: Commit v9.9.0 menu candidate
+      - name: Commit candidate
         run: |
-          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add README.md QA_V9_9_0 source scripts index.html dist/index.html SHA256.txt

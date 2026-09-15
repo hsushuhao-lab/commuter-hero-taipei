@@ -1,0 +1,15 @@
+{
+  "version": "v9.9.0",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "DUAL_MOOD_MENU_STAGE_1",
+  "chill_menu_entry": "PASS",
+  "hardcore_menu_entry": "PASS",
+  "runtime_mode_state": "PASS",
+  "character_select_mode_badge": "PASS",
+  "hardcore_v9_8_5_balance_unchanged": "PASS",
+  "shakira_v9_8_5_fix_retained": "PASS",
+  "three_hero_victory_fix_retained": "PASS",
+  "root_dist_parity": "PASS",
+  "chill_gameplay_modifiers": "NOT_YET_APPLIED",
+  "manual_browser_pi_review": "REQUIRED"
+}

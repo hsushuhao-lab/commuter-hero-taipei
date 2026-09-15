@@ -1,7 +1,10 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.8.5 正式版）——
+## —— 象山晨衝・奔向松德（v9.9.0 Dual Mood Preview）——
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
+
+> **v9.9.0 開發中：Dual Mood Edition**
+> 主畫面已新增 `☕ Chill Mood` 與 `🔥 Hard-Core` 模式入口。Hard-Core 完整繼承已驗收的 v9.8.5 gameplay；本次先完成模式選單與 runtime mode state，Chill 的實際難度 modifiers 尚未套用。
 
 > **🌐 正式公開站**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
 >

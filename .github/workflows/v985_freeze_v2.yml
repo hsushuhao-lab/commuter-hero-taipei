@@ -1,0 +1,140 @@
+name: v9.8.5 production freeze v2
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v985_freeze_v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Normalize accepted release and archive stale docs
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          for path in ['source/src/main.js','scripts/build_single_file.py']:
+              p=Path(path); t=p.read_text(encoding='utf-8')
+              old='status: "PI_REVIEW_REQUIRED"'; new='status: "PRODUCTION_VERIFIED"'
+              if t.count(old) != 1: raise SystemExit(f'{path}: unexpected status count')
+              p.write_text(t.replace(old,new,1),encoding='utf-8')
+          p=Path('README.md'); t=p.read_text(encoding='utf-8')
+          pairs=[
+            ('v9.8.5 PI review build','v9.8.5 正式版'),
+            ('V9_8_5_PI_REVIEW_REQUIRED','V9_8_5_PRODUCTION_VERIFIED'),
+            ('Pages 已部署 v9.8.5；仍需 PI browser 實機確認後，才升級為 `V9_8_5_PRODUCTION_VERIFIED`。','PI 已於 2026-09-15 完成 browser 實機驗收：Shakira 大招與三人 Victory flow 兩項 bug 均確認消失，v9.8.5 正式接受並 freeze。'),
+            ('必要人工驗收項目：','PI 實機驗收項目（2026-09-15：全部 PASS）：')]
+          for old,new in pairs:
+              if old not in t: raise SystemExit(f'README expected text missing: {old}')
+              t=t.replace(old,new,1)
+          p.write_text(t,encoding='utf-8')
+          PY
+
+          mkdir -p archive/legacy/docs
+          for p in CHARACTER_BIBLE.md DEPLOY.md DESIGN.md QA_CHECKLIST.md SCENE_ASSET_MANIFEST.md STYLE_BIBLE.md; do
+            [ ! -e "$p" ] || git mv "$p" "archive/legacy/docs/$p"
+          done
+          [ ! -e RELEASE_NOTES.md ] || git mv RELEASE_NOTES.md archive/legacy/docs/RELEASE_NOTES_pre_v9.8.5.md
+
+          cat > RELEASE_NOTES.md <<'EOF'
+          # 《08點上班大作戰：通勤英雄篇》Release Notes
+
+          ## v9.8.5 — PRODUCTION VERIFIED / FROZEN
+          **日期：2026-09-15**
+
+          v9.8.5 是以 PI 已接受的 v9.8.4 為基準之最小修補版；未重新平衡角色、Boss 或美術。
+
+          ### 修正
+          - Shakira 大招可於 Boss encounter 前完整施放；無鄰近怪物時落於角色面向前方局部戰區。
+          - Shakira 大招維持 3 waves × 7 eggs，共 21 eggs。
+          - Boss 擊倒後保留 selected hero + 2 companions；三人完成 Victory Run、打卡與最終歡呼。
+          - 舊版 QA、recovery、prompt、audit 與舊規格文件集中到 `archive/`。
+
+          ### 已接受平衡（v9.8.5 不變）
+          - Speed: Yu 370 > Sandra 345 > Shakira 320
+          - Small attack: Shakira 80 > Sandra 60 > Yu 18
+          - Small attack CD: Yu 0.10s; Sandra 0.40s; Shakira 0.40s
+          - Ultimate nominal: Sandra 560 > Yu 516 > Shakira 483
+          - Ultimate CD: Sandra 7.5s; Yu 6.0s; Shakira 6.0s
+          - Boss: P1 HP 3600; P2 HP 3050; P1 interval 0.82s / cap 28; P2 interval 0.36s / cap 56
+
+          ### PI acceptance
+          2026-09-15：PI browser 實機驗收確認兩項回報 bug 均已消失，正式接受 v9.8.5。
+
+          `V9_8_5_PRODUCTION_VERIFIED`
+
+          後續功能或玩法調整請另開下一版本，不直接改寫本 freeze。
+          EOF
+
+          cat > archive/README.md <<'EOF'
+          # Archive
+          本目錄保存歷史版本、QA、recovery、prompt、audit、舊規格文件與一次性 release tooling，僅供 provenance / 回溯使用。
+
+          目前 production source of truth：repository root v9.8.5。
+          `source/` + `assets/` → `scripts/build_single_file.py` → `index.html` / `dist/index.html`。
+          EOF
+
+          cat > QA_V9_8_5/STATIC_RELEASE_QA.json <<'EOF'
+          {
+            "version": "v9.8.5",
+            "status": "PRODUCTION_VERIFIED",
+            "scope": "STATIC_BUILD_AND_PI_BROWSER_QA",
+            "shakira_ultimate_local_release": "PASS",
+            "shakira_ultimate_three_waves_seven_eggs_each": "PASS",
+            "boss_assist_only_after_encounter_trigger": "PASS",
+            "victory_unique_hero_ids": ["yu", "shakira", "sandra"],
+            "final_group_pose": "PASS",
+            "accepted_balance_unchanged": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "PASS",
+            "pi_acceptance_date": "2026-09-15"
+          }
+          EOF
+
+      - name: Regression, rebuild and parity gates
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          m=Path('source/src/main.js').read_text(encoding='utf-8')
+          c=Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          b=Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+          assert 'const GAME_BUILD_VERSION = "v9.8.5";' in m
+          assert 'status: "PRODUCTION_VERIFIED"' in m
+          assert 'game.boss.entranceTriggered' in p and 'return this.x + this.facing * 260;' in p
+          assert 'for (let wave = 0; wave < 3; wave++)' in p and 'for (let index = 0; index < 7; index++)' in p
+          assert '[this.player.id, ...this.companions.map(comp => comp.id)]' in m
+          for x in ['speed: 370','speed: 345','speed: 320','skillCooldown: 0.10','skillCooldown: 0.40','ultCooldown: 6.0','ultCooldown: 7.5','damage: 18','damage: 40','damage: 60','damage: 516','damage: 483','damage: 560']:
+              assert x in c, x
+          assert 'phase1Hp: 3600' in b and 'phase2Hp: 3050' in b
+          print('REGRESSION PASS')
+          PY
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.8.5' index.html
+          grep -q 'PRODUCTION_VERIFIED' index.html
+          ! grep -q 'PI_REVIEW_REQUIRED' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          cat SHA256.txt
+
+      - name: Commit production freeze
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u
+          git add README.md RELEASE_NOTES.md QA_V9_8_5 archive source scripts index.html dist/index.html SHA256.txt
+          git diff --cached --check -- . ':(exclude)archive/**'
+          git commit -m 'release(v9.8.5): freeze PI-verified production release'
+          git push origin HEAD:main

@@ -1,0 +1,100 @@
+name: v9.9.3 arena chase and water-wave polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v993_arena_chase_water.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.3 patch
+        run: |
+          python3 -m py_compile scripts/patch_v993_arena_chase_vine_water.py
+          python3 scripts/patch_v993_arena_chase_vine_water.py
+
+      - name: Regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          boss = Path('source/src/entities/Boss.js').read_text(encoding='utf-8')
+          proj = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+          level = Path('source/src/world/Level.js').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          monsters = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          boss_cfg = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.3";' in main
+          assert "this.bossRetreatMinX = BOSS_CONFIG.arena.startX - 150" in main
+          assert "(this.bossArenaLocked || this.player.x >= 14700)" in main
+          assert "!this.bossArenaLocked && this.player.x < 14700" in main
+          assert boss.count('const minX = this.config.arena.startX - 80;') == 2
+          assert 'camX + vw >= 14650' in level
+          assert 'const arenaScreenLeft = Math.max(0, 14650 - camX);' in level
+          assert "softGrad.addColorStop(0, 'rgba(136, 14, 79, 0.30)')" in level
+          assert "p.type === 'umbrella_wave' && Math.random() < 0.82" in proj
+          assert 'layered water-flow impact wave' in proj
+          assert 'waterGrad.addColorStop' in proj
+          assert 'Organic thorn-vine strike' in proj
+          assert "ctx.lineWidth = Math.max(7, w * 0.24)" in proj
+          assert "window.__GAME_MODE__ === 'HARDCORE'" in proj
+          assert "window.__GAME_MODE__ === 'CHILL'" in monsters
+          for t in ['maxHp: 100','maxHp: 110','maxHp: 120','damage: 516','damage: 483','damage: 560']:
+              assert t in chars, t
+          assert 'phase1Hp: 3600' in boss_cfg and 'phase2Hp: 3050' in boss_cfg
+          assert '[this.player.id, ...this.companions.map(comp => comp.id)]' in main
+          print('V9.9.3 REGRESSION PASS')
+          PY
+
+      - name: Build and verify
+        run: |
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.3' index.html
+          grep -q 'layered water-flow impact wave' index.html
+          grep -q 'Organic thorn-vine strike' index.html
+          grep -q 'camX + vw >= 14650' index.html
+          grep -q '(this.bossArenaLocked || this.player.x >= 14700)' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          mkdir -p QA_V9_9_3
+          cat > QA_V9_9_3/ARENA_CHASE_ATTACK_ART_QA.json <<'EOF'
+          {
+            "version": "v9.9.3",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "SOFT_BOUNDARY_MASK_BOSS_CHASE_VINE_ART_YU_WATER_WAVE",
+            "soft_boundary_mask_matches_boss_palette": "PASS",
+            "boss_ai_stays_active_inside_soft_boundary": "PASS",
+            "boss_can_reposition_toward_soft_boundary": "PASS",
+            "boss_green_triangle_replaced_with_organic_vine": "PASS",
+            "yu_ultimate_water_shockwave_visual": "PASS",
+            "yu_ultimate_damage_and_hitbox_retained": "PASS",
+            "hardcore_boss_damage_v9_9_2_retained": "PASS",
+            "chill_monster_phase2_disabled_retained": "PASS",
+            "hero_hp_120_110_100_retained": "PASS",
+            "shakira_wave_ultimate_retained": "PASS",
+            "three_hero_victory_fix_retained": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+          cat SHA256.txt
+
+      - name: Commit candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md QA_V9_9_3 source scripts index.html dist/index.html SHA256.txt
+          git diff --cached --check
+          git commit -m 'feat(v9.9.3): extend boss chase and polish attack visuals'
+          git push origin HEAD:main

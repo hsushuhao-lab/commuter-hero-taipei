@@ -1,0 +1,23 @@
+{
+  "version": "v9.9.7",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "REFERENCE_MENU_MATCH_ONLY",
+  "reference_geometry_1536x864_mapped_to_960x540": "PASS",
+  "menu_two_rows_only": "PASS",
+  "row1_reference_widths_and_spacing": "PASS",
+  "row2_reference_widths_and_spacing": "PASS",
+  "neon_glass_gradients": "PASS",
+  "icon_disks": "PASS",
+  "right_chevrons": "PASS",
+  "runtime_text_not_baked_into_keyart": "PASS",
+  "menu_hitboxes_match_visuals": "PASS",
+  "desktop_mobile_virtual_coordinate_mapping_retained": "PASS",
+  "hud_layout_v995_retained": "PASS",
+  "boss_fixed_camera_retained": "PASS",
+  "boss_stairs_retained": "PASS",
+  "boss_no_shake_retained": "PASS",
+  "selected_hero_result_retained": "PASS",
+  "gameplay_balance_retained": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

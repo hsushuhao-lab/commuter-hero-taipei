@@ -1,8 +1,10 @@
 # 《08點上班大作戰：通勤英雄篇》
-## —— 象山晨衝・奔向松德（v9.9.6 Final Menu Polish）——
+## —— 象山晨衝・奔向松德（v9.9.7 Reference Menu Match）——
 
 
 > **v9.9.6**：首頁 Menu 最終整理為 lower-center 兩列 compact layout；Row 1 為 Chill Mood / Hard-Core，Row 2 為劇情序幕 / 遊戲說明 / 設定集，視覺矩形與 click hitboxes 共用同一座標來源。v9.9.5 gameplay / Boss arena / HUD / Victory / balance 全數鎖定不變。
+
+> **v9.9.7 Reference Menu Match**：依 PI 核准主畫面參考圖重繪首頁 runtime UI；兩列按鈕改為參考圖比例、霓虹玻璃漸層、圖示圓章與右側箭頭。背景 keyart 與 v9.9.6 gameplay / Boss / HUD / Victory 全部維持不變。
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 

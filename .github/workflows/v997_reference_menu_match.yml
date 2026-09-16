@@ -1,0 +1,157 @@
+name: v9.9.7 Reference Menu Match
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v997_reference_menu_match.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.7 reference menu patch
+        run: |
+          python3 -m py_compile scripts/patch_v997_reference_menu.py
+          python3 scripts/patch_v997_reference_menu.py
+          changed="$(git diff --name-only | sort)"
+          expected=$'README.md\nsource/src/main.js'
+          test "$changed" = "$expected"
+
+      - name: Reference menu geometry and regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          hud = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
+          level = Path('source/src/world/Level.js').read_text(encoding='utf-8')
+          boss = Path('source/src/entities/Boss.js').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          monsters = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          proj = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+          boss_cfg = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.7";' in main
+          assert "this.menuKeyart.src = 'assets/menu_keyart.jpg';" in main
+          assert 'menu_keyart_v994.jpg' not in main
+
+          rect_pattern = re.compile(r"(chill|hardcore|story|help|settings):\s+\{ x: (\d+), y: (\d+), w: (\d+), h: (\d+) \}")
+          rects = {m.group(1): tuple(map(int, m.groups()[1:])) for m in rect_pattern.finditer(main)}
+          expected = {
+              'chill': (276, 414, 202, 54),
+              'hardcore': (486, 414, 202, 54),
+              'story': (232, 476, 190, 40),
+              'help': (430, 476, 140, 40),
+              'settings': (578, 476, 154, 40),
+          }
+          assert rects == expected, rects
+          for key in expected:
+              assert f'hitRect(menuButtons.{key})' in main
+          for token in ['drawReferenceButton', 'drawIconDisk', 'drawChevron', "title: 'Chill Mood'", "title: 'Hard-Core'", "title: '劇情序幕（人物與怪獸介紹）'", "title: '遊戲說明 [H]'", "title: '設定集 [TAB]'"]:
+              assert token in main, token
+          assert 'ctx.fillRect(0, 382, this.vw, this.vh - 382);' in main
+
+          # Preserve v9.9.5/v9.9.6 accepted gameplay and presentation.
+          assert 'this.bossBattleCameraX = 14800' in main
+          assert 'this.bossBattleZoom = 0.82' in main
+          assert 'lockBossBattleCamera()' in main
+          assert 'this.camera.setTarget(null);' in main
+          assert 'if (this.finalBossIntroDone) this.lockBossBattleCamera();' in main
+          assert 'this.camera.setTarget(this.player);' in main
+          assert 'this.camera.shakeIntensity = 0' in main
+          assert 'this.camera.shakeDuration = 0' in main
+          assert "window.__VISIBLE_HERO_IDS__ = [this.player.id];" in main
+          assert "const companionIds = allIds.filter(id => id !== this.player.id);" in main
+
+          assert '共振｜' in hud
+          assert '打卡倒數' in hud
+          assert 'const barY = 94;' in hud
+          assert '(HP 3050)' in hud
+          assert 'const maxHp = boss.phase === 2 ? 3050 : 3600;' in hud
+
+          for marker in [
+              "this.pm.addPlatform(14900, 510, 120, 24, 'brick');",
+              "this.pm.addPlatform(15020, 470, 120, 24, 'brick');",
+              "this.pm.addPlatform(15140, 430, 120, 24, 'brick');",
+              "this.pm.addPlatform(15260, 390, 160, 24, 'brick');"
+          ]:
+              assert marker in level, marker
+
+          assert "this.hp = this.config.phase2Hp || 3050;" in boss
+          assert "this.maxHp = this.config.phase2Hp || 3050;" in boss
+          assert '狂暴盛開態！HP 3050' in boss
+          for token in ['maxHp: 100', 'maxHp: 110', 'maxHp: 120', 'damage: 516', 'damage: 483', 'damage: 560']:
+              assert token in chars, token
+          assert "window.__GAME_MODE__ === 'CHILL'" in monsters
+          assert "window.__GAME_MODE__ === 'HARDCORE'" in proj
+          assert 'phase1Hp: 3600' in boss_cfg and 'phase2Hp: 3050' in boss_cfg
+          assert 'layered water-flow impact wave' in proj
+          assert 'Organic thorn-vine strike' in proj
+          assert 'egg_wave' in proj
+          print('V9.9.7 REFERENCE MENU + REGRESSION PASS')
+          PY
+
+      - name: Build and verify single-file production bundle
+        run: |
+          test -s assets/menu_keyart.jpg
+          test ! -e assets/menu_keyart_v994.jpg
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.7' index.html
+          grep -q 'drawReferenceButton' index.html
+          grep -q 'Chill Mood' index.html
+          grep -q 'Hard-Core' index.html
+          grep -q '劇情序幕（人物與怪獸介紹）' index.html
+          grep -q 'lockBossBattleCamera' index.html
+          grep -q '共振｜' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          test "$(awk '{print $1}' SHA256.txt | uniq | wc -l)" -eq 1
+          cat SHA256.txt
+
+      - name: Write v9.9.7 QA record
+        run: |
+          mkdir -p QA_V9_9_7
+          cat > QA_V9_9_7/REFERENCE_MENU_MATCH_QA.json <<'EOF'
+          {
+            "version": "v9.9.7",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "REFERENCE_MENU_MATCH_ONLY",
+            "reference_geometry_1536x864_mapped_to_960x540": "PASS",
+            "menu_two_rows_only": "PASS",
+            "row1_reference_widths_and_spacing": "PASS",
+            "row2_reference_widths_and_spacing": "PASS",
+            "neon_glass_gradients": "PASS",
+            "icon_disks": "PASS",
+            "right_chevrons": "PASS",
+            "runtime_text_not_baked_into_keyart": "PASS",
+            "menu_hitboxes_match_visuals": "PASS",
+            "desktop_mobile_virtual_coordinate_mapping_retained": "PASS",
+            "hud_layout_v995_retained": "PASS",
+            "boss_fixed_camera_retained": "PASS",
+            "boss_stairs_retained": "PASS",
+            "boss_no_shake_retained": "PASS",
+            "selected_hero_result_retained": "PASS",
+            "gameplay_balance_retained": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+
+      - name: Commit and push v9.9.7 production build
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md source/src/main.js index.html dist/index.html SHA256.txt QA_V9_9_7
+          git rm -f scripts/patch_v997_reference_menu.py
+          git diff --cached --check
+          git commit -m 'feat(v9.9.7): match approved menu reference'
+          git push origin HEAD:main

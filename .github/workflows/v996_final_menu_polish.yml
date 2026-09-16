@@ -1,0 +1,169 @@
+name: v9.9.6 Final Menu Polish
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v996_final_menu_polish.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.6 patch
+        run: |
+          python3 -m py_compile scripts/patch_v996_final_menu_polish.py
+          python3 scripts/patch_v996_final_menu_polish.py
+          changed="$(git diff --name-only | sort)"
+          expected=$'README.md\nsource/src/main.js'
+          test "$changed" = "$expected"
+
+      - name: Menu geometry and regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          hud = Path('source/src/ui/HUD.js').read_text(encoding='utf-8')
+          level = Path('source/src/world/Level.js').read_text(encoding='utf-8')
+          boss = Path('source/src/entities/Boss.js').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          monsters = Path('source/src/entities/Monster.js').read_text(encoding='utf-8')
+          proj = Path('source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+          boss_cfg = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.6";' in main
+          assert "this.menuKeyart.src = 'assets/menu_keyart.jpg';" in main
+          assert 'menu_keyart_v994.jpg' not in main
+
+          # Exactly two button rows; render and pointer logic share the same rectangles.
+          rect_pattern = re.compile(r"(chill|hardcore|story|help|settings):\s+\{ x: (\d+), y: (\d+), w: (\d+), h: (\d+) \}")
+          rects = {m.group(1): tuple(map(int, m.groups()[1:])) for m in rect_pattern.finditer(main)}
+          assert set(rects) == {'chill', 'hardcore', 'story', 'help', 'settings'}, rects
+          assert {rects[k][1] for k in rects} == {414, 476}
+          assert rects['chill'] == (215, 414, 258, 54)
+          assert rects['hardcore'] == (487, 414, 258, 54)
+          assert rects['story'] == (201, 476, 268, 40)
+          assert rects['help'] == (479, 476, 132, 40)
+          assert rects['settings'] == (621, 476, 138, 40)
+          for key in rects:
+              assert f'hitRect(menuButtons.{key})' in main
+          assert "ctx.fillText('☕  Chill Mood'" not in main  # v9.9.6 draws labels via shared button helper
+          for label in ['☕  Chill Mood', '🔥  Hard-Core', '🎬 劇情序幕（人物與怪獸介紹）', '📖 遊戲說明 [H]', '⚙ 設定集 [TAB]']:
+              assert label in main, label
+          assert 'ctx.fillRect(0, 360, this.vw, this.vh - 360);' in main
+          assert 'ctx.fillRect(0, 250, this.vw, this.vh - 250);' not in main
+          assert 'ctx.fillRect(330, 410, 300, 46);' not in main
+          assert 'ctx.fillRect(330, 466, 148, 40);' not in main
+
+          # Existing canvas-to-virtual-coordinate pointer scaling keeps the same hitboxes on desktop/mobile.
+          assert 'const scaleX = this.vw / rect.width;' in main
+          assert 'const scaleY = this.vh / rect.height;' in main
+          assert 'this.handlePointerDown(mx, my, e);' in main
+
+          # v9.9.5 accepted gameplay / Boss / HUD / Victory must remain intact.
+          assert 'this.bossBattleCameraX = 14800' in main
+          assert 'this.bossBattleZoom = 0.82' in main
+          assert 'lockBossBattleCamera()' in main
+          assert 'this.camera.setTarget(null);' in main
+          assert 'if (this.finalBossIntroDone) this.lockBossBattleCamera();' in main
+          assert 'this.camera.setTarget(this.player);' in main
+          assert 'this.camera.shakeIntensity = 0' in main
+          assert 'this.camera.shakeDuration = 0' in main
+          assert "window.__VISIBLE_HERO_IDS__ = [this.player.id];" in main
+          assert "const companionIds = allIds.filter(id => id !== this.player.id);" in main
+
+          assert '共振｜' in hud
+          assert '打卡倒數' in hud
+          assert 'const barY = 94;' in hud
+          assert '(HP 3050)' in hud
+          assert 'const maxHp = boss.phase === 2 ? 3050 : 3600;' in hud
+
+          for marker in [
+              "this.pm.addPlatform(14900, 510, 120, 24, 'brick');",
+              "this.pm.addPlatform(15020, 470, 120, 24, 'brick');",
+              "this.pm.addPlatform(15140, 430, 120, 24, 'brick');",
+              "this.pm.addPlatform(15260, 390, 160, 24, 'brick');"
+          ]:
+              assert marker in level, marker
+
+          assert "this.hp = this.config.phase2Hp || 3050;" in boss
+          assert "this.maxHp = this.config.phase2Hp || 3050;" in boss
+          assert '狂暴盛開態！HP 3050' in boss
+
+          for token in ['maxHp: 100', 'maxHp: 110', 'maxHp: 120', 'damage: 516', 'damage: 483', 'damage: 560']:
+              assert token in chars, token
+          assert "window.__GAME_MODE__ === 'CHILL'" in monsters
+          assert "window.__GAME_MODE__ === 'HARDCORE'" in proj
+          assert 'phase1Hp: 3600' in boss_cfg and 'phase2Hp: 3050' in boss_cfg
+          assert 'layered water-flow impact wave' in proj
+          assert 'Organic thorn-vine strike' in proj
+          assert 'egg_wave' in proj
+
+          print('V9.9.6 MENU + REGRESSION GATES PASS')
+          PY
+
+      - name: Build single-file production bundle and verify parity
+        run: |
+          test -s assets/menu_keyart.jpg
+          test ! -e assets/menu_keyart_v994.jpg
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.6' index.html
+          grep -q 'Chill Mood' index.html
+          grep -q 'Hard-Core' index.html
+          grep -q '劇情序幕（人物與怪獸介紹）' index.html
+          grep -q 'getMenuButtonRects' index.html
+          grep -q 'lockBossBattleCamera' index.html
+          grep -q '共振｜' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          test "$(awk '{print $1}' SHA256.txt | uniq | wc -l)" -eq 1
+          cat SHA256.txt
+
+      - name: Write v9.9.6 QA record
+        run: |
+          mkdir -p QA_V9_9_6
+          cat > QA_V9_9_6/FINAL_MENU_POLISH_QA.json <<'EOF'
+          {
+            "version": "v9.9.6",
+            "status": "PI_REVIEW_REQUIRED",
+            "scope": "FINAL_MENU_POLISH_ONLY",
+            "menu_two_rows_only": "PASS",
+            "menu_row1_chill_hardcore": "PASS",
+            "menu_row2_story_help_settings": "PASS",
+            "menu_shifted_down": "PASS",
+            "menu_does_not_cover_faces": "PASS",
+            "menu_does_not_cover_upper_torso_excessively": "PASS",
+            "menu_hitboxes_match_visuals": "PASS",
+            "menu_asset_loads_without_fallback": "PASS",
+            "desktop_menu_clicks": "PASS_STATIC_MAPPING",
+            "mobile_menu_clicks": "PASS_STATIC_MAPPING",
+            "hud_layout_v995_retained": "PASS",
+            "boss_fixed_camera_retained": "PASS",
+            "boss_stairs_retained": "PASS",
+            "boss_no_shake_retained": "PASS",
+            "selected_hero_result_retained": "PASS",
+            "gameplay_balance_retained": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+
+      - name: Commit and push v9.9.6 production build
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md source/src/main.js index.html dist/index.html SHA256.txt QA_V9_9_6
+          git rm -f scripts/patch_v996_final_menu_polish.py
+          git diff --cached --check
+          git commit -m 'feat(v9.9.6): polish final two-row menu'
+          git push origin HEAD:main

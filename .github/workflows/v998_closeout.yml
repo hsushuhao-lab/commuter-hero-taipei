@@ -1,0 +1,142 @@
+name: v9.9.8 PI Accepted Frozen Closeout
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v998_closeout.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  closeout-build-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply v9.9.8 freeze metadata
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          main_path = Path('source/src/main.js')
+          main = main_path.read_text(encoding='utf-8')
+          assert 'const GAME_BUILD_VERSION = "v9.9.8";' in main
+          assert 'status: "PI_REVIEW_REQUIRED"' in main
+          main = main.replace('status: "PI_REVIEW_REQUIRED"', 'status: "PI_ACCEPTED_FROZEN"', 1)
+          main_path.write_text(main, encoding='utf-8')
+
+          build_path = Path('scripts/build_single_file.py')
+          build = build_path.read_text(encoding='utf-8')
+          assert 'BUILD_VERSION = "v9.9.8"' in build
+          assert 'status: "PI_REVIEW_REQUIRED"' in build
+          build = build.replace('status: "PI_REVIEW_REQUIRED"', 'status: "PI_ACCEPTED_FROZEN"', 1)
+          build_path.write_text(build, encoding='utf-8')
+
+          qa_path = Path('QA_V9_9_8/YU_BALANCE_CONFIG_QA.json')
+          qa = json.loads(qa_path.read_text(encoding='utf-8'))
+          qa['status'] = 'PI_ACCEPTED_FROZEN'
+          qa['manual_browser_pi_review'] = 'PASS'
+          qa['pi_accepted_date'] = '2026-09-16'
+          qa['freeze_closeout'] = 'PASS'
+          qa['frozen_baseline'] = 'v9.9.8'
+          qa_path.write_text(json.dumps(qa, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          marker = '> **v9.9.8 Yu Balance + Config Cleanup**：以已凍結的 v9.9.7 為基線另開新版；Yu 移動速度 `370 → 358`、雨傘機關槍 CD `0.10s → 0.25s`。Yu 小招的 cooldown / damage / range / bullet speed / deflect radius 改由 `Characters.js` 單一設定來源驅動；Shakira、Sandra、Boss、Menu、HUD 與 Victory 不變。狀態回到 `PI_REVIEW_REQUIRED`。\n'
+          frozen = '> **v9.9.8 Yu Balance + Config Cleanup**：以已凍結的 v9.9.7 為基線另開新版；Yu 移動速度 `370 → 358`、雨傘機關槍 CD `0.10s → 0.25s`。Yu 小招的 cooldown / damage / range / bullet speed / deflect radius 改由 `Characters.js` 單一設定來源驅動；Shakira、Sandra、Boss、Menu、HUD 與 Victory 不變。\n\n> **✅ v9.9.8 FREEZE — 2026-09-16**：PI 已完成實機驗收並正式接受 v9.9.8。狀態：`PI_ACCEPTED_FROZEN`。本版成為目前正式穩定基線；後續功能或平衡調整請另開新版本，不直接改寫此 freeze。\n'
+          if 'v9.9.8 FREEZE — 2026-09-16' not in readme:
+              assert marker in readme
+              readme = readme.replace(marker, frozen, 1)
+          readme_path.write_text(readme, encoding='utf-8')
+          PY
+
+      - name: Freeze regression gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          main = Path('source/src/main.js').read_text(encoding='utf-8')
+          build = Path('scripts/build_single_file.py').read_text(encoding='utf-8')
+          chars = Path('source/src/data/Characters.js').read_text(encoding='utf-8')
+          player = Path('source/src/entities/Player.js').read_text(encoding='utf-8')
+          boss_cfg = Path('source/src/data/Monsters.js').read_text(encoding='utf-8')
+          qa = json.loads(Path('QA_V9_9_8/YU_BALANCE_CONFIG_QA.json').read_text(encoding='utf-8'))
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.8";' in main
+          assert 'status: "PI_ACCEPTED_FROZEN"' in main
+          assert 'BUILD_VERSION = "v9.9.8"' in build
+          assert 'status: "PI_ACCEPTED_FROZEN"' in build
+          assert qa['status'] == 'PI_ACCEPTED_FROZEN'
+          assert qa['manual_browser_pi_review'] == 'PASS'
+          assert qa['freeze_closeout'] == 'PASS'
+          assert qa['frozen_baseline'] == 'v9.9.8'
+
+          yu = chars.split('  yu: {', 1)[1].split('  shakira: {', 1)[0]
+          assert 'speed: 358' in yu
+          assert 'skillCooldown: 0.25' in yu
+          assert 'cooldown: 0.25' in yu
+          assert 'damage: 18' in yu
+          assert 'range: 480' in yu
+          assert 'bulletSpeed: 750' in yu
+          assert 'deflectRadius: 180' in yu
+          assert 'ultCooldown: 6.0' in yu and 'damage: 516' in yu
+
+          yu_runtime = player.split("if (this.id === 'yu') {", 1)[1].split("else if (this.id === 'shakira')", 1)[0]
+          for token in [
+              'const skill = this.charConfig.skill;',
+              'this.skillCooldown = skill.cooldown;',
+              'dist <= skill.deflectRadius',
+              'this.facing * skill.bulletSpeed',
+              'maxDistance: skill.range',
+              'this.phaseDamage(skill.damage)'
+          ]:
+              assert token in yu_runtime, token
+
+          shakira = chars.split('  shakira: {', 1)[1].split('  sandra: {', 1)[0]
+          sandra = chars.split('  sandra: {', 1)[1]
+          assert 'maxHp: 110' in shakira and 'speed: 320' in shakira and 'skillCooldown: 0.40' in shakira and 'damage: 483' in shakira
+          assert 'maxHp: 120' in sandra and 'speed: 345' in sandra and 'skillCooldown: 0.40' in sandra and 'damage: 560' in sandra
+          assert 'phase1Hp: 3600' in boss_cfg and 'phase2Hp: 3050' in boss_cfg
+
+          for token in [
+              'this.bossBattleCameraX = 14800',
+              'this.bossBattleZoom = 0.82',
+              'if (this.finalBossIntroDone) this.lockBossBattleCamera();',
+              'this.camera.shakeIntensity = 0',
+              'window.__VISIBLE_HERO_IDS__ = [this.player.id];'
+          ]:
+              assert token in main, token
+
+          print('V9.9.8 PI ACCEPTED FREEZE REGRESSION PASS')
+          PY
+
+      - name: Rebuild canonical frozen bundle
+        run: |
+          test -s assets/menu_keyart.jpg
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.8' index.html
+          grep -q 'PI_ACCEPTED_FROZEN' index.html
+          grep -q 'speed: 358' index.html
+          grep -q 'skillCooldown: 0.25' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          test "$(awk '{print $1}' SHA256.txt | uniq | wc -l)" -eq 1
+          cat SHA256.txt
+
+      - name: Commit frozen v9.9.8
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md source/src/main.js scripts/build_single_file.py index.html dist/index.html SHA256.txt QA_V9_9_8/YU_BALANCE_CONFIG_QA.json
+          git diff --cached --check
+          git commit -m 'chore(v9.9.8): freeze PI-accepted release'
+          git push origin HEAD:main

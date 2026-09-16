@@ -1,0 +1,136 @@
+name: v9.9.8 Yu Balance Retry
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v998_yu_balance_retry.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply Yu balance patch
+        run: |
+          python3 -m py_compile scripts/patch_v998_yu_balance.py
+          python3 scripts/patch_v998_yu_balance.py
+          changed="$(git diff --name-only | sort)"
+          expected=$'README.md\nscripts/build_single_file.py\nsource/src/data/Characters.js\nsource/src/entities/Player.js\nsource/src/main.js'
+          test "$changed" = "$expected"
+
+      - name: Verify Yu and frozen v9.9.7 baseline
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('.')
+          chars = (root/'source/src/data/Characters.js').read_text(encoding='utf-8')
+          player = (root/'source/src/entities/Player.js').read_text(encoding='utf-8')
+          main = (root/'source/src/main.js').read_text(encoding='utf-8')
+          boss = (root/'source/src/data/Monsters.js').read_text(encoding='utf-8')
+          hud = (root/'source/src/ui/HUD.js').read_text(encoding='utf-8')
+          level = (root/'source/src/world/Level.js').read_text(encoding='utf-8')
+          proj = (root/'source/src/entities/Projectiles.js').read_text(encoding='utf-8')
+
+          yu = chars.split('  yu: {',1)[1].split('  shakira: {',1)[0]
+          for token in ['speed: 358','skillCooldown: 0.25','cooldown: 0.25','damage: 18','range: 480','bulletSpeed: 750','deflectRadius: 180','ultCooldown: 6.0','damage: 516']:
+              assert token in yu, token
+
+          runtime = player.split("if (this.id === 'yu') {",1)[1].split("else if (this.id === 'shakira')",1)[0]
+          for token in ['const skill = this.charConfig.skill;','this.skillCooldown = skill.cooldown;','dist <= skill.deflectRadius','this.facing * skill.bulletSpeed','maxDistance: skill.range','this.phaseDamage(skill.damage)']:
+              assert token in runtime, token
+          for stale in ['this.facing * 820','maxDistance: 480','this.phaseDamage(18)','dist <= 180']:
+              assert stale not in runtime, stale
+
+          shakira = chars.split('  shakira: {',1)[1].split('  sandra: {',1)[0]
+          sandra = chars.split('  sandra: {',1)[1]
+          assert all(x in shakira for x in ['maxHp: 110','speed: 320','skillCooldown: 0.40','damage: 483'])
+          assert all(x in sandra for x in ['maxHp: 120','speed: 345','skillCooldown: 0.40','damage: 560'])
+          assert 'phase1Hp: 3600' in boss and 'phase2Hp: 3050' in boss
+          assert '(HP 3050)' in hud and 'const maxHp = boss.phase === 2 ? 3050 : 3600;' in hud
+          assert 'this.bossBattleCameraX = 14800' in main and 'this.bossBattleZoom = 0.82' in main
+          assert 'this.camera.shakeIntensity = 0' in main and 'this.camera.shakeDuration = 0' in main
+          assert "window.__VISIBLE_HERO_IDS__ = [this.player.id];" in main
+          assert "const companionIds = allIds.filter(id => id !== this.player.id);" in main
+          for marker in [
+              "this.pm.addPlatform(14900, 510, 120, 24, 'brick');",
+              "this.pm.addPlatform(15020, 470, 120, 24, 'brick');",
+              "this.pm.addPlatform(15140, 430, 120, 24, 'brick');",
+              "this.pm.addPlatform(15260, 390, 160, 24, 'brick');"]:
+              assert marker in level
+          assert 'layered water-flow impact wave' in proj and 'Organic thorn-vine strike' in proj and 'egg_wave' in proj
+
+          # Exact PI-accepted v9.9.7 menu geometry. Do not modify it in this release.
+          for token in [
+              'chill:    { x: 276, y: 414, w: 202, h: 54 }',
+              'hardcore: { x: 486, y: 414, w: 202, h: 54 }',
+              'story:    { x: 232, y: 476, w: 190, h: 40 }',
+              'help:     { x: 430, y: 476, w: 140, h: 40 }',
+              'settings: { x: 578, y: 476, w: 154, h: 40 }']:
+              assert token in main, token
+
+          assert 'const GAME_BUILD_VERSION = "v9.9.8";' in main
+          assert 'status: "PI_REVIEW_REQUIRED"' in main
+          print('V9.9.8 YU BALANCE + REGRESSION PASS')
+          PY
+
+      - name: Build and verify parity
+        run: |
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q 'v9.9.8' index.html
+          grep -q 'PI_REVIEW_REQUIRED' index.html
+          grep -q 'speed: 358' index.html
+          grep -q 'skillCooldown: 0.25' index.html
+          grep -q 'this.skillCooldown = skill.cooldown' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          test "$(awk '{print $1}' SHA256.txt | uniq | wc -l)" -eq 1
+          cat SHA256.txt
+
+      - name: Write QA
+        run: |
+          mkdir -p QA_V9_9_8
+          cat > QA_V9_9_8/YU_BALANCE_CONFIG_QA.json <<'EOF'
+          {
+            "version": "v9.9.8",
+            "status": "PI_REVIEW_REQUIRED",
+            "baseline": "v9.9.7_PI_ACCEPTED_FROZEN",
+            "scope": "YU_BALANCE_AND_CONFIG_CLEANUP_ONLY",
+            "yu_speed_358": "PASS",
+            "yu_skill_cooldown_025": "PASS",
+            "yu_damage_18_retained": "PASS",
+            "yu_range_480_retained": "PASS",
+            "yu_bullet_speed_750_authoritative": "PASS",
+            "yu_deflect_radius_180_retained": "PASS",
+            "yu_skill_config_single_source_runtime": "PASS",
+            "yu_ult_516_retained": "PASS",
+            "shakira_balance_retained": "PASS",
+            "sandra_balance_retained": "PASS",
+            "boss_balance_retained": "PASS",
+            "menu_v997_retained": "PASS",
+            "hud_v997_retained": "PASS",
+            "victory_v997_retained": "PASS",
+            "boss_fixed_camera_retained": "PASS",
+            "boss_stairs_retained": "PASS",
+            "boss_no_shake_retained": "PASS",
+            "root_dist_parity": "PASS",
+            "manual_browser_pi_review": "REQUIRED"
+          }
+          EOF
+
+      - name: Commit production v9.9.8
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md scripts/build_single_file.py source/src/data/Characters.js source/src/entities/Player.js source/src/main.js index.html dist/index.html SHA256.txt QA_V9_9_8
+          git rm -f scripts/patch_v998_yu_balance.py
+          git diff --cached --check
+          git commit -m 'feat(v9.9.8): tune Yu mobility and fire cadence'
+          git push origin HEAD:main

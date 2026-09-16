@@ -170,7 +170,7 @@ html_content = f"""<!DOCTYPE html>
   <script>
     window.__GAME_BUILD__ = {{
       version: "{BUILD_VERSION}",
-      status: "PI_REVIEW_REQUIRED",
+      status: "PI_ACCEPTED_FROZEN",
       sha: "{build_sha}",
       builtAt: "{build_built_at}"
     }};

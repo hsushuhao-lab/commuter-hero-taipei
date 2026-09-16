@@ -8,7 +8,9 @@
 
 > **✅ PROJECT CLOSEOUT — 2026-09-16**：PI 已完成實機驗收並正式接受 v9.9.7。狀態：`PI_ACCEPTED_FROZEN`。本版為最終穩定基線；除非另開新版本，首頁、美術、gameplay、Boss、HUD、balance 與 Victory 均不再變更。
 
-> **v9.9.8 Yu Balance + Config Cleanup**：以已凍結的 v9.9.7 為基線另開新版；Yu 移動速度 `370 → 358`、雨傘機關槍 CD `0.10s → 0.25s`。Yu 小招的 cooldown / damage / range / bullet speed / deflect radius 改由 `Characters.js` 單一設定來源驅動；Shakira、Sandra、Boss、Menu、HUD 與 Victory 不變。狀態回到 `PI_REVIEW_REQUIRED`。
+> **v9.9.8 Yu Balance + Config Cleanup**：以已凍結的 v9.9.7 為基線另開新版；Yu 移動速度 `370 → 358`、雨傘機關槍 CD `0.10s → 0.25s`。Yu 小招的 cooldown / damage / range / bullet speed / deflect radius 改由 `Characters.js` 單一設定來源驅動；Shakira、Sandra、Boss、Menu、HUD 與 Victory 不變。
+
+> **✅ v9.9.8 FREEZE — 2026-09-16**：PI 已完成實機驗收並正式接受 v9.9.8。狀態：`PI_ACCEPTED_FROZEN`。本版成為目前正式穩定基線；後續功能或平衡調整請另開新版本，不直接改寫此 freeze。
 
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 

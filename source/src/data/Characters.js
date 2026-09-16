@@ -26,21 +26,21 @@ export const CHARACTERS = {
     },
     stats: {
       maxHp: 100,
-      speed: 370,          // v9.8.4: fastest commuter
+      speed: 358,          // v9.9.8: tuned fastest commuter
       jumpForce: -620,
       gravity: 1400,
-      skillCooldown: 0.10, // v9.7.1: 三人最高射速機關槍 (0.16s CD)
+      skillCooldown: 0.25, // v9.9.8: slower suppression cadence
       ultCooldown: 6.0     // v9.5: 7.0s 760px 貫穿走廊
     },
     skill: {
       name: '雨傘機關槍',
       key: 'S / J',
-      cooldown: 0.10,
+      cooldown: 0.25,
       damage: 18,           // Boss-zone runtime raises this to 22; Phase II retains 1.25x
       range: 480,           // 射程 480px
       bulletSpeed: 750,
       deflectRadius: 180,   // 傘尖偏轉近身敵彈
-      desc: '展開折傘連續高速發射針狀風刃機關槍（CD 0.16s，每發 16 傷），三人最高射速，提供密集火力壓制！'
+      desc: '展開折傘連續發射針狀風刃機關槍（CD 0.25s，每發 18 傷），以中高頻率提供持續壓制。'
     },
     ult: {
       name: '準時衝刺・逆風傘幕',

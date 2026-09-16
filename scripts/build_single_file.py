@@ -4,7 +4,7 @@ import os
 import re
 from datetime import UTC, datetime
 
-BUILD_VERSION = "v9.9.7"
+BUILD_VERSION = "v9.9.8"
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 assets_dir = os.path.join(base_dir, 'assets')
 source_dir = os.path.join(base_dir, 'source')
@@ -101,7 +101,7 @@ html_content = f"""<!DOCTYPE html>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta name="game-build" content="{BUILD_VERSION}">
-  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 ({BUILD_VERSION} Reference Menu Match)</title>
+  <title>《08點上班大作戰：通勤英雄篇》象山捷運站 → 松德院區 ({BUILD_VERSION} Yu Balance + Config Cleanup)</title>
   <style>
     * {{
       box-sizing: border-box;
@@ -170,7 +170,7 @@ html_content = f"""<!DOCTYPE html>
   <script>
     window.__GAME_BUILD__ = {{
       version: "{BUILD_VERSION}",
-      status: "PI_ACCEPTED_FROZEN",
+      status: "PI_REVIEW_REQUIRED",
       sha: "{build_sha}",
       builtAt: "{build_built_at}"
     }};

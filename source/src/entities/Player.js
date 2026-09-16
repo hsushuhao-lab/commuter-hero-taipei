@@ -293,9 +293,10 @@ export class Player {
     if (this.id === 'yu') {
       // ═════════════════════════════════════════════════════════════════════════
       // 禹志晨：雨傘機關槍 (Suppression Fire / Rapid Needle Bullets)
-      // v9.7.1: CD 0.16s, 16 dmg, 射程 480px, 三人最高射速, 偏轉近身 180px 敵彈
+      // v9.9.8: config-driven Yu skill; CD/damage/range/speed/deflect all come from Characters.js
       // ═════════════════════════════════════════════════════════════════════════
-      this.skillCooldown = this.charConfig.stats.skillCooldown || 0.16;
+      const skill = this.charConfig.skill;
+      this.skillCooldown = skill.cooldown;
       this.isAttacking = true;
       this.attackTimer = 0.14;
       this.animState = 'attack';
@@ -309,7 +310,7 @@ export class Player {
           const dx = p.x - this.x;
           const dy = p.y - spawnY;
           const dist = Math.hypot(dx, dy);
-          if (dist <= 180) {
+          if (dist <= skill.deflectRadius) {
             particles.emitHitSparks(p.x, p.y, '#00E5FF', 6);
             projectiles.projectiles.splice(i, 1);
           }
@@ -322,12 +323,12 @@ export class Player {
         type: 'umbrella_bullet',
         x: spawnX,
         y: spawnY + (Math.random() - 0.5) * 8,
-        vx: this.facing * 820,
+        vx: this.facing * skill.bulletSpeed,
         vy: (Math.random() - 0.5) * 30,
-        maxDistance: 480,
+        maxDistance: skill.range,
         width: 32,
         height: 18,
-        damage: this.phaseDamage(18),
+        damage: this.phaseDamage(skill.damage),
         life: 0.65,
         knockback: true,
         penetrating: false

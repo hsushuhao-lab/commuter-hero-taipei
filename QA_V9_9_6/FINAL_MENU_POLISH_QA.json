@@ -1,0 +1,23 @@
+{
+  "version": "v9.9.6",
+  "status": "PI_REVIEW_REQUIRED",
+  "scope": "FINAL_MENU_POLISH_ONLY",
+  "menu_two_rows_only": "PASS",
+  "menu_row1_chill_hardcore": "PASS",
+  "menu_row2_story_help_settings": "PASS",
+  "menu_shifted_down": "PASS",
+  "menu_does_not_cover_faces": "PASS",
+  "menu_does_not_cover_upper_torso_excessively": "PASS",
+  "menu_hitboxes_match_visuals": "PASS",
+  "menu_asset_loads_without_fallback": "PASS",
+  "desktop_menu_clicks": "PASS_STATIC_MAPPING",
+  "mobile_menu_clicks": "PASS_STATIC_MAPPING",
+  "hud_layout_v995_retained": "PASS",
+  "boss_fixed_camera_retained": "PASS",
+  "boss_stairs_retained": "PASS",
+  "boss_no_shake_retained": "PASS",
+  "selected_hero_result_retained": "PASS",
+  "gameplay_balance_retained": "PASS",
+  "root_dist_parity": "PASS",
+  "manual_browser_pi_review": "REQUIRED"
+}

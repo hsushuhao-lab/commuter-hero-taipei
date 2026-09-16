@@ -19,7 +19,7 @@ import { hud } from './ui/HUD.js';
 import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
-const GAME_BUILD_VERSION = "v9.9.5";
+const GAME_BUILD_VERSION = "v9.9.6";
 const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
@@ -345,27 +345,27 @@ class Game {
 
     // Main Menu Flow
     if (this.state === 'MENU') {
-      // v9.9.0: select commute mood before character select.
-      if (mx >= 225 && mx <= 478 && my >= 338 && my <= 402) {
+      // v9.9.6: visual rectangles and pointer hitboxes share one source of truth.
+      const menuButtons = this.getMenuButtonRects();
+      const hitRect = (b) => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h;
+
+      if (hitRect(menuButtons.chill)) {
         this.selectGameMode('chill');
       }
-      else if (mx >= 482 && mx <= 735 && my >= 338 && my <= 402) {
+      else if (hitRect(menuButtons.hardcore)) {
         this.selectGameMode('hardcore');
       }
-      // Watch Opening Button
-      else if (mx >= 330 && mx <= 630 && my >= 410 && my <= 456) {
+      else if (hitRect(menuButtons.story)) {
         this.state = 'OPENING';
         introCinematic.start(() => {
           this.state = 'MENU';
         });
         audio.playCoin();
       }
-      // Game Instructions
-      else if (mx >= 330 && mx <= 478 && my >= 464 && my <= 506) {
+      else if (hitRect(menuButtons.help)) {
         this.instructionsOpen = true;
       }
-      // Style Bible Button
-      else if (mx >= 484 && mx <= 632 && my >= 464 && my <= 506) {
+      else if (hitRect(menuButtons.settings)) {
         styleBibleUI.toggle();
       }
       return;
@@ -1844,10 +1844,22 @@ updateVictoryRun(dt) {
     ctx.restore();
   }
 
+  getMenuButtonRects() {
+    // v9.9.6 Final Menu Polish: exactly two compact lower-center rows.
+    return Object.freeze({
+      chill:    { x: 215, y: 414, w: 258, h: 54 },
+      hardcore: { x: 487, y: 414, w: 258, h: 54 },
+      story:    { x: 201, y: 476, w: 268, h: 40 },
+      help:     { x: 479, y: 476, w: 132, h: 40 },
+      settings: { x: 621, y: 476, w: 138, h: 40 }
+    });
+  }
+
   renderMenu() {
     const ctx = this.ctx;
+    const menuButtons = this.getMenuButtonRects();
 
-    // v9.9.5: use the known-good production keyart. The v9.9.4 generated JPEG was truncated in packaging.
+    // Keep the v9.9.5 verified production keyart as the sole background artwork.
     if (this.menuKeyart.complete && this.menuKeyart.naturalWidth > 0) {
       ctx.drawImage(this.menuKeyart, 0, 0, this.vw, this.vh);
     } else {
@@ -1863,85 +1875,111 @@ updateVictoryRun(dt) {
     }
 
     ctx.save();
-    // Preserve the original illustrated logo area; clean only the menu zone below it.
-    const menuGrad = ctx.createLinearGradient(0, 250, 0, this.vh);
-    menuGrad.addColorStop(0, 'rgba(5, 18, 35, 0.18)');
-    menuGrad.addColorStop(0.24, 'rgba(5, 18, 35, 0.72)');
-    menuGrad.addColorStop(1, 'rgba(5, 12, 28, 0.93)');
-    ctx.fillStyle = menuGrad;
-    ctx.fillRect(0, 250, this.vw, this.vh - 250);
-
-    // Compact heading — no duplicate game title over the baked logo.
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 14px "Arial Black", sans-serif';
-    ctx.shadowColor = 'rgba(0,0,0,0.75)';
-    ctx.shadowBlur = 8;
-    ctx.fillText('SELECT COMMUTE MOOD', this.vw / 2, 310);
-    ctx.shadowBlur = 0;
+
+    // Only shade the lower strip so hero faces and upper torsos remain visually dominant.
+    const lowerShade = ctx.createLinearGradient(0, 360, 0, this.vh);
+    lowerShade.addColorStop(0, 'rgba(4, 14, 32, 0.00)');
+    lowerShade.addColorStop(0.42, 'rgba(4, 14, 32, 0.28)');
+    lowerShade.addColorStop(1, 'rgba(3, 9, 24, 0.78)');
+    ctx.fillStyle = lowerShade;
+    ctx.fillRect(0, 360, this.vw, this.vh - 360);
+
+    const roundedPath = (rect, radius = 14) => {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(rect.x, rect.y, rect.w, rect.h, radius);
+      else ctx.rect(rect.x, rect.y, rect.w, rect.h);
+    };
+
+    const drawMenuButton = (rect, options) => {
+      const {
+        fill,
+        border,
+        glow,
+        title,
+        subtitle = '',
+        selected = false,
+        titleFont = '900 18px "Arial Black", "PingFang SC", sans-serif',
+        subtitleFont = 'bold 11px "PingFang SC", sans-serif'
+      } = options;
+
+      ctx.save();
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = selected ? 22 : 11;
+      ctx.fillStyle = fill;
+      roundedPath(rect, rect.h >= 50 ? 16 : 13);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = border;
+      ctx.lineWidth = selected ? 3 : 1.8;
+      roundedPath(rect, rect.h >= 50 ? 16 : 13);
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(0,0,0,0.72)';
+      ctx.shadowBlur = 5;
+      ctx.font = titleFont;
+      const titleY = subtitle ? rect.y + rect.h * 0.38 : rect.y + rect.h / 2;
+      ctx.fillText(title, rect.x + rect.w / 2, titleY);
+      if (subtitle) {
+        ctx.shadowBlur = 2;
+        ctx.fillStyle = 'rgba(255,255,255,0.90)';
+        ctx.font = subtitleFont;
+        ctx.fillText(subtitle, rect.x + rect.w / 2, rect.y + rect.h * 0.72);
+      }
+      ctx.restore();
+    };
 
     const chillSelected = this.difficultyMode === 'chill';
     const hardSelected = this.difficultyMode === 'hardcore';
 
-    // Chill Mood button
-    ctx.fillStyle = chillSelected ? 'rgba(28, 210, 194, 0.96)' : 'rgba(20, 165, 158, 0.88)';
-    ctx.fillRect(225, 330, 253, 64);
-    ctx.strokeStyle = chillSelected ? '#B9FFF8' : 'rgba(220,255,252,0.75)';
-    ctx.lineWidth = chillSelected ? 4 : 2;
-    ctx.strokeRect(225, 330, 253, 64);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 19px "Arial Black", sans-serif';
-    ctx.fillText('☕  Chill Mood', 351.5, 352);
-    ctx.font = 'bold 11px "PingFang SC", sans-serif';
-    ctx.fillStyle = '#E7FFFC';
-    ctx.fillText('簡單・悠閒通勤', 351.5, 376);
+    // Row 1 — commute mood. Large buttons, low enough to keep the cast unobstructed.
+    drawMenuButton(menuButtons.chill, {
+      fill: chillSelected ? 'rgba(17, 203, 194, 0.92)' : 'rgba(7, 139, 151, 0.78)',
+      border: chillSelected ? '#C9FFFA' : 'rgba(138,255,247,0.86)',
+      glow: '#00FFF0',
+      title: '☕  Chill Mood',
+      subtitle: '簡單・悠閒通勤',
+      selected: chillSelected
+    });
+    drawMenuButton(menuButtons.hardcore, {
+      fill: hardSelected ? 'rgba(244, 67, 54, 0.93)' : 'rgba(180, 45, 53, 0.80)',
+      border: hardSelected ? '#FFE0B2' : 'rgba(255,145,145,0.90)',
+      glow: '#FF3D5A',
+      title: '🔥  Hard-Core',
+      subtitle: '困難・原味挑戰',
+      selected: hardSelected
+    });
 
-    // Hard-Core button
-    ctx.fillStyle = hardSelected ? 'rgba(244, 67, 54, 0.97)' : 'rgba(198, 40, 40, 0.88)';
-    ctx.fillRect(482, 330, 253, 64);
-    ctx.strokeStyle = hardSelected ? '#FFE082' : 'rgba(255,235,238,0.75)';
-    ctx.lineWidth = hardSelected ? 4 : 2;
-    ctx.strokeRect(482, 330, 253, 64);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 19px "Arial Black", sans-serif';
-    ctx.fillText('🔥  Hard-Core', 608.5, 352);
-    ctx.font = 'bold 11px "PingFang SC", sans-serif';
-    ctx.fillStyle = '#FFEBEE';
-    ctx.fillText('困難・原味挑戰', 608.5, 376);
+    // Row 2 — story / help / settings on one line only.
+    drawMenuButton(menuButtons.story, {
+      fill: 'rgba(206, 39, 125, 0.82)',
+      border: 'rgba(255,128,171,0.92)',
+      glow: '#FF3EA5',
+      title: '🎬 劇情序幕（人物與怪獸介紹）',
+      titleFont: 'bold 13px "PingFang SC", sans-serif'
+    });
+    drawMenuButton(menuButtons.help, {
+      fill: 'rgba(8, 31, 67, 0.78)',
+      border: 'rgba(126, 201, 255, 0.72)',
+      glow: '#3BA7FF',
+      title: '📖 遊戲說明 [H]',
+      titleFont: 'bold 12px "PingFang SC", sans-serif'
+    });
+    drawMenuButton(menuButtons.settings, {
+      fill: 'rgba(8, 31, 67, 0.78)',
+      border: 'rgba(126, 201, 255, 0.72)',
+      glow: '#3BA7FF',
+      title: '⚙ 設定集 [TAB]',
+      titleFont: 'bold 12px "PingFang SC", sans-serif'
+    });
 
-    // Opening / cast introduction
-    ctx.fillStyle = 'rgba(233, 30, 99, 0.90)';
-    ctx.fillRect(330, 410, 300, 46);
-    ctx.strokeStyle = '#FF80AB';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(330, 410, 300, 46);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 15px "PingFang SC", sans-serif';
-    ctx.fillText('🎬  劇情序幕（人物與怪獸介紹）', this.vw / 2, 433);
-
-    // Utility buttons
-    ctx.fillStyle = 'rgba(255,255,255,0.11)';
-    ctx.fillRect(330, 466, 148, 40);
-    ctx.fillRect(484, 466, 148, 40);
-    ctx.strokeStyle = 'rgba(255,255,255,0.60)';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(330, 466, 148, 40);
-    ctx.strokeRect(484, 466, 148, 40);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 13px "PingFang SC", sans-serif';
-    ctx.fillText('遊戲說明 [H]', 404, 486);
-    ctx.fillText('設定集 [TAB]', 558, 486);
-
-    // Live build badge
+    // Live build badge remains isolated from the key art and menu rows.
     ctx.fillStyle = 'rgba(8, 32, 60, 0.82)';
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(this.vw - 78, 7, 68, 23, 7);
-      ctx.fill();
-    } else {
-      ctx.fillRect(this.vw - 78, 7, 68, 23);
-    }
+    const badge = { x: this.vw - 78, y: 7, w: 68, h: 23 };
+    roundedPath(badge, 7);
+    ctx.fill();
     ctx.fillStyle = '#FFFFFF';
     ctx.font = 'bold 12px monospace';
     ctx.fillText((window.__GAME_BUILD__ || GAME_BUILD).version, this.vw - 44, 18.5);

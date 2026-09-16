@@ -20,7 +20,7 @@ import { styleBibleUI } from './ui/StyleBible.js';
 import { introCinematic } from './ui/Intro.js';
 
 const GAME_BUILD_VERSION = "v9.9.7";
-const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_REVIEW_REQUIRED", sha: "source-dev", builtAt: "source" });
+const GAME_BUILD = Object.freeze({ version: GAME_BUILD_VERSION, status: "PI_ACCEPTED_FROZEN", sha: "source-dev", builtAt: "source" });
 if (typeof window !== "undefined") {
   window.__GAME_BUILD__ = window.__GAME_BUILD__ || GAME_BUILD;
   console.info("[GAME BUILD] " + window.__GAME_BUILD__.version + " " + window.__GAME_BUILD__.sha);

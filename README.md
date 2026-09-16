@@ -6,6 +6,8 @@
 
 > **v9.9.7 Reference Menu Match**：依 PI 核准主畫面參考圖重繪首頁 runtime UI；兩列按鈕改為參考圖比例、霓虹玻璃漸層、圖示圓章與右側箭頭。背景 keyart 與 v9.9.6 gameplay / Boss / HUD / Victory 全部維持不變。
 
+> **✅ PROJECT CLOSEOUT — 2026-09-16**：PI 已完成實機驗收並正式接受 v9.9.7。狀態：`PI_ACCEPTED_FROZEN`。本版為最終穩定基線；除非另開新版本，首頁、美術、gameplay、Boss、HUD、balance 與 Victory 均不再變更。
+
 一款以台北晨間通勤為舞台的 Q 版 2D 橫向動作遊戲。從象山出發，在 08:00 前突破通勤怪獸與雙階段「夢影巨花王」，選擇速度、火力與技能定位各異的三位英雄，最後衝進松德院區完成三人打卡。
 
 > **v9.9.3 開發中：Boss Arena + Neon Hard-Core**

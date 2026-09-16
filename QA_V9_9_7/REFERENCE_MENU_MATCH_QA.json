@@ -1,6 +1,6 @@
 {
   "version": "v9.9.7",
-  "status": "PI_REVIEW_REQUIRED",
+  "status": "PI_ACCEPTED_FROZEN",
   "scope": "REFERENCE_MENU_MATCH_ONLY",
   "reference_geometry_1536x864_mapped_to_960x540": "PASS",
   "menu_two_rows_only": "PASS",
@@ -19,7 +19,10 @@
   "selected_hero_result_retained": "PASS",
   "gameplay_balance_retained": "PASS",
   "root_dist_parity": "PASS",
-  "manual_browser_pi_review": "REQUIRED",
+  "manual_browser_pi_review": "PASS",
   "build_metadata_v997_synced": "PASS",
-  "runtime_badge_v997_synced": "PASS"
+  "runtime_badge_v997_synced": "PASS",
+  "pi_accepted_date": "2026-09-16",
+  "project_closeout": "PASS",
+  "frozen_baseline": "v9.9.7"
 }

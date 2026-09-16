@@ -1,0 +1,68 @@
+name: v9.9.7 Build Metadata Sync
+
+on:
+  push:
+    paths:
+      - '.github/workflows/v997_build_metadata_sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  metadata-build-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync build metadata to v9.9.7
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/build_single_file.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('BUILD_VERSION = "v9.9.5"', 'BUILD_VERSION = "v9.9.7"', 1)
+          s = s.replace('({BUILD_VERSION} UI Repair + Fixed Boss Arena)', '({BUILD_VERSION} Reference Menu Match)', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          grep -q 'BUILD_VERSION = "v9.9.7"' scripts/build_single_file.py
+          grep -q 'Reference Menu Match' scripts/build_single_file.py
+
+      - name: Rebuild canonical bundle
+        run: |
+          python3 scripts/build_single_file.py
+          cmp -s index.html dist/index.html
+          grep -q '<meta name="game-build" content="v9.9.7">' index.html
+          grep -q 'version: "v9.9.7"' index.html
+          grep -q 'Reference Menu Match' index.html
+          grep -q 'drawReferenceButton' index.html
+          grep -q 'lockBossBattleCamera' index.html
+          sha256sum index.html dist/index.html > SHA256.txt
+          test "$(awk '{print $1}' SHA256.txt | uniq | wc -l)" -eq 1
+          cat SHA256.txt
+
+      - name: Extend QA metadata gate
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('QA_V9_9_7/REFERENCE_MENU_MATCH_QA.json')
+          d = json.loads(p.read_text(encoding='utf-8'))
+          d['build_metadata_v997_synced'] = 'PASS'
+          d['runtime_badge_v997_synced'] = 'PASS'
+          d['root_dist_parity'] = 'PASS'
+          d['manual_browser_pi_review'] = 'REQUIRED'
+          p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Commit and push canonical v9.9.7 metadata build
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/build_single_file.py index.html dist/index.html SHA256.txt QA_V9_9_7/REFERENCE_MENU_MATCH_QA.json
+          git diff --cached --check
+          git commit -m 'fix(v9.9.7): sync production build metadata'
+          git push origin HEAD:main

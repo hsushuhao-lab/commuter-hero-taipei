@@ -1,7 +1,10 @@
 # 《08點上班大作戰：通勤英雄篇》
 ## —— 象山晨衝・奔向松德（v9.9.8 Yu Balance + Config Cleanup）——
 
-
+> **🌐 正式公開站**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
+>
+> **📦 GitHub**：https://github.com/hsushuhao-lab/commuter-hero-taipei
+> 
 > **v9.9.6**：首頁 Menu 最終整理為 lower-center 兩列 compact layout；Row 1 為 Chill Mood / Hard-Core，Row 2 為劇情序幕 / 遊戲說明 / 設定集，視覺矩形與 click hitboxes 共用同一座標來源。v9.9.5 gameplay / Boss arena / HUD / Victory / balance 全數鎖定不變。
 
 > **v9.9.7 Reference Menu Match**：依 PI 核准主畫面參考圖重繪首頁 runtime UI；兩列按鈕改為參考圖比例、霓虹玻璃漸層、圖示圓章與右側箭頭。背景 keyart 與 v9.9.6 gameplay / Boss / HUD / Victory 全部維持不變。
@@ -26,9 +29,7 @@
 > **v9.9.6 Final Menu Polish**
 > 主畫面只保留兩列 runtime Canvas 按鈕並整體下移，減少對三位英雄臉部與上半身遮蔽；難度、劇情、說明與設定的 pointer hitboxes 直接讀取與繪圖相同的 `getMenuButtonRects()`，避免視覺與點擊區錯位。背景繼續使用 v9.9.5 已驗證 `menu_keyart.jpg`。
 
-> **🌐 正式公開站**：https://hsushuhao-lab.github.io/commuter-hero-taipei/
->
-> **📦 GitHub**：https://github.com/hsushuhao-lab/commuter-hero-taipei
+
 
 ---
 
